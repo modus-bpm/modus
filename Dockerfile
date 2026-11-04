@@ -40,10 +40,10 @@ ARG VERSION=dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="Modus" \
       org.opencontainers.image.description="Open-source process manager: design, simulate and run business processes on one model." \
-      org.opencontainers.image.source="https://github.com/empowerment-ai/modus" \
-      org.opencontainers.image.url="https://github.com/empowerment-ai/modus" \
+      org.opencontainers.image.source="https://github.com/modus-bpm/modus" \
+      org.opencontainers.image.url="https://github.com/modus-bpm/modus" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.vendor="Empowerment AI" \
+      org.opencontainers.image.vendor="Modus" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 

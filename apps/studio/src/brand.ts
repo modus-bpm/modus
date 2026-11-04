@@ -3,7 +3,7 @@ export const PRODUCT = {
   name: 'Modus',
   tagline: 'Process manager',
   /** The public source repository. */
-  repo: 'https://github.com/empowerment-ai/modus',
+  repo: 'https://github.com/modus-bpm/modus',
 }
 
 /** Links into the repository's documentation. */

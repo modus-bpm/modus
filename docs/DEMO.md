@@ -1,6 +1,6 @@
 # A twenty-five-minute demo
 
-Open the [live demo](https://empowerment-ai.github.io/modus/) (or `pnpm dev`). The front page
+Open the [live demo](https://modus-bpm.github.io/modus/) (or `pnpm dev`). The front page
 says what Modus is and offers doors in: open a sample application in the Studio, or work in it
 as one of its people. Everything runs in the browser: a simulated organization of about 50
 people works three sample applications. **Settings › Restore sample data** resets everything;

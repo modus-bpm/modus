@@ -7,7 +7,7 @@ move through it, find the bottleneck, test a fix, and change it — on the same 
 the work.
 
 <p>
-  <a href="https://empowerment-ai.github.io/modus/"><b>Try the live demo</b></a> ·
+  <a href="https://modus-bpm.github.io/modus/"><b>Try the live demo</b></a> ·
   <a href="docs/DEMO.md">Demo script</a> ·
   <a href="docs/CONCEPTS.md">Concepts</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a> ·
@@ -139,5 +139,5 @@ of Appian, Pega, Camunda, ServiceNow, Power Automate, Temporal, n8n and others, 
 
 ## License
 
-[Apache License 2.0](LICENSE). An [Empowerment AI](https://github.com/empowerment-ai) open-source project.
+[Apache License 2.0](LICENSE).
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).

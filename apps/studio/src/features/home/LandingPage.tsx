@@ -510,7 +510,7 @@ function OpenSource() {
             className="mt-8 inline-flex h-11 items-center gap-2.5 rounded-lg bg-white px-5 text-[15px] font-semibold text-slate-950 transition-colors hover:bg-slate-200"
           >
             <GitHubMark size={18} />
-            empowerment-ai/modus
+            modus-bpm/modus
             <ArrowUpRight size={15} className="text-slate-500" />
           </a>
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
@@ -568,11 +568,7 @@ function Footer() {
         </div>
         <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-6 text-sm text-slate-500">
           <span>
-            {PRODUCT.name} · an{' '}
-            <a href="https://github.com/empowerment-ai" target="_blank" rel="noreferrer" className="font-medium text-slate-700 hover:text-slate-950">
-              Empowerment AI
-            </a>{' '}
-            open-source project ·{' '}
+            {PRODUCT.name} · open source ·{' '}
             <a href={DOCS.license} target="_blank" rel="noreferrer" className="hover:text-slate-800">
               Apache License 2.0
             </a>

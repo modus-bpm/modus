@@ -8,7 +8,7 @@
 # the chart allows several replicas, several deployments and autoscaling.
 
 image:
-  repository: ghcr.io/empowerment-ai/modus
+  repository: ghcr.io/modus-bpm/modus
   # Empty: the chart's appVersion. Until a release is tagged, use `main` or `sha-<commit>`.
   tag: ''
   # Pin an exact build for production (sha256:…); overrides tag.

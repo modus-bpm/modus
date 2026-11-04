@@ -6,9 +6,9 @@ type: application
 version: 0.2.0
 # The image tag used when image.tag is empty.
 appVersion: '0.2.0'
-home: https://github.com/empowerment-ai/modus
+home: https://github.com/modus-bpm/modus
 sources:
-  - https://github.com/empowerment-ai/modus
+  - https://github.com/modus-bpm/modus
 keywords:
   - bpm
   - workflow

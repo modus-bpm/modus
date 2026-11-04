@@ -60,7 +60,7 @@ Planned, not built: PostgreSQL (then SQL Server, Oracle), OIDC/SAML, multi-tenan
 - Name: **Modus** ("as in modus operandi: the way your organization gets things done").
 - Plain words for business users; standard terms nearby for engineers.
 - Never name the legacy product it replaces; refer to "classic" or "earlier-generation" BPM.
-- An Empowerment AI open-source project; repository https://github.com/empowerment-ai/modus.
+- An independent open-source project, with no company named in the product or the repository; repository https://github.com/modus-bpm/modus.
 
 ## Evidence on Hand
 

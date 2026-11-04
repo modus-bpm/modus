@@ -1,7 +1,7 @@
 name: Container image
 
 # Pull requests build the image (amd64, not pushed) and smoke-test it.
-# Pushes to main publish ghcr.io/empowerment-ai/modus:main and :sha-<short>;
+# Pushes to main publish ghcr.io/modus-bpm/modus:main and :sha-<short>;
 # version tags (v1.2.3) also publish :1.2.3 and :1.2. Images are multi-arch
 # (amd64 + arm64) with an SBOM and provenance attestation.
 
@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  IMAGE: ghcr.io/empowerment-ai/modus
+  IMAGE: ghcr.io/modus-bpm/modus
 
 jobs:
   image:
@@ -54,7 +54,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=Modus
             org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.vendor=Empowerment AI
+            org.opencontainers.image.vendor=Modus
 
       - uses: docker/build-push-action@v6
         with:

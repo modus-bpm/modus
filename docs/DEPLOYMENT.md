@@ -1,6 +1,6 @@
 # Deploying Modus
 
-Modus ships as one container image, `ghcr.io/empowerment-ai/modus`, that holds the studio and the
+Modus ships as one container image, `ghcr.io/modus-bpm/modus`, that holds the studio and the
 server. This guide covers running it on a laptop, on a single VM, on Kubernetes as a hosted
 (SaaS) service, and self-hosted in a closed network. Each section says plainly what works
 today and what is planned.
@@ -88,7 +88,7 @@ listener, for event ingest) and `keycloak` (OIDC). They never start unless named
 Or run the image directly (in memory, unless you pass `DB_DIALECT` and `DATABASE_URL`):
 
 ```bash
-docker run -d --name modus -p 8787:8787 -v modus-data:/data ghcr.io/empowerment-ai/modus:main
+docker run -d --name modus -p 8787:8787 -v modus-data:/data ghcr.io/modus-bpm/modus:main
 ```
 
 ## A single VM
@@ -96,7 +96,7 @@ docker run -d --name modus -p 8787:8787 -v modus-data:/data ghcr.io/empowerment-
 The simplest real deployment: one Linux VM with Docker Engine and the Compose plugin.
 
 1. Copy `docker-compose.yml` to the VM (or clone the repository) and point it at the published
-   image instead of building: replace `build: .` with `image: ghcr.io/empowerment-ai/modus:main`
+   image instead of building: replace `build: .` with `image: ghcr.io/modus-bpm/modus:main`
    (or a `sha-…` tag to pin a build).
 2. Keep secrets out of the file. Put them in a `.env` next to it, readable only by the
    operator (`chmod 600 .env`), or export them in the shell that runs Compose:
@@ -279,7 +279,7 @@ Modus is built to run where nothing leaves the network.
 - **Offline bundle.** On a connected machine, copy the image (both architectures) and package
   the chart; carry the files across; load them into your registry:
   ```bash
-  skopeo copy --all docker://ghcr.io/empowerment-ai/modus:sha-abc1234 oci-archive:modus-sha-abc1234.tar
+  skopeo copy --all docker://ghcr.io/modus-bpm/modus:sha-abc1234 oci-archive:modus-sha-abc1234.tar
   helm package deploy/helm/modus                                 # modus-0.2.0.tgz
   # inside:
   skopeo copy --all oci-archive:modus-sha-abc1234.tar docker://registry.internal/modus:sha-abc1234
@@ -293,7 +293,7 @@ Modus is built to run where nothing leaves the network.
   `/app/LICENSE`, `/app/NOTICE` and `/app/THIRD-PARTY-NOTICES.txt` (the license of every package
   bundled into the server). Nothing else is installed on top of `node:22-alpine`.
 - **SBOM and signing.** Images pushed from CI carry a BuildKit SBOM (SPDX) and SLSA provenance
-  attestation: `docker buildx imagetools inspect ghcr.io/empowerment-ai/modus:main --format '{{ json .SBOM }}'`.
+  attestation: `docker buildx imagetools inspect ghcr.io/modus-bpm/modus:main --format '{{ json .SBOM }}'`.
   Planned: keyless cosign signatures in CI with a verification policy you can enforce
   (Kyverno or the Sigstore policy controller), CycloneDX SBOMs attached to releases, signed
   Helm charts, and a NIST 800-53 control mapping.

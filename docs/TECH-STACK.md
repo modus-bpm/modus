@@ -379,7 +379,7 @@ budget** (for example "at most 10% of open items") is planned so the fast lane s
 
 ```mermaid
 flowchart LR
-  IMG["ghcr.io/empowerment-ai/modus<br/>one OCI image<br/>server + built studio"]
+  IMG["ghcr.io/modus-bpm/modus<br/>one OCI image<br/>server + built studio"]
   IMG --> L["Laptop<br/>docker run · in-memory/JSON or Postgres"]
   IMG --> C["Single VM<br/>Docker Compose: modus + Postgres (+ Keycloak, NATS)"]
   IMG --> K["Kubernetes<br/>Helm chart · roles as Deployments · HPA"]
@@ -436,9 +436,9 @@ flowchart TB
 
 | Need | How |
 | --- | --- |
-| Try it | Open the [live demo](https://empowerment-ai.github.io/modus/) — or the single-file build, which runs from disk with no install. |
+| Try it | Open the [live demo](https://modus-bpm.github.io/modus/) — or the single-file build, which runs from disk with no install. |
 | Develop | `pnpm install && pnpm dev` (studio on Vite) and `pnpm --filter @modus-bpm/server dev` (API). |
-| Run the product | `docker run -p 8787:8787 ghcr.io/empowerment-ai/modus` → studio and API on one port, in-memory storage with a JSON snapshot on a volume. |
+| Run the product | `docker run -p 8787:8787 ghcr.io/modus-bpm/modus` → studio and API on one port, in-memory storage with a JSON snapshot on a volume. |
 | With a database and sign-in | `docker compose --profile keycloak up` (Postgres starts by default; Keycloak is not used yet). |
 | Without Docker | A planned embedded mode uses **PGlite** (Postgres compiled to WebAssembly) so the same Postgres adapter runs in one process, and Node's single-executable applications can ship it as one binary. |
 

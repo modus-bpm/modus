@@ -523,7 +523,7 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
 
 ## Deployment
 
-Packaging is real today: one image (`ghcr.io/empowerment-ai/modus`) serves the API and the
+Packaging is real today: one image (`ghcr.io/modus-bpm/modus`) serves the API and the
 studio, `docker compose up` runs it on PostgreSQL, and `deploy/helm/modus` deploys it to
 Kubernetes. Storage is PostgreSQL (`DB_DIALECT=postgres`) or in memory with JSON snapshots.
 Several replicas can share one PostgreSQL database; the memory store runs as one process. The
