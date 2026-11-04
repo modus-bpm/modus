@@ -4,6 +4,22 @@ Status of the capabilities the [competitive analysis](research/competitive-analy
 ranked, plus what the prototype already does. *Prototype* means it works end to end in the
 browser studio (simulated); *Skeleton* means the server path exists in a first form.
 
+## Next
+
+The next work is what one organization needs to run its real work on a Modus server. In order:
+
+1. **Workspace on the server**: worklists, forms and requests against the API (M3). The API has
+   most of what it needs; the Studio's Workspace isn't wired to it yet.
+2. **Publish from the Studio to a server**: drafts, versions and moving work in flight, on the
+   server's live state. Today a server runs the sample design it starts with.
+3. **OIDC sign-in** (Keycloak, Entra ID) in place of the `x-user-id` stand-in, pulled forward
+   from M2.
+4. **Running one deployment**: backups and restore, upgrades, and somewhere to keep attached
+   files (pulled forward from M6 and M2).
+
+Engine and scale work waits until a real deployment shows where the limits are: the rest of the
+M1 engine split, locking per item, and the M5 load targets.
+
 ## Model and design
 
 | Capability | Status |
@@ -82,16 +98,19 @@ browser studio (simulated); *Skeleton* means the server path exists in a first f
 | Same engine in browser and server (live mode) | Skeleton |
 | REST API + live stream (SSE) | Skeleton |
 | Workspace on the server: worklists, forms and requests against the API | Next (M3) |
+| Publish from the Studio to a server: drafts, versions and moving work in flight, on the live state | Next (M3) |
 | PostgreSQL storage: design, live state and the event log, with migrations at startup; Compose runs Modus on Postgres by default | Done (M2) |
 | One transaction per command: state, audit entries, item and work-item projections, outbox and clock commit together | Done (M2) |
 | Durable clock: one replica per application moves it (advisory lock); a restart catches it up | Done (M2) |
 | Several replicas on one PostgreSQL database; changes reach the others through LISTEN/NOTIFY | Done (M2) |
 | Outbox messages (`job.ready`, `notify`) written in each command's transaction, then sent to webhooks | Done |
 | Locking per application: one command at a time across replicas | Done (M2) |
-| Locking per item | Planned (after M1) |
+| Locking per item | Later (after M1) |
 | Load tests (local harness): `pnpm load` runs 1-3 servers on a throwaway Postgres under k6 and saves a comparable report ([tools/load](../tools/load/README.md)) | Done |
 | Load targets: 100 signals/s sustained, 1,000 concurrent Workspace users | Planned (M5) |
-| OIDC / SAML sign-in, SCIM group sync | Planned (M2–M6) |
+| OIDC sign-in (Keycloak, Entra ID, Login.gov) | Next (M2) |
+| SAML sign-in, SCIM group sync | Planned (M6) |
+| Backup, restore and upgrade runbooks for a running deployment | Next |
 | SQL Server adapter (certified) | Planned (M6) |
 | Oracle adapter (certified) | Planned (v1.1) |
 | One container image (server + studio), Docker Compose, Helm chart (several replicas on PostgreSQL), GHCR images | Done |
