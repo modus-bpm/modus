@@ -137,6 +137,12 @@ search to the SaaS control plane, is in [TECH-STACK.md](docs/TECH-STACK.md). Bot
 of Appian, Pega, Camunda, ServiceNow, Power Automate, Temporal, n8n and others, and a survey of
 [backend options](docs/research/backend-options.md).
 
+## Follow along
+
+Questions and ideas go in [Discussions](https://github.com/modus-bpm/modus/discussions). Updates and
+short demos are on [X (@modusbpm)](https://x.com/modusbpm), [LinkedIn](https://www.linkedin.com/company/modus-bpm/)
+and the [Modus playlist on YouTube](https://www.youtube.com/playlist?list=PLGVn4__psJD0).
+
 ## License
 
 [Apache License 2.0](LICENSE).
