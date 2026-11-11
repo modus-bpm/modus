@@ -22,6 +22,7 @@ today and what is planned.
 | Packaging | One image (amd64 and arm64), Docker Compose, a Helm chart, CI that builds every PR and publishes `main` | Signed images, release bundles |
 | Storage | **PostgreSQL** (`DB_DIALECT=postgres`, the Compose default): design, each application's live state, the event log, item and work-item projections and an outbox, all written in one transaction per command, with versioned migrations run at startup. Or **in memory**, snapshotted to JSON files in `DATA_DIR`. | Per-item locking (after M1); SQL Server (M6), Oracle (v1.1) behind the same storage ports |
 | Scale | On PostgreSQL, several replicas share one database, one command at a time per application. In memory, one process. | Roles split across deployments |
+| Design | The sample design is written at the first start only. After that the stored design is what runs, and designers change it from the Studio in Live: save (workflow maps as drafts), publish a version, move work in flight. Every replica picks a change up without a restart. | Sign-in decides who is a designer (OIDC) |
 | Identity | The `x-user-id` header: whoever calls the API says who they are | OIDC sign-in (Keycloak, Entra ID, Login.gov), SCIM group sync |
 | Tenancy | One organization per installation | Tenant id in every key; Postgres row-level security for hosted; a database per tenant for regulated customers |
 | Observability | JSON logs on stdout, live counts per step (`/overview`), OCEL 2.0 export | OpenTelemetry traces, Prometheus metrics |
@@ -44,7 +45,7 @@ pnpm --filter @modus-bpm/server dev           # the API: http://127.0.0.1:8787/a
 # The studio served by the server, as in the image:
 pnpm --filter @modus-bpm/studio build
 STATIC_DIR=$PWD/apps/studio/dist pnpm --filter @modus-bpm/server dev
-# Its Monitor and Workspace show the server's live work; the Live / Simulation switch keeps the in-browser simulation.
+# Its Monitor, Workspace and designer pages work on the server; the Live / Simulation switch keeps the in-browser simulation.
 
 # The production bundle (one file, no node_modules needed to run it):
 pnpm --filter @modus-bpm/server build
@@ -533,7 +534,9 @@ kubectl -n modus cp "$POD":/data ./modus-backup
 `helm upgrade modus deploy/helm/modus --reuse-values --set image.tag=…`). Back up first. While
 Modus is a prototype the snapshot format follows the engine's state shape and is not versioned
 or migrated: an upgrade can require starting with fresh state. The stored `design.json` always
-wins over the sample design built into the image; delete it to pick up a new sample. With
+wins over the sample design built into the image; delete it to pick up a new sample. The
+same holds on PostgreSQL: the sample is written only when the `design` table is empty, and a
+stored design is never replaced or patched from the image. With
 PostgreSQL, the server applies pending schema migrations at startup (recorded in the
 `kysely_migration` table); the state inside the JSON rows follows the same caveat as the
 snapshots. A Helm pre-upgrade migration job is planned, and SQL Server and Oracle installs will

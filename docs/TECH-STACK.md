@@ -128,7 +128,8 @@ a role into its own service later is a deployment change, not a rewrite.
 
 The studio needs no server: it simulates the organization in the browser. Served by a Modus
 server, its Workspace and Monitor have a Live mode that reads the API and the live stream instead
-of the simulator, and the Workspace acts through the API. The engine is identical either way.
+of the simulator, the Workspace acts through the API, and the designer pages save and publish
+the server's design. The engine is identical either way.
 
 ## API edge
 

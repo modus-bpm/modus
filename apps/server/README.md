@@ -22,7 +22,9 @@ that `/` is the Studio, reads the design and the Monitor as the sample administr
 stream, creates an invoice, and expects `/monitor` to count it and the stream to name it within a
 few seconds. Then it follows that invoice through the Workspace routes: in its requester's
 Workspace, matched by a worker, in a clerk's Workspace, started and released by them, gone from
-theirs and still found by the requester's search. It runs in memory, or on PostgreSQL when
+theirs and still found by the requester's search. Last it saves a draft of the workflow,
+publishes it, and expects a new invoice to run the new version while the one in flight keeps
+its own. It runs in memory, or on PostgreSQL when
 `SMOKE_DATABASE_URL` names a throwaway database. It stops the server either way and exits non-zero on the first failed check. It needs
 the studio build, so it isn't part of `pnpm test`.
 
@@ -60,13 +62,14 @@ do it, `404` when the thing doesn't exist (or they can't see it), `409` when the
 | Search | `GET …/search?q=&sort=relevance\|newest\|due\|priority&limit=` → `{ total, hits, facets }` |
 | Assistant | `POST …/assistant` `{ question, history?: [{ role, text }] }` → `{ text, query?, hits?, suggestions, source, notice? }` |
 | My work | `GET …/my/basket · queues · distribution · requests · supervision`, `POST …/my/next`, `POST …/my/distribution/:stepId/evenly` (a dispatcher hands out everything waiting at a step) |
+| Designing | `PUT /api/design` `{ revision, design }` (designers and administrators: workflow maps are saved as drafts, the rest of the design takes effect at once; `409` with the stored `revision` when someone else saved first, or when the save would strand work), `POST …/workflows/:wf/publish` `{ revision, note?, who: 'new' \| 'all', stepMap? }` (`all` moves the items in flight and needs an administrator), `GET …/workflows/:wf/items` (items in flight by version and step, no data), `POST …/workflows/:wf/migrate` `{ toVersion, objectIds?, stepMap? }` (administrators), `POST …/workflows/:wf/forecast` `{ who, stepMap?, hours }` |
 | Workspace | `GET …/workspace` → `{ clock, items, olderRequests, loads }` (the caller's share of the state, as they may see it), `GET …/workspace/items?ids=&pin=` → `{ items, gone, clock, loads }`, `GET …/workspace/search?q=&sort=&limit=` (hits with their items), `POST …/workspace/ask` `{ question }` (the built-in assistant, with the items it found). The Studio's Workspace runs on these. |
 | Work items | `POST …/work/:id/claim · start · save · release · return · delegate · distribute` |
 | Supervisors | `POST …/supervise/:id/assign` `{ to }` · `return` · `release` `{ outcomeId, comment }` · `retry`, `POST …/supervise/steps/:stepId/redistribute`, `POST …/supervise/items/:id/priority` `{ priority }` |
 | Administration | `POST …/admin/work/:id/assign · move · retry` (administrators, or supervisors of that work) |
 | Workers | `POST /api/jobs/poll`, `POST /api/jobs/:id/complete`, `POST /api/jobs/:id/fail` |
 | Process mining | `GET …/export/ocel` (OCEL 2.0 JSON of the event log) |
-| Design | `GET /api/design` (the published design, services without connection details; any named user) |
+| Design | `GET /api/design` (the design with its `revision`, services without connection details; any named user, with workflow drafts only for designers and administrators) |
 | Monitor | `GET …/monitor`, `…/monitor/series?since=`, `…/monitor/feed?limit=`, `…/monitor/items?status&type&step&assignee&q&limit&cursor` (administrators) |
 | Live | `GET …/stream` (Server-Sent Events; any named user) |
 | Studio | Everything outside `/api` when `STATIC_DIR` is set, with single-page-app fallback |
