@@ -242,6 +242,39 @@ describe.skipIf(!url)('postgres', () => {
       await drop(schema)
     })
 
+    it('moves items into their rows when a database has state and no stored design, without the sample (0005)', async () => {
+      const schema = await fresh()
+      const db = new Kysely<never>({ dialect: new PostgresDialect({ pool: new pg.Pool({ connectionString: url, max: 1, options: `-c search_path=${schema}` }) }) })
+      const migrator = new Migrator({ db, provider: { getMigrations: async () => migrations }, migrationTableSchema: schema })
+      expect((await migrator.migrateTo('0004_state_json')).error).toBeUndefined()
+      // Three items as 0004 stored them, and no row in `design` at all.
+      const mem = await Runtime.create({ storage: memoryStorage() })
+      for (const n of ['N-1', 'N-2', 'N-3']) await mem.run('app_invoice', (sim, ctx) => createObject(sim, ctx, 'w_invoice', { f_invno: n }, 'u_maya'))
+      const whole = mem.state('app_invoice')
+      await mem.stop()
+      await admin.query(`insert into ${schema}.app_state (app_id, state, version, ticked_at) values ('app_invoice', $1, 3, now())`, [JSON.stringify(whole)])
+      expect((await admin.query(`select count(*)::int as n from ${schema}.design`)).rows[0].n).toBe(0)
+
+      // To the latest: every item has its row and its state, in order, and nothing was lost.
+      expect((await migrator.migrateToLatest()).error).toBeUndefined()
+      const rows = await admin.query(`select item_id, number, status, ord, version, state is not null as kept from ${schema}.item order by ord`)
+      expect(rows.rows).toEqual(Object.values(whole.objects).map((o, i) => ({ item_id: o.id, number: o.number, status: 'active', ord: String(i), version: '3', kept: true })))
+      // The migration wrote no design: the sample is the runtime's to write, at a first start.
+      expect((await admin.query(`select count(*)::int as n from ${schema}.design`)).rows[0].n).toBe(0)
+      const s = postgresStorage(url!, { schema })
+      expect(JSON.stringify((await s.state.load('app_invoice'))?.state)).toBe(JSON.stringify(whole))
+      // A server starting on it writes the design once and runs the stored items under it.
+      const rt = await Runtime.create({ storage: s })
+      expect(rt.designRevision).toBe(1)
+      expect(Object.values(rt.state('app_invoice').objects).map((o) => o.data.f_invno)).toEqual(['N-1', 'N-2', 'N-3'])
+      const made = await rt.run('app_invoice', (sim, ctx) => createObject(sim, ctx, 'w_invoice', { f_invno: 'N-4' }, 'u_maya')!)
+      expect((await s.projections.item('app_invoice', made.id))?.number).toBe(made.number)
+      await rt.stop()
+      await s.close()
+      await db.destroy()
+      await drop(schema)
+    })
+
     it('gives a design stored before revisions were kept revision 1, and takes the column away again (0006)', async () => {
       const schema = await fresh()
       const db = new Kysely<never>({ dialect: new PostgresDialect({ pool: new pg.Pool({ connectionString: url, max: 1, options: `-c search_path=${schema}` }) }) })
