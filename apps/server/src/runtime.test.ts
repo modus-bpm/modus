@@ -21,6 +21,38 @@ const numbers = (rt: Runtime) => rt.read('app_invoice', (sim) => Object.values(s
 describe('runtime', () => {
   afterEach(() => vi.useRealTimers())
 
+  it('writes the sample design at the first start only: afterwards the stored design is the only source', async () => {
+    const storage = memoryStorage()
+    const first = await Runtime.create({ storage })
+    expect(await storage.designs.revision()).toBe(1)
+    expect(first.design.apps.map((a) => a.id)).toEqual(seedDesign().apps.map((a) => a.id))
+    // The organization makes the design its own: one application, renamed, and none of the sample's others.
+    const ours = { ...seedDesign(), apps: [{ ...seedDesign().apps[0]!, name: 'Ours' }], templates: [] }
+    await first.changeDesign(1, () => ours)
+    await first.stop()
+
+    // Every later start runs what is stored. Nothing of the sample comes back, and nothing is written.
+    for (const seedIfEmpty of [true, false]) {
+      const again = await Runtime.create({ storage, seedIfEmpty })
+      expect(again.design.apps.map((a) => a.name)).toEqual(['Ours'])
+      expect(again.design.templates).toEqual([])
+      expect(again.designRevision).toBe(2)
+      expect(() => again.ctx('app_fleet')).toThrow(/No application/)
+      await again.stop()
+    }
+    expect(await storage.designs.revision()).toBe(2)
+  })
+
+  it('starts with an empty design, not the sample, when storage has none and seeding is off', async () => {
+    const storage = memoryStorage()
+    const rt = await Runtime.create({ storage, seedIfEmpty: false })
+    expect(rt.design).toEqual({ apps: [], users: [], groups: [], services: [], templates: [] })
+    expect(rt.designRevision).toBe(0)
+    expect(await storage.designs.current()).toBeUndefined()
+    await rt.tick()
+    await rt.stop()
+  })
+
   it('commits each command, and changes nothing in memory when storage refuses it', async () => {
     const storage = memoryStorage()
     const rt = await Runtime.create({ storage })

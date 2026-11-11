@@ -11,7 +11,6 @@
 // and holds the session advisory locks that pick one clock ticker per application.
 
 import { type App, type AuditEntry, buildIndex, type Ctx, type Design, type Id, type OutboxMessage, type Priority, type ProjectedItem, projectItem, type SimObject, type SimState, type TokenState, withChanges, withoutItems } from '@modus-bpm/core'
-import { seedDesign } from '@modus-bpm/core/model/seed'
 import { type Generated, Kysely, PostgresDialect, sql } from 'kysely'
 import { type Migration, Migrator } from 'kysely/migration'
 import pg from 'pg'
@@ -256,10 +255,15 @@ export const migrations: Record<string, Migration> = {
       end $$`.execute(db)
       // Every item gets its whole row here, not only its state: projections were written only for items whose
       // projected fields moved, and a database from before 0002 has none until the runtime backfills them,
-      // which runs after migrations. Projected with the stored design, or the sample when none is stored, as
-      // the runtime does. Self-contained (its own SQL, not the adapter's) so later changes can't alter it.
+      // which runs after migrations. Projected with the stored design. Self-contained (its own SQL, not the
+      // adapter's) so later changes can't alter it.
+      //
+      // A database with state always has a stored design: the runtime writes one at its first start, before
+      // any command. Should one have none, its items are projected without their application (as items of an
+      // application the design no longer has are, below) rather than against the sample: after the first
+      // start the sample is never what a server runs.
       const { rows: designs } = await sql<{ doc: Design }>`select doc from design where id = 1`.execute(db)
-      const design = designs[0]?.doc ?? seedDesign()
+      const design: Design = designs[0]?.doc ?? { apps: [], users: [], groups: [], services: [], templates: [] }
       const { rows: apps } = await sql<{ app_id: string; version: string; state: SimState }>`select app_id, version, state from app_state where state is not null`.execute(db)
       for (const { app_id: appId, version, state } of apps) {
         // An application no longer in the design keeps its items, projected without one.
