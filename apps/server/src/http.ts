@@ -5,15 +5,15 @@
 // who may claim, supervise or expedite, comments required…) are the engine's,
 // exactly as in the studio.
 //
-// Identity is a prototype stand-in: the caller names themselves in the
-// `x-user-id` header. Production replaces it with OIDC (bearer tokens) and maps
-// directory groups onto Modus groups via SCIM; see docs/ARCHITECTURE.md.
+// Who is calling is auth.ts's to say (MODUS_AUTH: the `x-user-id` header, a shared
+// password, or OIDC sign-in; machine tokens in every mode).
 
 import { existsSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest, type FastifyServerOptions } from 'fastify'
 import { z } from 'zod'
+import { type AuthSettings, openAuth, registerAuth, Unauthorized, who } from './auth'
 import {
   activeTokens,
   adminAssign,
@@ -105,21 +105,14 @@ export interface ServerOptions {
   sender?: Pick<Sender, 'wake'>
   /** How often a quiet live stream gets a keep-alive comment (default 25 s, under common 60 s proxy idle timeouts). */
   streamPingMs?: number
+  /** How callers are identified (MODUS_AUTH). Default: the `x-user-id` header. */
+  auth?: AuthSettings
   /** The item explorer's search text per application (given here so tests can watch it). */
   explorerCaches?: Map<Id, ExplorerCache>
 }
 
 // ---------- Request helpers ----------
 
-const userHeader = z.object({ 'x-user-id': z.string().min(1) })
-
-function who(req: FastifyRequest): Id {
-  const parsed = userHeader.safeParse(req.headers)
-  if (!parsed.success) throw new Unauthorized('Name yourself in the x-user-id header (OIDC replaces this in production).')
-  return parsed.data['x-user-id']
-}
-
-class Unauthorized extends Error {}
 
 /** A refusal decided at the edge, before the engine operation runs. */
 interface Refusal {
@@ -184,6 +177,9 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     return reply.code(500).send({ ok: false, error: 'Unexpected error' })
   })
 
+  const auth = opts.auth ?? openAuth()
+  registerAuth(app, rt, auth)
+
   if (opts.staticDir) serveStudio(app, opts.staticDir)
   app.setNotFoundHandler((req, reply) => {
     const path = req.url.split('?')[0]!
@@ -225,8 +221,8 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   })
 
   app.get('/api', async () => ({
-    name: 'Modus API (prototype)',
-    identity: 'x-user-id header (prototype); OIDC bearer tokens in production',
+    name: 'Modus API',
+    identity: { none: 'x-user-id header', password: 'a shared password, then the x-user-id header', oidc: 'OIDC sign-in' }[auth.auth.mode] + '; Authorization: Bearer for machine tokens',
     routes: app.printRoutes({ commonPrefix: false }).split('\n').filter(Boolean),
   }))
 
