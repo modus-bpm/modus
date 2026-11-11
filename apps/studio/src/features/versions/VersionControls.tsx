@@ -6,7 +6,8 @@ import type { App, Workflow } from '@modus-bpm/core/model/types'
 import { plural } from '@modus-bpm/core/model/util'
 import { Button, cx } from '../../components/ui'
 import { useApp } from '../../store/design'
-import { ctxFor, useSimState } from '../../store/sim'
+import { ctxFor } from '../../store/sim'
+import { useVersionSim } from '../design/server'
 import { useUi } from '../../store/ui'
 import { HistoryPanel } from './HistoryPanel'
 import { PublishDialog } from './PublishDialog'
@@ -62,7 +63,7 @@ export function VersionControls({ wf }: { wf: Workflow }) {
 /** On the map: a quiet note while the map is an unpublished draft, and items at steps it no longer has. */
 export function VersionBanners({ app, wf }: { app: App; wf: Workflow }) {
   const draft = useMemo(() => (draftChanges(wf)?.count ?? 0) > 0, [wf])
-  const sim = useSimState()
+  const sim = useVersionSim(app.id, wf.id)
   const ctx = ctxFor(app.id)
   const off = sim && ctx ? versionUsage(sim, ctx, wf.id).missingItems : 0
   if (!draft && !off) return null

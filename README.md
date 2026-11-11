@@ -27,8 +27,9 @@ they changed something.
 
 > **Status: prototype.** The studio and the Workspace run entirely in the browser with a
 > simulated organization. The server is a working skeleton that ships as one container image
-> (PostgreSQL, with several replicas on one database, or in memory); served by it, the Workspace
-> and the Monitor work on the server's live work. See the [roadmap](docs/ROADMAP.md).
+> (PostgreSQL, with several replicas on one database, or in memory); served by it, the Workspace,
+> the Monitor and the designer pages work on the server's design and live work. See the
+> [roadmap](docs/ROADMAP.md).
 
 ## What it does
 

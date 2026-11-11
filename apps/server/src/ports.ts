@@ -5,14 +5,29 @@
 //
 // Every change to an application goes through `Storage.transact`: state, audit
 // entries, projections and outbox commit together under the application's lock.
-// The other ports are read-only, except the design, which is saved on publish.
+// The other ports are read-only, except the design, which designers save and publish:
+// each write of it makes the next revision, and every listener hears the new revision.
 
 import type { AuditEntry, Design, Id, OutboxMessage, ProjectedItem, SimState, StateChanges } from '@modus-bpm/core'
 
-/** The published design: applications, object types, workflows, people, services, templates. */
+/**
+ * The design: applications, object types, workflows (drafts and published versions), people,
+ * services, templates. One document with a revision that goes up by one with every write.
+ */
 export interface DesignStore {
   load(): Promise<Design | undefined>
-  save(design: Design): Promise<void>
+  /** The design with its revision (undefined: none stored). */
+  current(): Promise<{ design: Design; revision: number } | undefined>
+  /** The stored revision; 0 when no design is stored. */
+  revision(): Promise<number>
+  /** Write the design whatever is stored (first start, tools). Returns its revision. */
+  save(design: Design): Promise<number>
+  /**
+   * Write the design as the revision after `known`, only if `known` is still the stored revision
+   * (0: none stored). Returns the new revision, or undefined when someone else wrote first and
+   * nothing changed.
+   */
+  replace(design: Design, known: number): Promise<number | undefined>
 }
 
 /**
@@ -47,6 +62,11 @@ export interface Stored {
   changes?: StateChanges
   /** Wall time (epoch ms) the stored clock corresponds to. Absent: never ticked. */
   tickedAt?: number
+  /**
+   * The design's revision as the transaction sees it (0: none stored). Set by `transact` only: a
+   * command whose server holds an older design reloads it before it runs.
+   */
+  designRevision?: number
 }
 
 /** Everything one command changed, written together or not at all. */
@@ -172,8 +192,9 @@ export interface Storage {
    * Hear every committed change, this process's included. Returns a stop function. Handlers must
    * catch their own errors: the adapter swallows a throw or rejection. `onReconnect` runs after a
    * lost (or never opened) connection comes back: reload anything that may have been missed.
+   * `onDesign` hears the revision of every design write.
    */
-  listen(onChange: (n: ChangeNotice) => void, onReconnect?: () => void): Promise<() => Promise<void>>
+  listen(onChange: (n: ChangeNotice) => void, onReconnect?: () => void, onDesign?: (revision: number) => void): Promise<() => Promise<void>>
   /** Become (or stay) the one ticker for this application's clock. */
   tryClock(appId: Id, owner: string): Promise<boolean>
   /** Give up every clock this owner holds. */

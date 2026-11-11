@@ -4,7 +4,8 @@ import { diffWorkflow, draftChanges, itemVersion, missingSteps, publishedVersion
 import type { App, Id, Workflow } from '@modus-bpm/core/model/types'
 import { formatClock, plural } from '@modus-bpm/core/model/util'
 import { Badge, Button, cx, IconButton } from '../../components/ui'
-import { ctxFor, useSimState } from '../../store/sim'
+import { ctxFor } from '../../store/sim'
+import { useVersionSim } from '../design/server'
 import { useUi } from '../../store/ui'
 import { moveItems, restoreAsDraft } from './actions'
 import { ChangeList } from './ChangeList'
@@ -14,7 +15,7 @@ const PANEL_KEYFRAMES = '@keyframes history-in{from{transform:translateX(28px);o
 
 /** Every version of a workflow: its note, when it was published, who runs it, and what you can do with it. */
 export function HistoryPanel({ app, wf, onClose }: { app: App; wf: Workflow; onClose: () => void }) {
-  const sim = useSimState()
+  const sim = useVersionSim(app.id, wf.id)
   const ctx = ctxFor(app.id)
   const usage = sim && ctx ? versionUsage(sim, ctx, wf.id) : undefined
   const live = publishedVersion(wf)
@@ -117,7 +118,7 @@ function VersionCard({
   inFlight: number
   draftChanged: boolean
 }) {
-  const sim = useSimState()
+  const sim = useVersionSim(app.id, wf.id)
   const [showChanges, setShowChanges] = useState(false)
   const [moving, setMoving] = useState(false)
   const [stepMap, setStepMap] = useState<Record<Id, Id>>({})
@@ -132,7 +133,7 @@ function VersionCard({
     const objectIds = Object.values(sim?.objects ?? {})
       .filter((o) => o.status === 'active' && itemVersion(wf, o) === v.version)
       .map((o) => o.id)
-    moveItems(wf.id, latest, { objectIds, stepMap })
+    void moveItems(wf.id, latest, { objectIds, stepMap })
     setMoving(false)
     setStepMap({})
   }

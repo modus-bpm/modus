@@ -1,6 +1,7 @@
 // End-to-end smoke check for the live Monitor and Workspace: a real server, serving the built Studio,
 // answers the Monitor endpoints, streams a change when an invoice is created through the API, and takes
-// that invoice through a clerk's Workspace (their share of the state, start, release, search).
+// that invoice through a clerk's Workspace (their share of the state, start, release, search). Last it
+// saves a workflow's draft, publishes it, and checks a new invoice runs the new version.
 //
 //   pnpm --filter @modus-bpm/studio build
 //   pnpm --filter @modus-bpm/server smoke:live
@@ -236,7 +237,33 @@ try {
   check(found.hits.some((h) => h.obj.id === id), `the requester's search should find ${id}`)
   step(`${clerk} started and released it; it left their Workspace and the requester still finds it`)
 
-  console.log('\nLive smoke check passed: the Monitor and the Workspace.')
+  // Designing: save a workflow's draft, publish it, and a new invoice runs the new version while the old one keeps its own.
+  interface Served {
+    revision: number
+    apps: Array<{ id: string; workflows: Array<{ id: string; published?: number; nodes: Array<{ id: string; data: { label: string } }> }> }>
+  }
+  const invoiceWf = (d: Served) => d.apps.find((a) => a.id === APP)!.workflows.find((w) => w.id === 'w_invoice')!
+  const loaded = await getJson<Served>('/api/design', ADMIN)
+  invoiceWf(loaded).nodes.find((n) => n.id === 'n_clerk')!.data.label = 'Clerk check (smoke)'
+  const { revision: from, ...draft } = loaded
+  const put = await fetch(`${base}/api/design`, { method: 'PUT', headers: { ...as(ADMIN), 'content-type': 'application/json' }, body: JSON.stringify({ revision: from, design: draft }) })
+  check(put.ok, `PUT /api/design answered ${put.status}: ${await put.clone().text()}`)
+  const saved = ((await put.json()) as { value: Served }).value
+  check(saved.revision === from + 1, `saving the design should make revision ${from + 1} (got ${saved.revision})`)
+  const was = invoiceWf(saved).published
+  step(`saved a draft of w_invoice as revision ${saved.revision}; version ${was} still runs`)
+
+  const published = (await post(`/api/apps/${APP}/workflows/w_invoice/publish`, ADMIN, { revision: saved.revision, note: 'smoke', who: 'new' })) as { value: { version: number; revision: number } }
+  check(published.value.version === (was ?? 0) + 1, `publishing should make version ${(was ?? 0) + 1} (got ${published.value.version})`)
+  const next = (await post(`/api/apps/${APP}/items`, 'u_maya', { workflowId: 'w_invoice', data: { f_invno: `SMOKE-V-${Date.now()}`, f_vendor: 'l_vendors_0', f_lines: [{ id: 'row_1', c_desc: 'Toner', c_qty: 1, c_price: 50 }], f_dept: 'l_org_0', f_cc: 'l_org_1' } })) as { value: { id: string } }
+  const running = await getJson<{ items: Array<{ id: string; versions?: Record<string, number> }> }>(`/api/apps/${APP}/workflows/w_invoice/items`, ADMIN)
+  const fresh = running.items.find((o) => o.id === next.value.id)
+  check(fresh?.versions?.w_invoice === published.value.version, `a new invoice should run version ${published.value.version} (runs ${fresh?.versions?.w_invoice})`)
+  const old = running.items.find((o) => o.id === id)
+  check(old?.versions?.w_invoice === was, `the invoice in flight should stay on version ${was} (runs ${old?.versions?.w_invoice})`)
+  step(`published version ${published.value.version}: a new invoice runs it, the one in flight stays on version ${was}`)
+
+  console.log('\nLive smoke check passed: the Monitor, the Workspace and publishing a design.')
 } catch (e) {
   failed = true
   console.error(`\nFAIL  ${e instanceof SmokeError ? e.message : e instanceof Error ? (e.stack ?? e.message) : String(e)}`)

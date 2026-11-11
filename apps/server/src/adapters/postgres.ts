@@ -11,14 +11,13 @@
 // and holds the session advisory locks that pick one clock ticker per application.
 
 import { type App, type AuditEntry, buildIndex, type Ctx, type Design, type Id, type OutboxMessage, type Priority, type ProjectedItem, projectItem, type SimObject, type SimState, type TokenState, withChanges, withoutItems } from '@modus-bpm/core'
-import { seedDesign } from '@modus-bpm/core/model/seed'
 import { type Generated, Kysely, PostgresDialect, sql } from 'kysely'
 import { type Migration, Migrator } from 'kysely/migration'
 import pg from 'pg'
 import { type ChangeNotice, type Deliveries, type Delivery, type DesignStore, type EventLog, type Loaded, type LoggedEvent, type Projections, type StateStore, type Storage, StorageBusy, type Stored, type Work, type Write } from '../ports'
 
 interface Tables {
-  design: { id: number; doc: Design; updated_at: Generated<Date> }
+  design: { id: number; doc: Design; revision: Generated<string>; updated_at: Generated<Date> }
   app_state: { app_id: string; state: SimState | null; version: Generated<string>; ticked_at: Date | null; updated_at: Generated<Date> }
   event: {
     id: Generated<string>
@@ -256,10 +255,15 @@ export const migrations: Record<string, Migration> = {
       end $$`.execute(db)
       // Every item gets its whole row here, not only its state: projections were written only for items whose
       // projected fields moved, and a database from before 0002 has none until the runtime backfills them,
-      // which runs after migrations. Projected with the stored design, or the sample when none is stored, as
-      // the runtime does. Self-contained (its own SQL, not the adapter's) so later changes can't alter it.
+      // which runs after migrations. Projected with the stored design. Self-contained (its own SQL, not the
+      // adapter's) so later changes can't alter it.
+      //
+      // A database with state always has a stored design: the runtime writes one at its first start, before
+      // any command. Should one have none, its items are projected without their application (as items of an
+      // application the design no longer has are, below) rather than against the sample: after the first
+      // start the sample is never what a server runs.
       const { rows: designs } = await sql<{ doc: Design }>`select doc from design where id = 1`.execute(db)
-      const design = designs[0]?.doc ?? seedDesign()
+      const design: Design = designs[0]?.doc ?? { apps: [], users: [], groups: [], services: [], templates: [] }
       const { rows: apps } = await sql<{ app_id: string; version: string; state: SimState }>`select app_id, version, state from app_state where state is not null`.execute(db)
       for (const { app_id: appId, version, state } of apps) {
         // An application no longer in the design keeps its items, projected without one.
@@ -329,6 +333,16 @@ export const migrations: Record<string, Migration> = {
       await sql`alter table item drop column state, drop column ord`.execute(db)
     },
   },
+  '0006_design_revision': {
+    async up(db) {
+      // Each design write makes the next revision: designers save against the one they loaded, and other
+      // servers reload when they hear a newer one. The previous release ignores the column.
+      await sql`alter table design add column revision bigint not null default 1`.execute(db)
+    },
+    async down(db) {
+      await sql`alter table design drop column revision`.execute(db)
+    },
+  },
 }
 
 /** Thrown inside a Kysely transaction to roll it back while still returning a value. */
@@ -383,18 +397,44 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
   // node-postgres would turn a JavaScript array into a Postgres array; JSONB needs JSON text.
   const json = <T>(v: T) => JSON.stringify(v) as unknown as T
 
+  /** Write the design as the next revision and tell every listener; with `known`, only if that is still the stored one. */
+  async function writeDesign(d: Design, known?: number): Promise<number | undefined> {
+    return db.transaction().execute(async (tx) => {
+      await setTimeouts.execute(tx)
+      // The row's lock orders concurrent writers: the second sees the first's revision.
+      const { rows } = await sql<{ revision: string }>`select revision from design where id = 1 for update`.execute(tx)
+      const stored = rows[0] ? Number(rows[0].revision) : 0
+      if (known !== undefined && known !== stored) return undefined
+      const next = stored + 1
+      // Two first writes at once: the loser's insert waits for the winner's, then finds the row and (with `known`) steps back.
+      const written = await sql<{ revision: string }>`
+        insert into design (id, doc, revision) values (1, ${JSON.stringify(d)}::jsonb, ${next})
+        on conflict (id) do update set doc = excluded.doc, revision = design.revision + 1, updated_at = now()
+        where ${known === undefined} or design.revision = ${stored}
+        returning revision`.execute(tx)
+      if (!written.rows[0]) return undefined
+      const revision = Number(written.rows[0].revision)
+      // Delivered to listeners on commit, not before.
+      await sql`select pg_notify(${channel}, ${JSON.stringify({ design: revision })})`.execute(tx)
+      return revision
+    })
+  }
+
   const designs: DesignStore = {
     async load() {
       const row = await db.selectFrom('design').select('doc').where('id', '=', 1).executeTakeFirst()
       return row?.doc
     },
-    async save(d) {
-      await db
-        .insertInto('design')
-        .values({ id: 1, doc: json(d) })
-        .onConflict((oc) => oc.column('id').doUpdateSet({ doc: (eb) => eb.ref('excluded.doc'), updated_at: sql`now()` }))
-        .execute()
+    async current() {
+      const row = await db.selectFrom('design').select(['doc', 'revision']).where('id', '=', 1).executeTakeFirst()
+      return row && { design: row.doc, revision: Number(row.revision) }
     },
+    async revision() {
+      const row = await db.selectFrom('design').select('revision').where('id', '=', 1).executeTakeFirst()
+      return row ? Number(row.revision) : 0
+    },
+    save: async (d) => (await writeDesign(d))!,
+    replace: (d, known) => writeDesign(d, known),
   }
 
   /** The items written after `version`, in item order. */
@@ -538,12 +578,13 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
           .values({ app_id: appId, state: null })
           .onConflict((oc) => oc.column('app_id').doNothing())
           .execute()
-        const { rows } = await sql<{ version: string; ticked_at: Date | null; state: SimState | null }>`
-          select version, ticked_at, case when version <> ${known} then state end as state
+        const { rows } = await sql<{ version: string; ticked_at: Date | null; state: SimState | null; design_revision: string | null }>`
+          select version, ticked_at, case when version <> ${known} then state end as state,
+            (select revision from design where id = 1) as design_revision
           from app_state where app_id = ${appId} for update`.execute(tx)
         const row = rows[0]!
         const version = Number(row.version)
-        const stored: Stored = { version }
+        const stored: Stored = { version, designRevision: Number(row.design_revision ?? 0) }
         if (row.ticked_at) stored.tickedAt = row.ticked_at.getTime()
         // Another server committed since `known`: the rest of the state and the items written since.
         if (row.state && version > 0) stored.changes = { state: row.state, objects: await itemsSince(tx, appId, known) }
@@ -762,6 +803,7 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
   const held = new Set<Id>()
   const taking = new Map<Id, Promise<boolean>>()
   const changeHandlers = new Set<(n: ChangeNotice) => void>()
+  const designHandlers = new Set<(revision: number) => void>()
   const reconnectHandlers = new Set<() => void>()
   const closedError = () => new Error('Storage is closed.')
 
@@ -778,6 +820,17 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
     c.on('notification', (m) => {
       if (m.channel !== channel || !m.payload) return
       const payload = m.payload
+      // A design write says only its revision; a commit names its application.
+      let revision: unknown
+      try {
+        revision = (JSON.parse(payload) as { design?: unknown }).design
+      } catch {
+        return
+      }
+      if (typeof revision === 'number') {
+        for (const h of designHandlers) isolate(() => h(revision as number))
+        return
+      }
       // Each handler parses its own copy.
       for (const h of changeHandlers) isolate(() => h(JSON.parse(payload) as ChangeNotice))
     })
@@ -871,15 +924,17 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
     projections,
     deliveries,
     transact,
-    async listen(onChange, onReconnect) {
+    async listen(onChange, onReconnect, onDesign) {
       if (shut) throw closedError()
       changeHandlers.add(onChange)
       if (onReconnect) reconnectHandlers.add(onReconnect)
+      if (onDesign) designHandlers.add(onDesign)
       // Unreachable now: the retry connects later, and `onReconnect` reloads what was missed.
       await dedicated().catch(() => undefined)
       return async () => {
         changeHandlers.delete(onChange)
         if (onReconnect) reconnectHandlers.delete(onReconnect)
+        if (onDesign) designHandlers.delete(onDesign)
       }
     },
     listening: () => !!session,

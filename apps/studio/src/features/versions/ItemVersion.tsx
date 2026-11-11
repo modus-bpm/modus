@@ -51,7 +51,7 @@ export function MoveToLatest({ app, obj, wf, version, live }: { app: App; obj: S
 
   const move = () => {
     if (!mapping && missing.length) return setMapping(true)
-    moveItems(wf.id, live, { objectIds: [obj.id], stepMap })
+    void moveItems(wf.id, live, { objectIds: [obj.id], stepMap })
     setMapping(false)
   }
 

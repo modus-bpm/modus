@@ -76,6 +76,9 @@ interface Queued {
 export function memoryStorage(dataDir?: string, opts: { compactBytes?: number } = {}): Storage {
   const compactBytes = opts.compactBytes ?? COMPACT_BYTES
   let design: Design | undefined
+  /** The design's revision: 0 until one is stored. Kept beside it in the data directory. */
+  let designRevision = 0
+  const designListeners = new Set<(revision: number) => void>()
   const held = new Map<Id, Held>()
   const projected = new Map<Id, Map<Id, ProjectedItem>>()
   const outbox: Queued[] = []
@@ -122,20 +125,61 @@ export function memoryStorage(dataDir?: string, opts: { compactBytes?: number } 
       )
     : Promise.resolve()
 
-  const designs: DesignStore = {
-    async load() {
-      if (design) return design
-      if (!dataDir) return undefined
+  /** The design from the data directory, read once. A design saved before revisions were kept counts as revision 1. */
+  let designRead: Promise<void> | undefined
+  const readDesign = () =>
+    (designRead ??= (async () => {
+      if (design || !dataDir) return
       await ready
-      return (design = await readJson<Design>(join(dataDir, 'design.json')))
-    },
-    async save(d) {
+      const d = await readJson<Design>(join(dataDir, 'design.json'))
+      if (!d || design) return
+      const rev = await readJson<{ revision: number }>(join(dataDir, 'design-revision.json'))
       design = d
+      designRevision = rev?.revision ?? 1
+    })())
+
+  /** One design write at a time, like the row's lock. */
+  let designLock: Promise<unknown> = Promise.resolve()
+  async function writeDesign(d: Design, known?: number): Promise<number | undefined> {
+    const run = designLock.then(async () => {
+      await readDesign()
+      if (known !== undefined && known !== designRevision) return undefined
+      const next = designRevision + 1
       if (dataDir) {
         await ready
         await writeAtomic(join(dataDir, 'design.json'), JSON.stringify(d, null, 2))
+        await writeAtomic(join(dataDir, 'design-revision.json'), JSON.stringify({ revision: next }))
       }
+      design = structuredClone(d)
+      designRevision = next
+      return next
+    })
+    designLock = run.catch(() => undefined)
+    const revision = await run
+    // After the write, as NOTIFY is delivered after COMMIT. A listener's failure is its own.
+    if (revision !== undefined)
+      for (const l of designListeners)
+        void Promise.resolve()
+          .then(() => l(revision))
+          .catch(() => undefined)
+    return revision
+  }
+
+  const designs: DesignStore = {
+    async load() {
+      await readDesign()
+      return design && structuredClone(design)
     },
+    async current() {
+      await readDesign()
+      return design && { design: structuredClone(design), revision: designRevision }
+    },
+    async revision() {
+      await readDesign()
+      return designRevision
+    },
+    save: async (d) => (await writeDesign(d))!,
+    replace: (d, known) => writeDesign(d, known),
   }
 
   /** The application as stored, read from the data directory on first use. */
@@ -254,7 +298,8 @@ export function memoryStorage(dataDir?: string, opts: { compactBytes?: number } 
     await history
     const h = await current(appId)
     const version = h?.version ?? 0
-    const { value, write } = await work(stored(h, known))
+    await readDesign()
+    const { value, write } = await work({ ...stored(h, known), designRevision })
     if (!write) return { value, version, committed: false, notice: undefined }
 
     // Copy and number everything before touching memory, so a failed file write changes nothing here. Of the
@@ -447,11 +492,13 @@ export function memoryStorage(dataDir?: string, opts: { compactBytes?: number } 
             .catch(() => undefined)
       return result
     },
-    async listen(onChange) {
+    async listen(onChange, _onReconnect, onDesign) {
       // One process: no connection to lose, so `onReconnect` is never called.
       listeners.add(onChange)
+      if (onDesign) designListeners.add(onDesign)
       return async () => {
         listeners.delete(onChange)
+        if (onDesign) designListeners.delete(onDesign)
       }
     },
     async tryClock(appId, owner) {

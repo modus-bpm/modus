@@ -6,6 +6,7 @@
 
 import { createStore } from 'zustand/vanilla'
 import type { ExplorerRow, FeedEntry, Id } from '@modus-bpm/core'
+import { designStore } from './design'
 import {
   ApiError,
   detectServer,
@@ -84,6 +85,8 @@ export interface LiveDeps {
   visibility?: Visibility
   /** A stream silent this long counts as dropped and is retried with backoff (openStream's default, 60 s). */
   silentMs?: number
+  /** The server said its design is at this revision now. */
+  onDesign?: (revision: number) => void
 }
 
 export interface Visibility {
@@ -309,6 +312,16 @@ export function createLiveStore(deps: LiveDeps = {}) {
           fetch: f,
           silentMs,
           onActivity: () => g === gen && heard(),
+          // Published or saved meanwhile: draw the design as it is now, and tell the designer pages.
+          onDesign: (revision) => {
+            if (g !== gen) return
+            deps.onDesign?.(revision)
+            getDesign({ user: opts().user, fetch: f }).then(
+              (design) => g === gen && set({ design }),
+              () => undefined,
+            )
+            schedule(true)
+          },
           onDenied: (status) => g === gen && denied(status),
           // The server doesn't run this app (any more): nothing to follow. If the design we hold still lists
           // it, the server dropped it after we loaded: say so rather than going quietly idle.
@@ -441,4 +454,4 @@ export function createLiveStore(deps: LiveDeps = {}) {
 }
 
 /** The Studio's one live store. */
-export const liveStore = createLiveStore()
+export const liveStore = createLiveStore({ onDesign: (revision) => designStore.getState().heard(revision) })

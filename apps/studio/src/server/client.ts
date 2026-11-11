@@ -3,7 +3,7 @@
 // Browser-only APIs (fetch, ReadableStream, TextDecoder): the same file runs in Vitest on Node.
 // Identity is the prototype's `x-user-id` header until OIDC lands.
 
-import type { AssistantReply, Design, ExplorerRow, FeedEntry, Id, Result, SearchResult, ServiceDef, SimObject, SimState, SimView, WorkingOn } from '@modus-bpm/core'
+import type { AssistantReply, Design, ExplorerRow, FeedEntry, Id, Migration, PublishPreview, Result, SearchResult, ServiceDef, SimObject, SimState, SimView, WorkingOn } from '@modus-bpm/core'
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -13,8 +13,11 @@ export interface ApiOptions {
   signal?: AbortSignal
 }
 
-/** The published design as the server sends it: services without their connection details. */
-export type ServerDesign = Omit<Design, 'services'> & { services: Array<Pick<ServiceDef, 'id' | 'name' | 'kind' | 'description' | 'concurrency' | 'status' | 'operations'>> }
+/**
+ * The design as the server sends it: services without their connection details, and the revision it
+ * is at. Designers and administrators get each workflow's draft; everyone else gets it as published.
+ */
+export type ServerDesign = Omit<Design, 'services'> & { services: Array<Pick<ServiceDef, 'id' | 'name' | 'kind' | 'description' | 'concurrency' | 'status' | 'operations'>>; revision?: number }
 
 export interface MonitorSnapshot {
   clock: number
@@ -203,6 +206,64 @@ export async function command<T>(appId: Id, req: CommandRequest, o: ApiOptions):
   throw new ApiError(res.status, typeof body?.error === 'string' ? body.error : `${res.status} ${res.statusText}`.trim())
 }
 
+// ---------- Designing on the server ----------
+
+/** A save or publish made from a revision that is no longer the stored one. */
+export class DesignConflictError extends ApiError {
+  constructor(
+    message: string,
+    /** The revision the server holds now. */
+    readonly revision: number,
+  ) {
+    super(409, message)
+  }
+}
+
+/** A request with a JSON body that answers `{ ok, value }`; anything else throws with the server's words. */
+async function send<T>(method: 'POST' | 'PUT', path: string, body: unknown, o: ApiOptions): Promise<T> {
+  const res = await (o.fetch ?? fetch)(path, {
+    method,
+    signal: o.signal,
+    headers: { accept: 'application/json', 'content-type': 'application/json', 'x-user-id': o.user },
+    body: JSON.stringify(body ?? {}),
+  })
+  let answer: { ok?: unknown; value?: unknown; error?: unknown; revision?: unknown } | undefined
+  try {
+    answer = (await res.json()) as typeof answer
+  } catch {}
+  if (res.ok && answer?.ok === true) return answer.value as T
+  const message = typeof answer?.error === 'string' ? answer.error : `${res.status} ${res.statusText}`.trim()
+  if (res.status === 409 && typeof answer?.revision === 'number') throw new DesignConflictError(message, answer.revision)
+  throw new ApiError(res.status, message)
+}
+
+/** Save the design: workflows' maps as drafts, the rest at once. Answers the design as stored. */
+export const saveDesign = (revision: number, design: Design | ServerDesign, o: ApiOptions) => send<ServerDesign & { revision: number }>('PUT', '/api/design', { revision, design }, o)
+
+const wfPath = (appId: Id, workflowId: Id) => `${appPath(appId)}/workflows/${encodeURIComponent(workflowId)}`
+
+export interface Published {
+  revision: number
+  version: number
+  /** With `who: 'all'`: what moved, and what stayed and why. */
+  migration?: Migration
+  migrationError?: string
+}
+
+/** Publish a workflow's saved draft as its next version. */
+export const publishWorkflowDraft = (appId: Id, workflowId: Id, body: { revision: number; note?: string; who: 'new' | 'all'; stepMap?: Record<Id, Id> }, o: ApiOptions) =>
+  send<Published>('POST', `${wfPath(appId, workflowId)}/publish`, body, o)
+
+/** The items in flight that run a workflow, reduced to their versions and steps. */
+export const getVersionItems = (appId: Id, workflowId: Id, o: ApiOptions) => api<{ clock: number; items: SimObject[] }>(`${wfPath(appId, workflowId)}/items`, o)
+
+export const migrateWorkflowItems = (appId: Id, workflowId: Id, body: { toVersion: number; objectIds?: Id[]; stepMap?: Record<Id, Id> }, o: ApiOptions) =>
+  send<Migration>('POST', `${wfPath(appId, workflowId)}/migrate`, body, o)
+
+/** The server's forecast: its live state run forward with and without the draft published. */
+export const forecastWorkflow = (appId: Id, workflowId: Id, body: { who: 'new' | 'all'; stepMap?: Record<Id, Id>; hours: number }, o: ApiOptions) =>
+  send<PublishPreview>('POST', `${wfPath(appId, workflowId)}/forecast`, body, o)
+
 // ---------- The live stream ----------
 
 export interface SseEvent {
@@ -266,6 +327,8 @@ export interface StreamOptions extends Omit<ApiOptions, 'signal'> {
   onNotFound?: () => void
   /** Any bytes arrived, keep-alive comments included: the connection is alive even when nothing changes. */
   onActivity?: () => void
+  /** The server's design changed (saved, published): `revision` is the one it holds now. */
+  onDesign?: (revision: number) => void
   /** An attempt silent this long (no headers yet, or no bytes since the last) is dropped and retried. Default SILENT_AFTER_MS. */
   silentMs?: number
 }
@@ -330,6 +393,14 @@ export function openStream(appId: Id, onEvent: (e: ChangeEvent) => void, onState
       report('live')
       const decoder = new TextDecoder()
       const push = sseParser((e) => {
+        if (e.event === 'design') {
+          try {
+            o.onDesign?.((JSON.parse(e.data) as { revision: number }).revision)
+          } catch (err) {
+            console.error(err)
+          }
+          return
+        }
         if (e.event !== 'change') return
         let parsed: ChangeEvent
         try {

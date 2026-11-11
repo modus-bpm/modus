@@ -7,7 +7,18 @@ import { ensureVersions } from '@modus-bpm/core/model/versions'
 import type { App, Design, Id, ObjectType, ServiceDef, Template, Workflow } from '@modus-bpm/core/model/types'
 
 interface DesignStore {
+  /** The design being edited: this browser's own, or (in Live) a working copy of the server's. */
   design: Design
+  /** Whose design `design` is. */
+  source: 'local' | 'server'
+  /** This browser's own design, put aside while the server's is being edited. */
+  stash?: Design
+  /** Start editing the server's design; this browser's own is put aside untouched. */
+  enterServer: (d: Design) => void
+  /** Replace the working copy of the server's design (after a save, or when someone else saved). */
+  setServerDesign: (d: Design) => void
+  /** Go back to this browser's own design. */
+  leaveServer: () => void
   /** Mutate the whole design (org, users, groups, apps, services, templates) with an immer recipe. */
   update: (fn: (d: Design) => void) => void
   updateApp: (appId: Id, fn: (app: App) => void) => void
@@ -47,6 +58,10 @@ export const useDesign = create<DesignStore>()(
   persist(
     (set) => ({
       design: versioned(seedDesign()),
+      source: 'local',
+      enterServer: (d) => set((s) => ({ design: d, source: 'server', stash: s.source === 'local' ? s.design : s.stash })),
+      setServerDesign: (d) => set((s) => (s.source === 'server' ? { design: d } : {})),
+      leaveServer: () => set((s) => (s.source === 'server' ? { design: s.stash ?? versioned(seedDesign()), source: 'local', stash: undefined } : {})),
       update: (fn) => set((s) => ({ design: versioned(produce(s.design, fn)) })),
       updateApp: (appId, fn) =>
         set((s) => ({
@@ -86,7 +101,8 @@ export const useDesign = create<DesignStore>()(
           }),
         })),
       replace: (design) => set({ design: normalizeDesign(design) }),
-      reset: () => set({ design: versioned(seedDesign()) }),
+      // The sample replaces this browser's own design only: a server's is never reset from here.
+      reset: () => set((s) => (s.source === 'server' ? {} : { design: versioned(seedDesign()) })),
     }),
     {
       name: 'modus-design',
@@ -94,6 +110,8 @@ export const useDesign = create<DesignStore>()(
       // (version 2: line items, roles, supervisors, expedite from the sample data;
       // version 3: workflow versions, made from each saved map as it stands).
       version: 3,
+      // Only this browser's own design is kept here; the server's working copy lives in memory until saved.
+      partialize: (s) => ({ design: s.source === 'server' ? (s.stash ?? s.design) : s.design }),
       migrate: (persisted, from) => {
         const p = persisted as { design?: Design } | undefined
         if (!p?.design) return p

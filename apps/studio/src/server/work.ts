@@ -26,6 +26,7 @@ import {
   type SearchSort,
   type ServerDesign,
 } from './client'
+import { designStore } from './design'
 import type { LiveStatus, Visibility } from './live'
 
 export interface WorkState {
@@ -71,6 +72,8 @@ export interface WorkDeps {
   maxPinned?: number
   visibility?: Visibility
   silentMs?: number
+  /** The server said its design is at this revision now. */
+  onDesign?: (revision: number) => void
 }
 
 function documentVisibility(): Visibility {
@@ -255,6 +258,15 @@ export function createWorkStore(deps: WorkDeps = {}) {
           user: opts().user,
           fetch: f,
           silentMs: deps.silentMs,
+          // Published or saved meanwhile: the pages draw the design as it is now.
+          onDesign: (revision) => {
+            if (!current(g)) return
+            deps.onDesign?.(revision)
+            getDesign({ user: opts().user, fetch: f }).then(
+              (design) => current(g) && set({ design }),
+              () => undefined,
+            )
+          },
           onDenied: () => current(g) && fail(g, new ApiError(401, 'denied')),
           onNotFound: () => current(g) && fail(g, new ApiError(404, 'gone')),
         },
@@ -406,4 +418,4 @@ export function createWorkStore(deps: WorkDeps = {}) {
 }
 
 /** The Studio's one live Workspace. */
-export const workStore = createWorkStore()
+export const workStore = createWorkStore({ onDesign: (revision) => designStore.getState().heard(revision) })

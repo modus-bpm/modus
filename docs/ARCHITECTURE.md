@@ -314,6 +314,7 @@ rewritten as one full line now and then.
 | Process mining | `GET /api/apps/:app/export/ocel` (OCEL 2.0 JSON of the event log) |
 | Items | `POST /api/apps/:app/items`, `GET /api/apps/:app/items/:id` (field-security filtered) |
 | My work | `GET …/my/basket`, `…/my/queues`, `…/my/distribution`, `…/my/requests`, `POST …/my/next`, `POST …/my/distribution/:step/evenly` |
+| Designing | `PUT /api/design` `{revision, design}` (save: workflow maps as drafts, the rest at once), `POST …/workflows/:wf/publish` `{revision, note, who, stepMap}`, `GET …/workflows/:wf/items` (items in flight by version and step), `POST …/workflows/:wf/migrate`, `POST …/workflows/:wf/forecast` |
 | Workspace | `GET …/workspace` (one person's share of the state, as they may see it), `…/workspace/items?ids=&pin=`, `…/workspace/search?q=`, `POST …/workspace/ask` |
 | Work items | `POST …/work/:id/claim · start · save · release · return · delegate · distribute` |
 | Administration | `POST …/admin/work/:id/assign · move · retry` (administrators and supervisors of that work) |
@@ -322,7 +323,7 @@ rewritten as one full line now and then.
 | Expedite and priority | `POST …/items/:id/expedite {on, reason}` (checked against the process's policy), `POST …/items/:id/priority {priority}` (the requester, or whoever is working it) |
 | Workers | `POST /api/jobs/poll`, `POST /api/jobs/:id/complete`, `POST /api/jobs/:id/fail` |
 | Live | `GET /api/apps/:app/stream` (Server-Sent Events, below; any named user) |
-| Design | `GET /api/design` (the published design; services without connection details) |
+| Design | `GET /api/design` (the design with its `revision`, services without connection details; drafts only for designers and administrators) |
 | Monitor | `GET …/monitor`, `…/monitor/series`, `…/monitor/feed`, `…/monitor/items` (administrators) |
 
 The live stream sends `event: change` with `{clock, items, counts, active}`, where `items` lists the
@@ -392,6 +393,48 @@ Workspace asks about every changed item (the stream isn't filtered per person); 
 reload may be answered by another replica that hasn't heard of it yet, in which case the stream
 corrects it a moment later; an administrator's Workspace holds every active item, since they
 supervise everything; attachments still hold only the file's name and size.
+
+### The Studio on a server: designing (M3)
+
+In Live the designer pages edit the design the server runs, and the server stops depending on the
+sample after its first start. The design and its decisions are in
+[plans/2026-11-10-publish-to-server-design.md](plans/2026-11-10-publish-to-server-design.md); in short:
+
+- **One document with a revision.** Every write of the design makes the next revision. A save
+  names the revision it was made from and is refused (409) when the stored one is newer.
+- **Save.** `PUT /api/design` takes a workflow's map and settings as its **draft**, which runs
+  nothing: the engine runs each workflow's published version, and items keep the version they
+  started on. Everything else in the design (object types, lists, people, groups, services, new
+  applications and workflows) takes effect at once, so the server refuses a save that would
+  strand work or lock people out: removing an application, workflow or object type that has
+  items, or a person who holds work; changing a workflow's kind or object type; leaving no
+  administrator; changing roles without being one. Versions, which one is published, and
+  services' connection details are the server's and a save can't touch them.
+- **Publish.** `POST …/workflows/:wf/publish` makes the saved draft the next version. For new
+  items only, items in flight finish where they are. For items in flight too (administrators),
+  they are moved with the step map, and those that can't move stay and the answer says why. The
+  three steps (pin the items in flight, write the version, move the items) run in an order that
+  is safe to stop after any of them.
+- **Replicas.** A design write tells every server its revision and they reload. A command on a
+  server that hasn't heard yet is handed the stored revision by its transaction and reloads the
+  design before it runs, so no item runs against a design that lacks its version. Browsers
+  hear `event: design` on the stream.
+- **The first write of a design stored by an earlier release** gives each workflow a version 1
+  made from its map as it stands, so saving a draft never changes what runs.
+- **The Studio.** Its design store holds this browser's design (Simulation) or a working copy of
+  the server's (Live). Save sends the copy; if someone else saved meanwhile, the designer's
+  changes are carried over to the newer design part by part (a workflow, an object type, a list,
+  a person, a group, a service) and saved again, asking only about a part both changed. The
+  publish dialog, History and the step mapping count the server's items in flight
+  (`…/workflows/:wf/items`, which carries versions and steps and no item data), and "Try it
+  first" asks the server to run a copy of its live state forward with and without the draft,
+  with simulated people and arrivals.
+
+Until OIDC the Studio designs as the administrator chosen in the Monitor. Known limits: the
+forecast runs inside the request, so a long horizon on a large state holds the server for a
+moment; the stream that announces design changes is open only on the Monitor and the Workspace,
+so a designer page learns of someone else's save when it comes back into view or saves; moving
+one item from its drawer is still a Simulation feature (History moves items on a server).
 
 ## Request sequences
 
@@ -596,7 +639,7 @@ customers who need hard separation.
 | --- | --- | --- |
 | **M1** | Kernel hardening | Split the engine's command handlers from the simulation drivers further (`decide/evolve` over typed events); property tests and a "one million simulated items, zero stuck tokens" fuzz run; versioned JSON Schemas for designs. *Partly done: live mode, tokens, split/join, subflows, OCEL export, separation of duties, line items, search, assistant, supervisors, expedite, workflow versions and migration. The rest waits for a first real deployment ([order of work](ROADMAP.md#next)).* |
 | **M2** | Server on Postgres | Kysely migrations; events + projections + outbox + timers in one transaction per command, so several servers can share a database; object types, objects, lists, attachments; OIDC login; single image + Compose. *Storage done: a PostgreSQL adapter (Kysely, versioned migrations in code, run at startup) stores the design, each application's state (JSON) and the event log (`UNIQUE (app_id, item_id, seq)`); every command commits state, audit entries, item and work-item projections, outbox rows and the clock in one transaction under the application's row lock; several replicas share one database (LISTEN/NOTIFY, one clock per application by advisory lock); a shared storage contract suite runs against memory and Postgres; Docker Compose runs Modus on Postgres by default. Locking is per application; per item after M1. The outbox is written, and sent to signed webhooks with retries by every server. Next: OIDC, and attachments when a deployment needs files; then object types, objects and lists ([order of work](ROADMAP.md#next)).* |
-| **M3** | Work service and Workspace on the server | Worklists and all distribution modes with SKIP LOCKED claims; delegation, out of office, SLA timers with business calendars; the studio's Workspace and Monitor wired to the API and the live stream. *Monitor and Workspace done: Live / Simulation on a served Studio; the Monitor reads the administrator routes and the stream, and the Workspace works each person's share of the state through the API. Next: publishing designs from the Studio to the server.* |
+| **M3** | Work service and Workspace on the server | Worklists and all distribution modes with SKIP LOCKED claims; delegation, out of office, SLA timers with business calendars; the studio's Workspace and Monitor wired to the API and the live stream. *Monitor, Workspace and designing done: Live / Simulation on a served Studio; the Monitor reads the administrator routes and the stream, the Workspace works each person's share of the state through the API, and the designer pages save the server's design and publish workflow versions that every replica runs without a restart.* |
 | **M4** | Automation | Email from Modus; REST/OpenAPI and MCP connectors; worker SDKs (TypeScript, Python, .NET, Java) from OpenAPI; retries, incidents, tracing. *Done ahead of it: the outbox sender (signed webhooks with retries).* |
 | **M5** | Scale, ingest, analytics | Stream ingest and triage; OCEL/XES export; simulation calibrated from the log; Helm chart; load tests (target 100 signals/s sustained, 1,000 concurrent Workspace users). |
 | **M6** | Hardening, second database, v1.0 | SQL Server adapter certified by the contract suite; SCIM/SAML; multi-tenancy; backup/upgrade runbooks; SBOM, signing, air-gap bundle; external security review. Oracle in v1.1. |

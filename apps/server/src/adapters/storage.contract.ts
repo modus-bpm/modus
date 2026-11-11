@@ -3,11 +3,12 @@
 
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type AuditEntry, changedItems, changesBetween, completeJob, copyState, createObject, type Ctx, type Design, newSim, type OutboxMessage, pollJobs, projectItem, type SimState, withChanges, withoutItems, workNext } from '@modus-bpm/core'
+import { type AuditEntry, changedItems, changesBetween, completeJob, copyState, createObject, type Ctx, type Design, missingSteps, newSim, type OutboxMessage, pollJobs, projectItem, publishWorkflow, runnable, type SimObject, type SimState, withChanges, withoutItems, workNext, workspaceState } from '@modus-bpm/core'
 import { seedDesign } from '@modus-bpm/core/model/seed'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { buildServer } from '../http'
 import type { Delivery, LoggedEvent, Storage, Write } from '../ports'
-import { Runtime } from '../runtime'
+import { DesignConflict, Runtime } from '../runtime'
 import { Sender } from '../sender'
 
 export interface ContractTarget {
@@ -95,6 +96,57 @@ export function storageContract(name: string, target: ContractTarget) {
       expect((await (await reopen()).designs.load())?.apps[0]?.name).toBe('Renamed')
     })
 
+    it('numbers each design write, and refuses one made against an older revision', async () => {
+      const s = await create()
+      const named = (name: string): Design => ({ ...seedDesign(), apps: seedDesign().apps.map((a, i) => (i === 0 ? { ...a, name } : a)) })
+      expect(await s.designs.revision()).toBe(0)
+      expect(await s.designs.current()).toBeUndefined()
+      // Nothing stored: only a write that knows so goes in.
+      expect(await s.designs.replace(named('Stale'), 3)).toBeUndefined()
+      expect(await s.designs.load()).toBeUndefined()
+      expect(await s.designs.replace(named('First'), 0)).toBe(1)
+      expect(await s.designs.replace(named('Second'), 1)).toBe(2)
+      // Made against revision 1, which is no longer the stored one: refused, and nothing changes.
+      expect(await s.designs.replace(named('Late'), 1)).toBeUndefined()
+      expect(await s.designs.replace(named('Again first'), 0)).toBeUndefined()
+      expect(await s.designs.current()).toMatchObject({ revision: 2, design: { apps: [{ name: 'Second' }, {}, {}] } })
+      // An unconditional save is the next revision too.
+      expect(await s.designs.save(named('Third'))).toBe(3)
+      const again = await reopen()
+      expect(await again.designs.revision()).toBe(3)
+      expect((await again.designs.current())?.design.apps[0]?.name).toBe('Third')
+    })
+
+    it('lets one of two writers against the same revision through', async () => {
+      const s = await create()
+      await s.designs.save(seedDesign())
+      const results = await Promise.all([1, 2, 3, 4].map((n) => s.designs.replace({ ...seedDesign(), templates: [], apps: seedDesign().apps.slice(0, n % 3) }, 1)))
+      expect(results.filter((r) => r !== undefined)).toEqual([2])
+      expect(await s.designs.revision()).toBe(2)
+    })
+
+    it('tells listeners the revision of each design write, and transactions the revision they run under', async () => {
+      const s = await create()
+      const heard: number[] = []
+      const changes: unknown[] = []
+      const stop = await s.listen(
+        (n) => void changes.push(n),
+        undefined,
+        (revision) => void heard.push(revision),
+      )
+      await s.designs.save(seedDesign())
+      await s.designs.replace(seedDesign(), 1)
+      await s.designs.replace(seedDesign(), 1) // refused: no notice
+      await vi.waitFor(() => expect(heard).toEqual([1, 2]))
+      expect(changes).toEqual([])
+      const seen = await s.transact('app_invoice', 0, (stored) => ({ value: stored.designRevision }))
+      expect(seen.value).toBe(2)
+      await stop()
+      await s.designs.save(seedDesign())
+      await new Promise((r) => setTimeout(r, 50))
+      expect(heard).toEqual([1, 2])
+    })
+
     it('keeps each application’s state separately, replacing it on each commit', async () => {
       const s = await create()
       const a = newSim('app_a', 1)
@@ -156,7 +208,7 @@ export function storageContract(name: string, target: ContractTarget) {
       const ctx = ctxOf()
       const before = newSim('app_invoice', 1)
       const r = await s.transact('app_invoice', 0, (stored) => {
-        expect(stored).toEqual({ version: 0 })
+        expect(stored).toEqual({ version: 0, designRevision: 0 })
         const after = structuredClone(before)
         const o = createObject(after, ctx, 'w_invoice', { f_invno: 'T-1' }, 'u_maya')!
         return { value: o, write: writeFor(before, after, ctx, 1000) }
@@ -195,7 +247,7 @@ export function storageContract(name: string, target: ContractTarget) {
       const sim = newSim('app_a', 1)
       await s.transact('app_a', 0, () => ({ value: 0, write: { state: sim, entries: [], items: [], outbox: [], tickedAt: 5 } }))
       await s.transact('app_a', 1, (stored) => {
-        expect(stored).toEqual({ version: 1, tickedAt: 5 })
+        expect(stored).toEqual({ version: 1, tickedAt: 5, designRevision: 0 })
         return { value: 0 }
       })
       await s.transact('app_a', 0, (stored) => {
@@ -234,7 +286,7 @@ export function storageContract(name: string, target: ContractTarget) {
       expect(JSON.stringify(withChanges(v1, since1.changes!))).toBe(JSON.stringify(v3))
       // A transaction hands over the same.
       await s.transact('app_invoice', 1, (stored) => {
-        expect(stored).toEqual(since1)
+        expect(stored).toEqual({ ...since1, designRevision: 0 })
         return { value: 0 }
       })
       // After a restart: the whole state with its items in order, and the same changes.
@@ -493,6 +545,154 @@ export function storageContract(name: string, target: ContractTarget) {
     })
 
     describe('two replicas', () => {
+      /** Publish w_invoice's map, with its first step renamed, as the next version. */
+      const publishRenamed = (rt: Runtime, known: number, label: string) =>
+        rt.changeDesign(known, (d) => ({
+          ...d,
+          apps: d.apps.map((a) =>
+            a.id !== 'app_invoice' ? a : { ...a, workflows: a.workflows.map((w) => (w.id !== 'w_invoice' ? w : publishWorkflow({ ...w, nodes: w.nodes.map((n) => (n.id === 'n_capture' ? ({ ...n, data: { ...n.data, label } } as typeof n) : n)) }, { note: label }))) },
+          ),
+        }))
+      const captureLabel = (rt: Runtime, version?: number) => runnable(rt.ctx('app_invoice').app.workflows.find((w) => w.id === 'w_invoice')!, version).nodes.find((n) => n.id === 'n_capture')!.data.label
+
+      it('run a version one of them published, without a restart: before the notice arrives, and from the notice alone', async () => {
+        const a = await Runtime.create({ storage: await create() })
+        const b = await Runtime.create({ storage: await peer() })
+        expect(b.designRevision).toBe(1)
+        // The sample's workflows have no versions yet: the write gives each its version 1 first, so this is version 2.
+        const second = await publishRenamed(a, 1, 'Capture, version two')
+        expect(second).toBe(2)
+        // At once, on the other server: its next command runs under the design storage holds now.
+        const made = await b.run('app_invoice', (sim, ctx) => createObject(sim, ctx, 'w_invoice', { f_invno: 'V-2' }, 'u_maya')!)
+        expect(made.versions).toEqual({ w_invoice: 2 })
+        expect(b.designRevision).toBe(2)
+        expect(captureLabel(b)).toBe('Capture, version two')
+        expect(captureLabel(b, 1)).not.toBe('Capture, version two')
+
+        // With no command at all: the notice is enough, and subscribers hear the revision.
+        const heard: number[] = []
+        b.subscribeDesign((r) => void heard.push(r))
+        const third = await publishRenamed(a, 2, 'Capture, version three')
+        await vi.waitFor(() => expect(b.designRevision).toBe(third))
+        expect(heard).toEqual([3])
+        expect(captureLabel(b)).toBe('Capture, version three')
+        // The item made under version 2 still runs it, on both.
+        for (const rt of [a, b]) await vi.waitFor(() => expect(rt.state('app_invoice').objects[made.id]?.versions).toEqual({ w_invoice: 2 }))
+
+        // A write made from a revision that is no longer the stored one changes nothing, wherever it is made.
+        await expect(publishRenamed(b, 2, 'Too late')).rejects.toBeInstanceOf(DesignConflict)
+        expect((await (await reopen()).designs.current())?.revision).toBe(3)
+        await a.stop()
+        await b.stop()
+      })
+
+      it('take a designer through save, publish, move and restore on one server while the other runs each result', async () => {
+        const a = await Runtime.create({ storage: await create() })
+        const b = await Runtime.create({ storage: await peer() })
+        const apiA = buildServer(a, { logger: false })
+        const apiB = buildServer(b, { logger: false })
+        const as = (user: string) => ({ 'x-user-id': user })
+        type Served = Design & { revision: number }
+        const wfOf = (d: Design) => d.apps.find((x) => x.id === 'app_invoice')!.workflows.find((w) => w.id === 'w_invoice')!
+        const designOn = async (api: typeof apiA, user = 'u_avery') => (await api.inject({ method: 'GET', url: '/api/design', headers: as(user) })).json() as Served
+        const saveOnA = async (change: (wf: ReturnType<typeof wfOf>) => void) => {
+          const d = await designOn(apiA)
+          change(wfOf(d))
+          const res = await apiA.inject({ method: 'PUT', url: '/api/design', headers: as('u_avery'), payload: { revision: d.revision, design: d } })
+          expect(res.statusCode).toBe(200)
+          return (res.json() as { value: Served }).value
+        }
+        const publishOnA = async (revision: number, who: 'new' | 'all', stepMap: Record<string, string> = {}) => {
+          const res = await apiA.inject({ method: 'POST', url: '/api/apps/app_invoice/workflows/w_invoice/publish', headers: as('u_avery'), payload: { revision, who, stepMap } })
+          expect(res.statusCode).toBe(200)
+          return (res.json() as { value: { revision: number; version: number; migration?: { moved: number; skipped: unknown[] } } }).value
+        }
+        /** An invoice made through the second server, matched there, waiting with a clerk. */
+        const invoiceOnB = async (invno: string) => {
+          const made = await apiB.inject({ method: 'POST', url: '/api/apps/app_invoice/items', headers: as('u_maya'), payload: { workflowId: 'w_invoice', data: { f_invno: invno, f_vendor: 'l_vendors_0', f_lines: [{ id: 'row_1', c_desc: 'Desks', c_qty: 1, c_price: 100 }], f_dept: 'l_org_0', f_cc: 'l_org_1' } } })
+          expect(made.statusCode).toBe(201)
+          const polled = (await apiB.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 't', max: 10 } })).json() as { jobs: Array<{ id: string }> }
+          for (const j of polled.jobs) await apiB.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, payload: { outputs: { matched: true } } })
+          return b.state('app_invoice').objects[(made.json() as { value: { id: string } }).value.id]!
+        }
+        const onB = (id: string) => b.state('app_invoice').objects[id]!
+        const clerkLabel = (d: Design) => wfOf(d).nodes.find((n) => n.id === 'n_clerk')?.data.label
+
+        // Save a draft on A. B holds it as the draft and still runs what was published.
+        const first = await invoiceOnB('TWO-1')
+        const saved = await saveOnA((wf) => void (wf.nodes.find((n) => n.id === 'n_clerk')!.data.label = 'Clerk check'))
+        await vi.waitFor(async () => expect((await designOn(apiB)).revision).toBe(saved.revision))
+        expect(clerkLabel(await designOn(apiB))).toBe('Clerk check')
+        expect(clerkLabel(await designOn(apiB, 'u_maya'))).toBe('AP clerk review')
+        expect((await invoiceOnB('TWO-2')).versions).toEqual({ w_invoice: 1 })
+
+        // Publish for new items on A. B's very next item runs version 2; the items in flight keep theirs.
+        const second = await publishOnA(saved.revision, 'new')
+        expect(second.version).toBe(2)
+        const fresh = await invoiceOnB('TWO-3')
+        expect(fresh.versions).toEqual({ w_invoice: 2 })
+        expect(onB(first.id).versions).toEqual({ w_invoice: 1 })
+
+        // A draft that replaces the clerk step, published for items in flight too, with the step map.
+        const replaced = await saveOnA((wf) => {
+          const clerk = wf.nodes.find((n) => n.id === 'n_clerk')!
+          wf.nodes.push({ ...structuredClone(clerk), id: 'n_clerk2', data: { ...structuredClone(clerk.data), label: 'Clerk review, new' } } as typeof clerk)
+          wf.nodes = wf.nodes.filter((n) => n.id !== 'n_clerk')
+          for (const e of wf.edges) {
+            if (e.source === 'n_clerk') e.source = 'n_clerk2'
+            if (e.target === 'n_clerk') e.target = 'n_clerk2'
+          }
+        })
+        // What the step-mapping preview shows, asked of B: three items at the step version 3 doesn't have.
+        await vi.waitFor(async () => expect((await designOn(apiB)).revision).toBe(replaced.revision))
+        const inFlight = (await apiB.inject({ method: 'GET', url: '/api/apps/app_invoice/workflows/w_invoice/items', headers: as('u_avery') })).json() as { clock: number; items: SimObject[] }
+        const missing = missingSteps(workspaceState('app_invoice', inFlight.clock, inFlight.items), b.ctx('app_invoice'), 'w_invoice', wfOf(b.design).nodes)
+        expect(missing).toMatchObject([{ nodeId: 'n_clerk', count: 3 }])
+        const third = await publishOnA(replaced.revision, 'all', { n_clerk: 'n_clerk2' })
+        expect(third).toMatchObject({ version: 3, migration: { moved: 3, skipped: [] } })
+        await vi.waitFor(() => {
+          for (const o of Object.values(b.state('app_invoice').objects)) {
+            expect(o.versions).toEqual({ w_invoice: 3 })
+            expect(o.tokens.map((t) => t.nodeId)).toEqual(['n_clerk2'])
+          }
+        })
+
+        // Restore version 1 as the draft on A. On B it is the draft, version 3 stays live, and new items run 3.
+        const v1 = wfOf(await designOn(apiA)).versions!.find((v) => v.version === 1)!
+        const restored = await saveOnA((wf) => Object.assign(wf, structuredClone(v1.snapshot)))
+        await vi.waitFor(async () => expect((await designOn(apiB)).revision).toBe(restored.revision))
+        const nowB = wfOf(await designOn(apiB))
+        expect(nowB.nodes.find((n) => n.id === 'n_clerk')?.data.label).toBe('AP clerk review')
+        expect(nowB.nodes.some((n) => n.id === 'n_clerk2')).toBe(false)
+        expect(nowB.published).toBe(3)
+        const last = await invoiceOnB('TWO-4')
+        expect(last.versions).toEqual({ w_invoice: 3 })
+        expect(last.tokens.map((t) => t.nodeId)).toEqual(['n_clerk2'])
+
+        // What storage holds is what both hold.
+        const stored = (await (await reopen()).designs.current())!
+        expect(stored.revision).toBe(restored.revision)
+        for (const rt of [a, b]) expect(rt.designRevision).toBe(stored.revision)
+        await apiA.close()
+        await apiB.close()
+        await a.stop()
+        await b.stop()
+      })
+
+      it('start on the stored design, not the sample, and write the sample only once', async () => {
+        const s = await create()
+        const a = await Runtime.create({ storage: s })
+        await publishRenamed(a, 1, 'Ours now')
+        await a.stop()
+        // A restart, and a second server starting on the same store: both run what was stored.
+        for (const storage of [await reopen(), await peer()]) {
+          const rt = await Runtime.create({ storage })
+          expect(rt.designRevision).toBe(2)
+          expect(captureLabel(rt)).toBe('Ours now')
+          await rt.stop()
+        }
+      })
+
       it('lose no update across 50 interleaved commands, with unique numbers and gapless logs', async () => {
         const a = await Runtime.create({ storage: await create() })
         const b = await Runtime.create({ storage: await peer() })
