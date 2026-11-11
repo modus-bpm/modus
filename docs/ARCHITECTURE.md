@@ -251,8 +251,8 @@ flowchart TB
   classDef db fill:#eef2ff,stroke:#6366f1
 ```
 
-What exists today in `apps/server`: the edge (REST + SSE, zod validation, `x-user-id` stand-in
-for identity), a runtime that runs every command in one storage transaction, the worker job
+What exists today in `apps/server`: the edge (REST + SSE, zod validation, sign-in as a setting:
+the `x-user-id` header, a shared password, or OIDC; see `auth.ts`), a runtime that runs every command in one storage transaction, the worker job
 protocol, and storage ports with two adapters: in memory (JSON snapshots) and PostgreSQL.
 
 ### One transaction per command (M2)
@@ -343,9 +343,9 @@ workload with what each person is working on), `/monitor/series` (work in flight
 incremental), `/monitor/feed` (activity) and `/monitor/items` (the item explorer, paged, sharing the
 core's search cache per app). The `stream` keeps step counts current from each `change` event;
 the other panels refetch at most once a second, and not at all while the tab is hidden. Simulation is the in-browser simulation as before,
-including what-if. Until OIDC, the Studio sends `x-user-id` as an administrator (the sample's, or
-one picked from the design). Like every route, this trusts the self-asserted `x-user-id`; don't
-expose a server publicly before OIDC. The Monitor is read-only on the server for now. The standalone build
+including what-if. Where the server signs people in (`MODUS_AUTH=oidc`) the Studio is whoever signed in. Otherwise it
+sends `x-user-id` as an administrator (the sample's, or one picked from the design), which the
+server takes at its word: don't expose a server with `MODUS_AUTH=none`. The Monitor is read-only on the server for now. The standalone build
 (Pages, `pnpm dev`) has no server and is unchanged.
 
 ### The Studio on a server: the Workspace (M3)
@@ -387,8 +387,8 @@ server sends each person their share of the state rather than ready-made lists:
   the Studio keeps them (the newest 200) so a hit can be opened; `pin=` on `…/workspace/items`
   keeps those current for as long as the caller may read them.
 
-Until OIDC the Workspace sends `x-user-id` as the person chosen with "Working as", from the
-server's design. Known limits, left for when a deployment shows they matter: every connected
+On a server that signs people in (`MODUS_AUTH=oidc`) you work as yourself. Otherwise the Workspace
+sends `x-user-id` as the person chosen with "Working as", from the server's design. Known limits, left for when a deployment shows they matter: every connected
 Workspace asks about every changed item (the stream isn't filtered per person); a command's
 reload may be answered by another replica that hasn't heard of it yet, in which case the stream
 corrects it a moment later; an administrator's Workspace holds every active item, since they
@@ -430,7 +430,8 @@ sample after its first start. The design and its decisions are in
   first" asks the server to run a copy of its live state forward with and without the draft,
   with simulated people and arrivals.
 
-Until OIDC the Studio designs as the administrator chosen in the Monitor. Known limits: the
+The Studio designs as whoever signed in (`MODUS_AUTH=oidc`), or else as the administrator chosen in
+the Monitor. Known limits: the
 forecast runs inside the request, so a long horizon on a large state holds the server for a
 moment; the stream that announces design changes is open only on the Monitor and the Workspace,
 so a designer page learns of someone else's save when it comes back into view or saves; moving
@@ -589,7 +590,8 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
 | Jobs, timers, outbox | Own tables + SKIP LOCKED / READPAST claims | Outbox written (M2) and sent to webhooks, claimed with SKIP LOCKED (**done**); timer claims planned (M3) |
 | Automation | REST/OpenAPI connector; MCP client (TypeScript SDK v2, spec 2026-07-28); long-poll worker protocol (gRPC later); JSONata mapping | Protocol **skeleton**; connectors planned (M4) |
 | Event ingest | NATS JetStream (incl. MQTT listener); Kafka connector optional | Planned (M5) |
-| Identity | OIDC (Keycloak, Entra ID, Login.gov), SAML; SCIM 2.0 group sync | Planned (M2–M6) |
+| Identity | Sign-in as a setting: none, a shared password, or OIDC (`openid-client`; tested against Keycloak); machine tokens | **Done** |
+| Identity, later | OIDC against Entra ID, Okta, Login.gov; roles and groups from claims; SAML; SCIM 2.0 group sync | Planned (M2–M6) |
 | Observability | OpenTelemetry traces across click → command → job → MCP call; Prometheus metrics; structured logs | Planned |
 | Process mining | OCEL 2.0 export from the event log (`exportOcel`); XES (IEEE 1849-2023) next | OCEL **done**; XES planned |
 | Search | Query language in the core; Postgres FTS + `pg_trgm` + field/row indexes; optional `pgvector`, OpenSearch | In-engine **done**; database-backed planned (M3) |
@@ -598,8 +600,11 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
 
 ## Security model
 
-- **Identity**: OIDC/SAML sign-in; directory groups mapped to Modus groups through SCIM.
-  The prototype's persona picker and the server's `x-user-id` header are stand-ins.
+- **Identity**: a setting on the server (`MODUS_AUTH`, see
+  [DEPLOYMENT.md](DEPLOYMENT.md#sign-in)). With `oidc` the identity provider says who signed in,
+  the server matches that to a person by their sign-in name, and a signed cookie carries it; the
+  `x-user-id` header is ignored. `none` and `password` take the header at its word and are for a
+  laptop and for demos. Planned: directory groups mapped to Modus groups (claims, then SCIM), SAML.
 - **Authorization layers**: organization roles (administrator, designer, auditor); object-type
   permissions (create/read/update/delete per group); who may act on a work item (holder,
   delegate, dispatcher, task or process supervisor, administrator); and field security (sensitive fields → workflow locks → step access). Reads are filtered (hidden fields

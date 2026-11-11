@@ -159,6 +159,9 @@ export function PeopleTab() {
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
               <th className="px-3 py-2">Person</th>
               <th className="px-3 py-2">Title</th>
+              <th className="px-3 py-2" title="The name this person signs in with on a server that signs people in: usually their e-mail address, as the identity provider gives it.">
+                Sign-in name
+              </th>
               <th className="px-3 py-2">Groups</th>
               <th className="px-3 py-2" title="Multiplies each step's average handling time. 0.8 means 20% faster than average.">
                 Handling speed
@@ -192,6 +195,15 @@ export function PeopleTab() {
                   </td>
                   <td className="px-3 py-1.5">
                     <InlineInput aria-label="Title" className="text-slate-600" value={u.title} onChange={(e) => patch(u.id, (x) => void (x.title = e.target.value))} />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <InlineInput
+                      aria-label="Sign-in name"
+                      className="text-slate-600"
+                      placeholder="none"
+                      value={u.login ?? ''}
+                      onChange={(e) => patch(u.id, (x) => void (e.target.value.trim() ? (x.login = e.target.value.trim()) : delete x.login))}
+                    />
                   </td>
                   <td className="max-w-[260px] px-3 py-1.5">
                     <div className="flex flex-wrap gap-1">
@@ -261,7 +273,7 @@ export function PeopleTab() {
             })}
             {shown.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-sm text-slate-500">
+                <td colSpan={8} className="px-3 py-8 text-center text-sm text-slate-500">
                   No one matches “{q}”.
                 </td>
               </tr>

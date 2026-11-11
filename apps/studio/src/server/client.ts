@@ -1,7 +1,8 @@
 // The Studio's client for a Modus server: detection, the Monitor's read endpoints, the Workspace's
 // reads and commands, and the live stream.
 // Browser-only APIs (fetch, ReadableStream, TextDecoder): the same file runs in Vitest on Node.
-// Identity is the prototype's `x-user-id` header until OIDC lands.
+// Who the Studio acts as goes in the `x-user-id` header; a server that signs people in (oidc) goes by
+// its session cookie and ignores it. The browser sends the cookie by itself.
 
 import type { AssistantReply, Design, ExplorerRow, FeedEntry, Id, Migration, PublishPreview, Result, SearchResult, ServiceDef, SimObject, SimState, SimView, WorkingOn } from '@modus-bpm/core'
 
@@ -81,9 +82,50 @@ export async function detectServer(f: Fetch = fetch, timeoutMs = 1500): Promise<
   }
 }
 
+/** How the server signs people in, and whether this browser is signed in (GET /api/session). */
+export interface ServerSession {
+  auth: 'none' | 'password' | 'oidc'
+  signedIn: boolean
+  /** The Studio says who it acts as (`x-user-id`); false when the server knows (oidc). */
+  choose: boolean
+  user?: { id: Id; name: string }
+  /** Where to send the browser to sign in (oidc). */
+  signIn?: string
+}
+
+/** The server's session. A server from before sign-in existed has no such route: that reads as `none`. */
+export async function getSession(f: Fetch = fetch): Promise<ServerSession> {
+  const res = await f('/api/session', { headers: { accept: 'application/json' } })
+  const body: unknown = res.ok ? await res.json() : undefined
+  const s = body as Partial<ServerSession> | undefined
+  if (!s || (s.auth !== 'password' && s.auth !== 'oidc')) return { auth: 'none', signedIn: true, choose: true }
+  return { auth: s.auth, signedIn: s.signedIn === true, choose: s.choose !== false, user: s.user, signIn: s.signIn }
+}
+
+/** Sign in with the server's shared password. Returns what went wrong, or nothing when in. */
+export async function passwordSignIn(password: string, f: Fetch = fetch): Promise<string | undefined> {
+  try {
+    const res = await f('/api/session', { method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/json' }, body: JSON.stringify({ password }) })
+    if (res.ok) return undefined
+    const body = (await res.json().catch(() => undefined)) as { error?: unknown } | undefined
+    return typeof body?.error === 'string' ? body.error : 'The server didn’t accept that.'
+  } catch {
+    return 'The server couldn’t be reached. Try again.'
+  }
+}
+
+export async function signOut(f: Fetch = fetch): Promise<void> {
+  await f('/api/session', { method: 'DELETE', headers: { accept: 'application/json' } }).catch(() => {})
+}
+
+let unauthorized: (() => void) | undefined
+/** Hear when the server answers 401 (the sign-in may have run out). One listener: the session store. */
+export const onUnauthorized = (cb: () => void) => void (unauthorized = cb)
+
 /** A GET as `o.user`; an error answer throws an ApiError with the server's message. */
 async function request(path: string, o: ApiOptions): Promise<Response> {
   const res = await (o.fetch ?? fetch)(path, { signal: o.signal, headers: { accept: 'application/json', 'x-user-id': o.user } })
+  if (res.status === 401) unauthorized?.()
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`.trim()
     try {

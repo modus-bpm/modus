@@ -18,6 +18,7 @@ import { MyWorkPage } from './MyWorkPage'
 import { NewRequestPage } from './NewRequestPage'
 import { Count } from './parts'
 import { PersonaPicker } from './PersonaPicker'
+import { useSession } from '../../server/useSession'
 import { appPeople, suggestedPeople } from './personas'
 import { QueuesPage } from './QueuesPage'
 import { QuickSearch } from './QuickSearch'
@@ -34,8 +35,12 @@ import { SupervisePage } from './SupervisePage'
 
 export function WorkspaceView() {
   const appId = useUi((s) => s.appId)
-  const actingAs = useUi((s) => s.actingAs)
+  const chosen = useUi((s) => s.actingAs)
   const source = useWorkSource()
+  // On a server that signs people in, you work as yourself.
+  const signedIn = useSession((s) => (s.loaded && !s.choose ? s.user?.id : undefined))
+  const fixed = source.live ? signedIn : undefined
+  const actingAs = fixed ?? chosen
   const { live, app, users, groups, ctx } = source
   const people = useMemo(() => (app ? appPeople(app, users, groups) : []), [app, users, groups])
   const suggested = useMemo(() => (ctx ? suggestedPeople(ctx, people) : []), [ctx, people])
@@ -52,8 +57,8 @@ export function WorkspaceView() {
   // Someone who doesn't take part in this app: start as its first suggested persona.
   useEffect(() => {
     const first = suggested[0]?.user ?? people[0]
-    if (!me && first) useUi.getState().setActingAs(first.id)
-  }, [me, people, suggested])
+    if (!fixed && !me && first) useUi.getState().setActingAs(first.id)
+  }, [fixed, me, people, suggested])
 
   // Live: once the server runs this application and you are one of its people, follow your work there.
   const served = live && !!app
@@ -70,7 +75,12 @@ export function WorkspaceView() {
       </EmptyState>
     )
   }
-  if (!me) return null
+  if (!me)
+    return fixed ? (
+      <EmptyState icon={<Users size={28} />} title="You don’t take part in this application">
+        Nothing here is yours to work on or to ask for. An administrator can add you to one of its groups.
+      </EmptyState>
+    ) : null
   return <Workspace key={`${app.id}:${me.id}`} app={app} me={me} ctx={ctx} users={users} groups={groups} people={people} suggested={suggested} source={source} />
 }
 
@@ -129,6 +139,7 @@ interface WorkspaceProps {
 function Workspace({ app, me, ctx, users, groups, people, suggested, source }: WorkspaceProps) {
   const { sim, tick, live } = source
   const available = useLive((s) => s.available)
+  const signedInAsMe = useSession((s) => s.loaded && !s.choose && s.user?.id === me.id) && live
   const data = useWorkData(sim, ctx, me.id, tick)
   const stored = useWorkspace((s) => s.page)
   const quickOpen = useWorkspace((s) => s.quickOpen)
@@ -195,7 +206,7 @@ function Workspace({ app, me, ctx, users, groups, people, suggested, source }: W
     <div className="relative flex h-full">
       <aside className="flex w-[232px] shrink-0 flex-col border-r border-slate-200 bg-white">
         <div className="space-y-2 p-3">
-          <PersonaPicker me={me} people={people} suggested={suggested} ctx={ctx} />
+          <PersonaPicker me={me} people={people} suggested={suggested} ctx={ctx} fixed={signedInAsMe} />
           <button
             type="button"
             onClick={() => useWorkspace.getState().setQuickOpen(true)}

@@ -42,7 +42,9 @@ the studio build, so it isn't part of `pnpm test`.
 | Production bundle (esbuild) | `build.mjs` |
 | Example registered worker ("device") | `examples/worker.ts` |
 
-Identity is a stand-in (`x-user-id` header). The call stack, the database strategy
+Who is calling is a setting, `MODUS_AUTH`: the `x-user-id` header (the default, used in the
+examples below), a shared password, or OIDC sign-in, with bearer tokens for machines
+([Sign-in](../../docs/DEPLOYMENT.md#sign-in)). The call stack, the database strategy
 (Postgres first, then SQL Server and Oracle behind the same ports) and the milestones to
 production are in [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md); running it in Docker,
 on a VM or on Kubernetes, and every setting, are in [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).

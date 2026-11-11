@@ -29,6 +29,8 @@ export interface User {
   title: string
   color: string
   roles?: OrgRole[]
+  /** The name this person signs in with (their e-mail address, usually), for servers that sign people in. */
+  login?: string
   /** Simulated handling speed: 1 = average, 0.7 = 30% faster, 1.4 = slower. */
   speed: number
   /** Unavailable users get no new work; whatever is already in their basket stays put. */

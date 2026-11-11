@@ -1,0 +1,42 @@
+{
+  "realm": "modus",
+  "displayName": "Modus (development)",
+  "enabled": true,
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "modus",
+      "name": "Modus",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "modus-dev-only",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:8787/api/auth/callback", "http://127.0.0.1:8787/api/auth/callback"],
+      "webOrigins": [],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@example.org",
+      "email": "admin@example.org",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "modus-dev-only", "temporary": false }]
+    },
+    {
+      "username": "clerk@example.org",
+      "email": "clerk@example.org",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Cal",
+      "lastName": "Clerk",
+      "credentials": [{ "type": "password", "value": "modus-dev-only", "temporary": false }]
+    }
+  ]
+}

@@ -8,12 +8,16 @@ browser studio (simulated); *Skeleton* means the server path exists in a first f
 
 The next work is what one organization needs to run its real work on a Modus server. In order:
 
-1. **OIDC sign-in** (Keycloak, Entra ID) in place of the `x-user-id` stand-in, pulled forward
-   from M2.
-2. **Running one deployment**: backups and restore, upgrades, and somewhere to keep attached
+1. **Running one deployment**: backups and restore, upgrades, and somewhere to keep attached
    files (pulled forward from M6 and M2).
 
-Done first, both on a served Studio in Live:
+Done first:
+
+- **Sign-in is a setting** (`MODUS_AUTH`): the `x-user-id` header for a laptop, one shared
+  password for a demo, or OIDC (tested against Keycloak) where the server knows who each
+  person is. Machines use tokens. See [DEPLOYMENT.md](DEPLOYMENT.md#sign-in).
+
+And on a served Studio in Live:
 
 - The **Workspace on the server**: it works the server's live work through the API (see
   [ARCHITECTURE.md](ARCHITECTURE.md#the-studio-on-a-server-the-workspace-m3)).
@@ -113,7 +117,8 @@ M1 engine split, locking per item, and the M5 load targets.
 | Locking per item | Later (after M1) |
 | Load tests (local harness): `pnpm load` runs 1-3 servers on a throwaway Postgres under k6 and saves a comparable report ([tools/load](../tools/load/README.md)) | Done |
 | Load targets: 100 signals/s sustained, 1,000 concurrent Workspace users | Planned (M5) |
-| OIDC sign-in (Keycloak, Entra ID, Login.gov) | Next (M2) |
+| Sign-in as a setting: none, a shared password, or OIDC (authorization code + PKCE; tested against Keycloak); machine tokens | Done |
+| OIDC against Entra ID, Okta and Login.gov (`private_key_jwt`); roles and groups from the provider's claims | Planned |
 | SAML sign-in, SCIM group sync | Planned (M6) |
 | Backup, restore and upgrade runbooks for a running deployment | Next |
 | SQL Server adapter (certified) | Planned (M6) |

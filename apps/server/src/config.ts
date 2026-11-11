@@ -1,10 +1,13 @@
 // Configuration: every setting is an environment variable, read and checked
 // once at startup. This file is the reference; docs/DEPLOYMENT.md lists the
 // same variables for operators. Secrets (ANTHROPIC_API_KEY, DATABASE_URL, webhook
-// secrets) come only from the environment (or WEBHOOKS_FILE) and are never logged.
+// secrets, the sign-in password, session secret and tokens) come only from the environment
+// (or WEBHOOKS_FILE) and are never logged.
 
+import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { z } from 'zod'
+import { type AuthMode, type AuthSettings, hashToken } from './auth'
 import { type Endpoint, loadEndpoints } from './webhooks'
 
 export const ROLES = ['api', 'engine', 'automation', 'scheduler', 'ingest', 'realtime'] as const
@@ -55,6 +58,36 @@ const env = z.object({
   WEBHOOKS_KEEP_DAYS: z.coerce.number().int().min(1).max(365).default(7),
   /** Days to keep messages with a failed delivery, for the admin retry. */
   WEBHOOKS_KEEP_FAILED_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /**
+   * How the server learns who is calling. `none`: the caller says, in the x-user-id header (a laptop or a closed network only).
+   * `password`: one shared password lets a browser in, and people still choose who to work as (demos).
+   * `oidc`: people sign in with an identity provider, and the server knows who each one is.
+   */
+  MODUS_AUTH: z.enum(['none', 'password', 'oidc']).default('none'),
+  /** The shared password for MODUS_AUTH=password. */
+  MODUS_AUTH_PASSWORD: z.string().min(8).optional(),
+  /** Signs the sign-in cookies. Unset: a random one per start, so sign-ins end at a restart and servers don't accept each other's. */
+  MODUS_SESSION_SECRET: z.string().min(32).optional(),
+  /** Hours a sign-in lasts. */
+  MODUS_SESSION_HOURS: z.coerce.number().positive().max(24 * 90).default(12),
+  /** Where browsers reach this server, e.g. https://modus.example.org. Required for oidc: the provider sends people back to <it>/api/auth/callback. */
+  MODUS_PUBLIC_URL: z.string().optional(),
+  /** The identity provider's issuer address, e.g. https://id.example.org/realms/modus. */
+  MODUS_OIDC_ISSUER: z.string().optional(),
+  MODUS_OIDC_CLIENT_ID: z.string().optional(),
+  /** Unset for a public client (PKCE only). */
+  MODUS_OIDC_CLIENT_SECRET: z.string().optional(),
+  /** The claim that names the person; matched against each person's sign-in name (People page). */
+  MODUS_OIDC_CLAIM: z.string().default('email'),
+  /** `true` takes an `email` claim the provider doesn't mark verified. Only for a provider whose addresses the organization assigns. */
+  MODUS_OIDC_TRUST_EMAIL: z.enum(['true', 'false']).default('false'),
+  MODUS_OIDC_SCOPES: z.string().default('openid email profile'),
+  /** Comma-separated claim values that become administrators at their first sign-in, when the design doesn't know them. */
+  MODUS_OIDC_ADMINS: z.string().optional(),
+  /** `true` accepts an issuer over plain http (a local Keycloak). */
+  MODUS_OIDC_ALLOW_HTTP: z.enum(['true', 'false']).default('false'),
+  /** Machine tokens, comma-separated `personId:token` (24+ characters each). A caller sending `Authorization: Bearer <token>` acts as that person. */
+  MODUS_API_TOKENS: z.string().optional(),
 })
 
 export interface Config {
@@ -73,6 +106,7 @@ export interface Config {
     effort?: (typeof EFFORTS)[number]
     fallbacks: boolean
   }
+  auth: AuthSettings
   webhooks: Endpoint[]
   webhooksKeepDays: number
   webhooksKeepFailedDays: number
@@ -130,8 +164,47 @@ export function loadConfig(
   if (unknown.length) throw new ConfigError(`MODUS_ROLES has unknown roles: ${unknown.join(', ')}. Known: ${ROLES.join(', ')}.`)
   if (roles.length < ROLES.length) warnings.push(`MODUS_ROLES=${roles.join(',')}: splitting roles across processes is planned; this process runs every role.`)
 
+  const httpUrl = (name: string, value: string | undefined, plainOk: boolean): string | undefined => {
+    if (!value) return undefined
+    let u: URL | undefined
+    try {
+      u = new URL(value)
+    } catch {}
+    if (!u || (u.protocol !== 'https:' && u.protocol !== 'http:')) throw new ConfigError(`${name} is not a valid http(s) URL.`)
+    if (u.protocol === 'http:' && !plainOk) throw new ConfigError(`${name} must start with https:// (set MODUS_OIDC_ALLOW_HTTP=true for a local identity provider).`)
+    return value.replace(/\/+$/, '')
+  }
+  const publicUrl = httpUrl('MODUS_PUBLIC_URL', e.MODUS_PUBLIC_URL, true)
+  let mode: AuthMode
+  if (e.MODUS_AUTH === 'password') {
+    if (!e.MODUS_AUTH_PASSWORD) throw new ConfigError('MODUS_AUTH_PASSWORD is required when MODUS_AUTH=password.')
+    mode = { mode: 'password', password: e.MODUS_AUTH_PASSWORD }
+  } else if (e.MODUS_AUTH === 'oidc') {
+    const missing = (['MODUS_OIDC_ISSUER', 'MODUS_OIDC_CLIENT_ID', 'MODUS_PUBLIC_URL'] as const).filter((k) => !e[k])
+    if (missing.length) throw new ConfigError(`${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} required when MODUS_AUTH=oidc.`)
+    const allowHttp = e.MODUS_OIDC_ALLOW_HTTP === 'true'
+    const admins = (e.MODUS_OIDC_ADMINS ?? '').split(',').map((a) => a.trim()).filter(Boolean)
+    mode = { mode: 'oidc', issuer: httpUrl('MODUS_OIDC_ISSUER', e.MODUS_OIDC_ISSUER, allowHttp)!, clientId: e.MODUS_OIDC_CLIENT_ID!, clientSecret: e.MODUS_OIDC_CLIENT_SECRET, claim: e.MODUS_OIDC_CLAIM, scopes: e.MODUS_OIDC_SCOPES, admins, allowHttp, trustEmail: e.MODUS_OIDC_TRUST_EMAIL === 'true' }
+    if (!admins.length) warnings.push('MODUS_OIDC_ADMINS is empty: only people whose sign-in name is already in the design can sign in.')
+  } else {
+    mode = { mode: 'none' }
+    if (!['127.0.0.1', 'localhost', '::1'].includes(e.HOST)) warnings.push('MODUS_AUTH=none: anyone who can reach this server can act as anyone, administrators included. Set MODUS_AUTH=password or oidc before exposing it.')
+    if (e.MODUS_AUTH_PASSWORD) warnings.push('MODUS_AUTH_PASSWORD is ignored: MODUS_AUTH=none.')
+  }
+  if (mode.mode !== 'none' && !e.MODUS_SESSION_SECRET) warnings.push('MODUS_SESSION_SECRET is not set: sign-ins end when this server restarts, and several servers won’t accept each other’s.')
+  const tokens = new Map<string, string>()
+  for (const entry of (e.MODUS_API_TOKENS ?? '').split(',').map((t) => t.trim()).filter(Boolean)) {
+    const colon = entry.indexOf(':')
+    const person = entry.slice(0, colon)
+    const token = entry.slice(colon + 1)
+    // Never quote the entry: it holds a secret.
+    if (colon < 1 || token.length < 24 || /\s/.test(token)) throw new ConfigError(`MODUS_API_TOKENS: entry ${tokens.size + 1} should be personId:token, with a token of 24 or more characters and no spaces.`)
+    tokens.set(hashToken(token), person)
+  }
+
   return {
     config: {
+      auth: { auth: mode, sessionSecret: e.MODUS_SESSION_SECRET ?? randomBytes(32).toString('hex'), sessionHours: e.MODUS_SESSION_HOURS, publicUrl, tokens },
       port: e.PORT,
       host: e.HOST,
       dataDir: e.DATA_DIR,
@@ -171,5 +244,7 @@ function describeEndpoint(e: Endpoint): string {
 export function describeConfig(c: Config): string {
   const assistant = c.assistant.apiKey ? `model ${c.assistant.model}` : 'built-in (no ANTHROPIC_API_KEY)'
   const storage = c.db.dialect === 'postgres' ? `postgres → ${dbTarget(c.db.url)} (pool ${c.db.poolMax})` : `memory${c.dataDir ? ` → ${c.dataDir}` : ' (not persisted)'}`
-  return `storage ${storage}; studio ${c.staticDir ?? 'not served'}; assistant ${assistant}; tenancy ${c.tenantMode}; time ×${c.timeScale}; webhooks ${c.webhooks.length ? c.webhooks.map(describeEndpoint).join(', ') : 'none'}`
+  const a = c.auth.auth
+  const signIn = a.mode === 'oidc' ? `oidc → ${new URL(a.issuer).host} (by ${a.claim})` : a.mode
+  return `sign-in ${signIn}${c.auth.tokens.size ? `, ${c.auth.tokens.size} machine token${c.auth.tokens.size === 1 ? '' : 's'}` : ''}; storage ${storage}; studio ${c.staticDir ?? 'not served'}; assistant ${assistant}; tenancy ${c.tenantMode}; time ×${c.timeScale}; webhooks ${c.webhooks.length ? c.webhooks.map(describeEndpoint).join(', ') : 'none'}`
 }

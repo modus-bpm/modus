@@ -56,7 +56,7 @@ const sender = new Sender({
   keepFailedMs: config.webhooksKeepFailedDays * DAY,
   log: (level, msg, extra) => server.log[level](extra ?? {}, msg),
 })
-const server = buildServer(runtime, { logger: { level: config.logLevel }, staticDir: config.staticDir, assistant: anthropicModel(config.assistant), sender })
+const server = buildServer(runtime, { logger: { level: config.logLevel }, staticDir: config.staticDir, assistant: anthropicModel(config.assistant), sender, auth: config.auth })
 // Only now: a round logs through the server. Commits here and change notices from other servers both wake it; its timer catches the rest.
 runtime.subscribe(() => void sender.wake())
 sender.start()

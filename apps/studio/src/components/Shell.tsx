@@ -25,6 +25,7 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { PRODUCT } from '../brand'
 import { GitHubMark } from './GitHubMark'
+import { SignIn } from './SignIn'
 import { blankApp } from '@modus-bpm/core/model/seed'
 import type { Design } from '@modus-bpm/core/model/types'
 import { formatClock, formatDuration } from '@modus-bpm/core/model/util'
@@ -114,6 +115,7 @@ function TopBar() {
         <span className="hidden min-[1600px]:inline">GitHub</span>
         <span className="sr-only min-[1600px]:hidden">{PRODUCT.name} on GitHub</span>
       </a>
+      <SignIn />
       <SimOrLive />
     </header>
   )

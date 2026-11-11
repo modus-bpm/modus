@@ -182,6 +182,10 @@ describe('saving the design', () => {
     // Roles are an administrator's to give and take.
     await refused((x) => void (x.users.find((u) => u.id === 'u_noah')!.roles = ['designer', 'admin']), /Only an administrator can change people’s roles/, 403, 'u_noah')
     await refused((x) => void (x.users = x.users.filter((u) => u.id !== 'u_mei')), /Only an administrator can remove someone who has a role/, 403, 'u_noah')
+    // So are sign-in names: on a server that signs people in, a name is the person. And no two people share one.
+    await refused((x) => void (x.users.find((u) => u.id === 'u_mei')!.login = 'noah@example.org'), /Only an administrator can change people’s sign-in names/, 403, 'u_noah')
+    await refused((x) => void (x.users.find((u) => u.id === 'u_noah')!.login = 'noah@example.org'), /Only an administrator can change people’s sign-in names/, 403, 'u_noah')
+    await refused((x) => x.users.slice(0, 2).forEach((u, i) => void (u.login = i ? 'Same@Example.org' : 'same@example.org ')), /Two people share the sign-in name/, 400)
     expect(rt.designRevision).toBe(1)
 
     // What strands nothing goes in: an application with no items, a person holding nothing, a role from an administrator.

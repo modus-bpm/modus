@@ -13,6 +13,7 @@ import { workspaceState } from '@modus-bpm/core'
 import type { Design } from '@modus-bpm/core/model/types'
 import { ApiError, DesignConflictError, forecastWorkflow, getDesign, getVersionItems, migrateWorkflowItems, publishWorkflowDraft, saveDesign, type ApiOptions, type Fetch, type Published, type ServerDesign } from './client'
 import { carryOver, type Part } from './rebase'
+import { signedInAs } from './session'
 
 export type DesignStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -111,10 +112,12 @@ export function createDesignStore(deps: DesignDeps = {}) {
           const first = await getDesign({ user: actor ?? remembered() ?? 'studio', fetch: f })
           if (g !== gen) return undefined
           const can = (id: Id | undefined, role: 'admin' | 'designer') => !!id && !!first.users.find((u) => u.id === id)?.roles?.includes(role)
-          const wanted = actor ?? remembered()
-          const chosen = can(wanted, 'admin') || can(wanted, 'designer') ? wanted : (first.users.find((u) => u.roles?.includes('admin')) ?? first.users.find((u) => u.roles?.includes('designer')))?.id
+          // Signed in as someone: they design as themselves or not at all.
+          const me = signedInAs()
+          const wanted = me ?? actor ?? remembered()
+          const chosen = can(wanted, 'admin') || can(wanted, 'designer') ? wanted : me ? undefined : (first.users.find((u) => u.roles?.includes('admin')) ?? first.users.find((u) => u.roles?.includes('designer')))?.id
           if (!chosen) {
-            set({ status: 'error', error: 'The server’s design has no administrator or designer, so it can’t be changed from here.', base: undefined })
+            set({ status: 'error', error: me ? 'You aren’t a designer or an administrator, so you can’t change the server’s design.' : 'The server’s design has no administrator or designer, so it can’t be changed from here.', base: undefined })
             return undefined
           }
           set({ actor: chosen, admin: can(chosen, 'admin') })
