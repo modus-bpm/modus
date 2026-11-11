@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { FormRenderer } from '../../components/FormRenderer'
 import { TypeIcon } from '../../components/icons'
 import { Badge, Button, Card, cx, EmptyState, IconButton, Segmented } from '../../components/ui'
-import { canExpedite, type Ctx, describeToken, itemReadVerdicts, type RequestSummary, runnableApp, type SimObject, type SimState, visibleHistory, workSetPriority } from '@modus-bpm/core'
+import { canExpedite, type Ctx, describeToken, itemReadVerdicts, type RequestSummary, runnableApp, type SimObject, type SimState, visibleHistory } from '@modus-bpm/core'
 import { objectTitle } from '@modus-bpm/core/model/format'
 import type { App, Group, Id, Priority, User, WfNode } from '@modus-bpm/core/model/types'
 import { formatClock, formatDuration } from '@modus-bpm/core/model/util'
@@ -187,8 +187,8 @@ export function ItemReadView({
   const canPrioritize = obj.status === 'active' && (mine || working)
   const expeditable = canExpedite(sim, ctx, obj.id, me.id)
 
-  const setPriority = (p: Priority) => {
-    if (perform((sm, c) => workSetPriority(sm, c, obj.id, me.id, p)).ok) useUi.getState().toast(`${obj.number} is now ${p} priority.`, 'success')
+  const setPriority = async (p: Priority) => {
+    if ((await perform({ do: 'priority', itemId: obj.id, priority: p })).ok) useUi.getState().toast(`${obj.number} is now ${p} priority.`, 'success')
   }
 
   return (

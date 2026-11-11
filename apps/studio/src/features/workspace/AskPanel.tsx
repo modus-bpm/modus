@@ -3,6 +3,7 @@ import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from '
 import { IconButton } from '../../components/ui'
 import { ask, type AssistantReply, type Ctx, parseQuery, searchItems, type SimState, translateQuestion } from '@modus-bpm/core'
 import type { App, Id, User } from '@modus-bpm/core/model/types'
+import { workStore } from '../../server/work'
 import { openFound } from './actions'
 import type { WorkData } from './live'
 import { highlightWords, SearchHitRow } from './searchParts'
@@ -10,7 +11,8 @@ import { type ChatMessage, useWorkspace } from './store'
 
 // Ask Modus: questions about the work in plain words. The answers come from the
 // engine's built-in interpreter (core/assistant), which turns a question into a
-// search and shows the search it ran. Nothing leaves the browser.
+// search and shows the search it ran. Over the simulation nothing leaves the browser;
+// served by a Modus server in Live, the server's built-in interpreter answers over its work.
 
 const NO_MESSAGES: ChatMessage[] = []
 const CARDS = 5
@@ -42,6 +44,32 @@ function answer(sim: SimState, ctx: Ctx, question: string, userId: Id, previous:
   return ask(sim, ctx, question, { userId })
 }
 
+/** The same, asked of a server: it searches and answers over everything the person may read there. */
+async function answerLive(ctx: Ctx, question: string, userId: Id, previous: AssistantReply | undefined): Promise<AssistantReply> {
+  const work = workStore.getState()
+  const lead = FOLLOW_UP.exec(question)
+  if (lead && previous?.query) {
+    const t = translateQuestion(question.slice(lead[0].length), ctx, userId)
+    if (t.query) {
+      const query = `${previous.query} ${t.query}`
+      const res = await work.search(query, { sort: query.includes('is:') ? 'priority' : 'relevance', limit: 8 })
+      const what = t.understood.map((u) => u.replace(/^mentions /, 'mentioning ')).join(', ')
+      return {
+        kind: res.total ? 'results' : 'fallback',
+        text: res.total ? `Of those, **${res.total}** ${res.total === 1 ? 'is' : 'are'} ${what}.` : `None of those are ${what}.`,
+        query,
+        understood: [...(previous.understood ?? []), ...t.understood],
+        hits: res.hits,
+        total: res.total,
+        suggestions: ['What should I work on next?', 'What’s the bottleneck right now?'],
+      }
+    }
+  }
+  return work.ask(question)
+}
+
+const UNREACHABLE: AssistantReply = { kind: 'fallback', text: 'The server couldn’t be reached, so there is no answer yet. Try again in a moment.', suggestions: [] }
+
 interface Props {
   me: User
   app: App
@@ -71,10 +99,11 @@ export function AskPanel({ me, app, ctx, sim, data, onClose }: Props) {
     setDraft('')
     setTyping(true)
     // The answer is instant; a short pause reads as a reply rather than a page refresh.
-    setTimeout(() => {
+    setTimeout(async () => {
       const history = useWorkspace.getState().chats[key] ?? []
       const previous = [...history].reverse().find((m) => m.reply)?.reply
-      const reply = answer(sim, ctx, q, me.id, previous)
+      // Over a server the answer comes from there; over the simulation it is instant.
+      const reply = ctx.live ? await answerLive(ctx, q, me.id, previous).catch(() => UNREACHABLE) : answer(sim, ctx, q, me.id, previous)
       useWorkspace.getState().addMessage(key, { role: 'assistant', text: reply.text, reply })
       setTyping(false)
     }, TYPING_MS)

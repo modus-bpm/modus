@@ -224,3 +224,35 @@ describe('actions the Workspace offers', () => {
     expect((await workspaceOf(approver)).basket.map((i) => i.token.id)).toContain(now.assigned[0]!.token.id)
   })
 })
+
+describe('the routes the Studio’s Workspace calls', () => {
+  // The list in apps/studio/src/features/workspace/commands.ts (toRequest), and the reads in server/client.ts.
+  it('all exist', () => {
+    const posts = [
+      '/items',
+      '/my/next',
+      '/work/:workItemId/claim',
+      '/work/:workItemId/start',
+      '/work/:workItemId/save',
+      '/work/:workItemId/release',
+      '/work/:workItemId/return',
+      '/work/:workItemId/delegate',
+      '/work/:workItemId/distribute',
+      '/my/distribution/:stepId/evenly',
+      '/items/:itemId/priority',
+      '/items/:itemId/expedite',
+      '/supervise/:workItemId/assign',
+      '/supervise/:workItemId/return',
+      '/supervise/:workItemId/retry',
+      '/supervise/:workItemId/release',
+      '/supervise/steps/:stepId/redistribute',
+      '/supervise/items/:itemId/priority',
+      '/workspace/ask',
+    ]
+    const gets = ['/workspace', '/workspace/items', '/workspace/search', '/stream']
+    for (const p of posts) expect(api.hasRoute({ method: 'POST', url: `/api/apps/:app${p}` }), `POST ${p}`).toBe(true)
+    for (const p of gets) expect(api.hasRoute({ method: 'GET', url: `/api/apps/:app${p}` }), `GET ${p}`).toBe(true)
+    expect(api.hasRoute({ method: 'GET', url: '/api/design' })).toBe(true)
+  })
+})
+

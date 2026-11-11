@@ -1,7 +1,7 @@
 import { Zap, ZapOff } from 'lucide-react'
 import { useState } from 'react'
 import { Button, cx, Field, Modal, Textarea } from '../../components/ui'
-import { canExpedite, type Ctx, setExpedite, type SimObject, type SimState } from '@modus-bpm/core'
+import { canExpedite, type Ctx, type SimObject, type SimState } from '@modus-bpm/core'
 import type { User, Workflow } from '@modus-bpm/core/model/types'
 import { useUi } from '../../store/ui'
 import { agoText, dueText } from './format'
@@ -44,8 +44,8 @@ export function ExpediteAction({ obj, me, sim, ctx, size = 'md' }: { obj: SimObj
   if (obj.status !== 'active' || !canExpedite(sim, ctx, obj.id, me.id)) return null
   const wf = ctx.app.workflows.find((w) => w.id === obj.workflowId)
   if (obj.expedite) {
-    const remove = () => {
-      if (perform((s, c) => setExpedite(s, c, obj.id, me.id, false)).ok) useUi.getState().toast(`${obj.number} is no longer expedited. Its normal due date is back.`, 'success')
+    const remove = async () => {
+      if ((await perform({ do: 'expedite', itemId: obj.id, on: false })).ok) useUi.getState().toast(`${obj.number} is no longer expedited. Its normal due date is back.`, 'success')
     }
     return (
       <Button variant="ghost" size={size} icon={<ZapOff size={13} />} onClick={remove} title="Take the expedite flag off: it goes back to its normal place and due date">
@@ -58,19 +58,19 @@ export function ExpediteAction({ obj, me, sim, ctx, size = 'md' }: { obj: SimObj
       <Button size={size} icon={<Zap size={13} className="text-orange-500" />} onClick={() => setOpen(true)} title={`Move it to the front of every queue; it must be done ${speedText(wf)} faster`}>
         Expedite
       </Button>
-      {open && <ExpediteDialog obj={obj} me={me} wf={wf} clock={sim.clock} onClose={() => setOpen(false)} />}
+      {open && <ExpediteDialog obj={obj} wf={wf} clock={sim.clock} onClose={() => setOpen(false)} />}
     </>
   )
 }
 
 /** Ask why it needs to go faster (required when the process says so) and show what expediting does. */
-export function ExpediteDialog({ obj, me, wf, clock, onClose }: { obj: SimObject; me: User; wf: Workflow | undefined; clock: number; onClose: () => void }) {
+export function ExpediteDialog({ obj, wf, clock, onClose }: { obj: SimObject; wf: Workflow | undefined; clock: number; onClose: () => void }) {
   const [reason, setReason] = useState('')
   const required = !!wf?.expedite?.requireReason
   const factor = Math.min(1, Math.max(0.05, wf?.expedite?.slaFactor ?? 0.5))
   const newDue = wf?.targetHours ? Math.min(obj.dueBy ?? Infinity, obj.createdAt + wf.targetHours * 60 * factor) : undefined
-  const submit = () => {
-    if (!perform((s, c) => setExpedite(s, c, obj.id, me.id, true, reason)).ok) return
+  const submit = async () => {
+    if (!(await perform({ do: 'expedite', itemId: obj.id, on: true, reason })).ok) return
     useUi.getState().toast(`${obj.number} is expedited. It moves to the front of every queue.`, 'success')
     onClose()
   }

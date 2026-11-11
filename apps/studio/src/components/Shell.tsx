@@ -256,11 +256,11 @@ function NewAppModal({ open, onClose }: { open: boolean; onClose: () => void }) 
   )
 }
 
-/** The simulation's controls, except over a Monitor showing a server: they wouldn't change what it shows. */
+/** The simulation's controls, except over a Monitor or Workspace showing a server: they wouldn't change what it shows. */
 function SimOrLive() {
   const live = useLive(isLive)
-  const onMonitor = useUi((s) => s.mode === 'studio' && s.view === 'monitor')
-  if (!live || !onMonitor) return <SimControls />
+  const onServer = useUi((s) => s.mode === 'workspace' || (s.mode === 'studio' && s.view === 'monitor'))
+  if (!live || !onServer) return <SimControls />
   return (
     <button
       type="button"
@@ -275,7 +275,7 @@ function SimOrLive() {
   )
 }
 
-const LIVE_CONTROLS_OFF = 'The Monitor is showing the server’s live state, so the simulation’s speed, arrivals, jumps and reset don’t apply here. Switch the Monitor to Simulation to use them.'
+const LIVE_CONTROLS_OFF = 'This is showing the server’s live work, so the simulation’s speed, arrivals, jumps and reset don’t apply here. Switch it to Simulation to use them.'
 
 function SimControls() {
   const running = useSim((s) => s.running)

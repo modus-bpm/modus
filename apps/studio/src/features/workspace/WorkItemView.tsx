@@ -12,24 +12,17 @@ import {
   visibleHistory,
   type WorkItem,
   workItem,
-  workDelegate,
-  workRelease,
-  workReturn,
-  workSave,
-  workSetPriority,
-  workStart,
 } from '@modus-bpm/core'
 import { objectTitle } from '@modus-bpm/core/model/format'
 import type { App, Group, Id, Outcome, Priority, User } from '@modus-bpm/core/model/types'
 import { formatDuration, simDate } from '@modus-bpm/core/model/util'
-import { useSim } from '../../store/sim'
 import { useUi } from '../../store/ui'
 import { ObjectHistory } from '../objects/ObjectHistory'
-import { whereNow } from './actions'
+import { whereNow, whereNowIs } from './actions'
 import { ExpeditedBadge } from '../objects/PriorityBadge'
 import { ExpediteAction, ExpediteNote } from './Expedite'
 import { isRejectLike, timeOfDay } from './format'
-import { perform } from './live'
+import { currentLoads, perform } from './live'
 import { DueLabel, PriorityMenu, StateChip } from './parts'
 import { type Draft, useWorkspace } from './store'
 
@@ -144,18 +137,18 @@ function ItemBody({ item, me, app, ctx, users, groups, sim, tick, position, onMo
     onDone()
   }
 
-  const start = () => {
-    if (perform((s, c) => workStart(s, c, token.id, me.id)).ok) toast(`Started ${obj.number}. Colleagues can see you’re on it.`)
+  const start = async () => {
+    if ((await perform({ do: 'start', tokenId: token.id })).ok) toast(`Started ${obj.number}. Colleagues can see you’re on it.`)
   }
 
-  const save = () => {
-    if (!perform((s, c) => workSave(s, c, token.id, me.id, draft.values)).ok) return
+  const save = async () => {
+    if (!(await perform({ do: 'save', tokenId: token.id, patch: draft.values })).ok) return
     setDraft(token.id, { values: {} })
     setErrors({})
     toast(`${obj.number} saved`, 'success')
   }
 
-  const release = (o: Outcome) => {
+  const release = async (o: Outcome) => {
     if (o.requireComment && !draft.comment.trim()) {
       setCommentError(`“${o.label}” needs a comment. Say why, so the next person knows.`)
       document.getElementById(commentId)?.focus()
@@ -170,24 +163,24 @@ function ItemBody({ item, me, app, ctx, users, groups, sim, tick, position, onMo
         return
       }
     }
-    if (!perform((s, c) => workRelease(s, c, token.id, me.id, o.id, draft.comment, draft.values)).ok) return
-    finished(`${obj.number} released as “${o.label}”. It’s now ${whereNow(sim, ctx, obj.id)}.`)
+    if (!(await perform({ do: 'release', tokenId: token.id, outcomeId: o.id, comment: draft.comment, patch: draft.values })).ok) return
+    finished(`${obj.number} released as “${o.label}”. It’s now ${whereNowIs(obj.id)}.`)
   }
 
   const canReturn = step.distribution !== 'direct'
   const returnTo = step.distribution === 'queue' ? 'the queue' : step.distribution === 'manager' ? 'the dispatchers' : 'the pool'
-  const giveBack = () => {
-    if (perform((s, c) => workReturn(s, c, token.id, me.id, draft.comment)).ok) finished(`${obj.number} went back to ${returnTo}.`)
+  const giveBack = async () => {
+    if ((await perform({ do: 'return', tokenId: token.id, comment: draft.comment })).ok) finished(`${obj.number} went back to ${returnTo}.`)
   }
 
-  const delegate = (toId: Id, comment: string) => {
-    if (!perform((s, c) => workDelegate(s, c, token.id, me.id, toId, comment)).ok) return
+  const delegate = async (toId: Id, comment: string) => {
+    if (!(await perform({ do: 'delegate', tokenId: token.id, to: toId, comment })).ok) return
     setDelegating(false)
     finished(`${obj.number} is now with ${users.find((u) => u.id === toId)?.name ?? 'your colleague'}.`)
   }
 
-  const setPriority = (p: Priority) => {
-    if (perform((s, c) => workSetPriority(s, c, obj.id, me.id, p)).ok) toast(`${obj.number} is now ${p} priority.`, 'success')
+  const setPriority = async (p: Priority) => {
+    if ((await perform({ do: 'priority', itemId: obj.id, priority: p })).ok) toast(`${obj.number} is now ${p} priority.`, 'success')
   }
 
   const dangers = step.outcomes.filter((o) => isRejectLike(o.label))
@@ -426,7 +419,7 @@ function DelegateModal({
   onDelegate: (toId: Id, comment: string) => void
 }) {
   const group = groups.find((g) => g.id === item.step.groupId)
-  const loads = useSim.getState().views[useUi.getState().appId]?.users
+  const loads = currentLoads()
   const colleagues = (group?.memberIds ?? []).filter((id) => id !== me.id).flatMap((id) => users.filter((u) => u.id === id))
   const [to, setTo] = useState<Id>(colleagues.find((u) => u.available)?.id ?? '')
   const [text, setText] = useState(comment)
@@ -473,7 +466,7 @@ function DelegateModal({
                     <span className="block truncate text-[13px] font-medium text-slate-800">{u.name}</span>
                     <span className="block truncate text-[11px] text-slate-500">{u.title}</span>
                   </span>
-                  {u.available ? <span className="text-[11px] text-slate-500 tabular-nums">{loads?.[u.id]?.open ?? 0} open</span> : <Badge>Out</Badge>}
+                  {u.available ? <span className="text-[11px] text-slate-500 tabular-nums">{loads[u.id]?.open ?? 0} open</span> : <Badge>Out</Badge>}
                 </button>
               </li>
             ))}

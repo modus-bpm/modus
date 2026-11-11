@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { seedDesign } from '../model/seed'
 import { advance, buildIndex, type Ctx, newSim, type SimState } from './engine'
-import { setExpedite, workClaim, workStart } from './ops'
+import { createAccess, createRefusals, setExpedite, workClaim, workStart } from './ops'
 import { canReadItem, hiddenFieldsOf } from './search'
 import { basketOf, distributionFor, queuesFor, requestsBy, supervisionFor } from './view'
 import { inWorkspace, workspaceColleagues, workspaceItem, workspaceItems, workspaceSlice, workspaceState } from './workspace'
@@ -176,5 +176,20 @@ describe('a person’s slice of the state', () => {
     expect(carla.has('u_carmen')).toBe(false)
     // Someone the design doesn't know sees no one else's.
     expect([...workspaceColleagues(ctx, 'stranger')]).toEqual(['stranger'])
+  })
+
+  it('the create form offers a person only the fields the engine would let them set', () => {
+    const ctx = ctxOf(0)
+    const type = ctx.app.objectTypes[0]!
+    const everything = Object.fromEntries(type.fields.map((f) => [f.id, 'x']))
+    for (const u of ['u_maya', 'u_rosa', 'u_avery']) {
+      const access = createAccess(ctx, 'w_invoice', u)
+      const refused = new Set(createRefusals(ctx, 'w_invoice', u, everything).map((r) => r.field.id))
+      for (const f of type.fields) if (!f.total) expect(access[f.id] !== 'edit', `${f.label} for ${u}`).toBe(refused.has(f.id))
+    }
+    // A clerk may not enter bank details; AP Exceptions may.
+    expect(createAccess(ctx, 'w_invoice', 'u_maya').f_bank).not.toBe('edit')
+    expect(createAccess(ctx, 'w_invoice', 'u_rosa').f_bank).toBe('edit')
+    expect(createAccess(ctx, 'w_nope', 'u_maya')).toEqual({})
   })
 })

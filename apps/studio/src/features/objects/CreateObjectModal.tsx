@@ -3,13 +3,14 @@ import { useMemo, useState } from 'react'
 import { FormRenderer } from '../../components/FormRenderer'
 import { TypeIcon } from '../../components/icons'
 import { Button, Field, Modal, Select } from '../../components/ui'
-import { createObject, nextNumber } from '@modus-bpm/core'
+import { createAccess, createObject, nextNumber, type SimObject } from '@modus-bpm/core'
 import { generateData } from '@modus-bpm/core/engine/generate'
 import { validateRequired } from '@modus-bpm/core/model/format'
 import type { App, Group, ObjectType, User, Workflow } from '@modus-bpm/core/model/types'
 import { useApp, useDesign } from '../../store/design'
 import { useSim, useSimState } from '../../store/sim'
 import { useUi } from '../../store/ui'
+import { currentWork, perform, useWorkSource } from '../workspace/live'
 
 /** Groups the user belongs to, and whether any of them may create objects of this type. */
 function createRights(type: ObjectType, groups: Group[], userId: string) {
@@ -20,7 +21,11 @@ function createRights(type: ObjectType, groups: Group[], userId: string) {
 export function CreateObjectModal() {
   const createFor = useUi((s) => s.createFor)
   const appId = useUi((s) => s.appId)
-  const app = useApp(appId)
+  const inWorkspace = useUi((s) => s.mode === 'workspace')
+  const designed = useApp(appId)
+  // In the Workspace the application is the one its work comes from: the server's, in Live.
+  const source = useWorkSource()
+  const app = inWorkspace ? source.app : designed
   const wf = createFor ? app?.workflows.find((w) => w.id === createFor) : undefined
   const type = wf ? app?.objectTypes.find((t) => t.id === wf.objectTypeId) : undefined
   if (!app || !wf || !type) return null
@@ -29,15 +34,20 @@ export function CreateObjectModal() {
 }
 
 function CreateForm({ app, wf, type }: { app: App; wf: Workflow; type: ObjectType }) {
-  const users = useDesign((s) => s.design.users)
-  const groups = useDesign((s) => s.design.groups)
-  const sim = useSimState()
+  const inWorkspace = useUi((s) => s.mode === 'workspace')
+  const source = useWorkSource()
+  const designUsers = useDesign((s) => s.design.users)
+  const designGroups = useDesign((s) => s.design.groups)
+  const simulated = useSimState()
+  const users = inWorkspace ? source.users : designUsers
+  const groups = inWorkspace ? source.groups : designGroups
+  const sim = inWorkspace ? source.sim : simulated
+  const [busy, setBusy] = useState(false)
   const close = () => useUi.getState().openCreate(null)
 
   const permitted = useMemo(() => users.filter((u) => createRights(type, groups, u.id).allowed), [users, groups, type])
   const others = useMemo(() => users.filter((u) => !permitted.includes(u)), [users, permitted])
   // In the Workspace you create as the person you are working as.
-  const inWorkspace = useUi((s) => s.mode === 'workspace')
   const actingAs = useUi((s) => s.actingAs)
   const [chosen, setCreateAs] = useState<string>(permitted[0]?.id ?? users[0]?.id ?? '')
   const createAs = inWorkspace ? actingAs : chosen
@@ -48,31 +58,48 @@ function CreateForm({ app, wf, type }: { app: App; wf: Workflow; type: ObjectTyp
   const rights = createRights(type, groups, createAs)
   const allowedGroups = groups.filter((g) => type.permissions[g.id]?.create)
 
+  // In the Workspace the form is the creator's own: fields they may not set aren't offered (the engine would refuse them).
+  const access = useMemo(() => (inWorkspace && source.ctx ? createAccess(source.ctx, wf.id, createAs) : undefined), [inWorkspace, source.ctx, wf.id, createAs])
+
   const fillSample = () => {
     const number = sim ? nextNumber(sim, type) : `${type.numberPrefix}NEW`
-    setValues(generateData({ rng: (Math.random() * 2 ** 31) | 0 }, type, app.lists, users, sim?.clock ?? 0, number))
+    const sample = generateData({ rng: (Math.random() * 2 ** 31) | 0 }, type, app.lists, users, sim?.clock ?? 0, number)
+    if (access) for (const id of Object.keys(sample)) if (access[id] && access[id] !== 'edit' && !type.fields.find((f) => f.id === id)?.total) delete sample[id]
+    setValues(sample)
     setErrors({})
   }
 
-  const submit = (andOpen: boolean) => {
-    if (!rights.allowed) return
+  /** Say where the new item went, close, and open it when asked. */
+  const created = (obj: SimObject | undefined, made: { id: string; number: string }, andOpen: boolean) => {
+    const ui = useUi.getState()
+    const label = (id: string) => app.workflows.flatMap((w) => w.nodes).find((n) => n.id === id)?.data.label ?? 'the workflow'
+    const stuck = obj?.tokens.find((t) => t.state === 'stuck')
+    const at = obj ? obj.tokens.map((t) => label(t.nodeId)).join(' + ') || (obj.endNodeId ? label(obj.endNodeId) : 'the end') : undefined
+    if (stuck) ui.toast(`${made.number} created but is stuck at “${label(stuck.nodeId)}”: ${stuck.stuckReason}`, 'warn')
+    else ui.toast(at ? `${made.number} created → now at “${at}”` : `${made.number} created`, 'success')
+    close()
+    if (andOpen) ui.openObject(made.id)
+  }
+
+  const submit = async (andOpen: boolean) => {
+    if (!rights.allowed || busy) return
     const errs = validateRequired(type, values)
     setErrors(errs)
     if (Object.keys(errs).length) return
-    const obj = useSim.getState().act((s, ctx) => createObject(s, ctx, wf.id, values, createAs))
-    const ui = useUi.getState()
-    if (!obj) {
-      ui.toast(`Could not create the ${type.name.toLowerCase()} — check the workflow.`, 'warn')
+    if (inWorkspace) {
+      // As the person you are working as: on the simulation, or through the server in Live.
+      setBusy(true)
+      const r = await perform({ do: 'create', workflowId: wf.id, data: values })
+      setBusy(false)
+      if (r.ok) created(currentWork().sim?.objects[r.value.id], r.value, andOpen)
       return
     }
-    const app = useDesign.getState().design.apps.find((a) => a.id === ui.appId)
-    const label = (id: string) => app?.workflows.flatMap((w) => w.nodes).find((n) => n.id === id)?.data.label ?? 'the workflow'
-    const stuck = obj.tokens.find((t) => t.state === 'stuck')
-    const at = obj.tokens.map((t) => label(t.nodeId)).join(' + ') || (obj.endNodeId ? label(obj.endNodeId) : 'the end')
-    if (stuck) ui.toast(`${obj.number} created but is stuck at “${label(stuck.nodeId)}”: ${stuck.stuckReason}`, 'warn')
-    else ui.toast(`${obj.number} created → now at “${at}”`, 'success')
-    close()
-    if (andOpen) ui.openObject(obj.id)
+    const obj = useSim.getState().act((s, ctx) => createObject(s, ctx, wf.id, values, createAs))
+    if (!obj) {
+      useUi.getState().toast(`Could not create the ${type.name.toLowerCase()} — check the workflow.`, 'warn')
+      return
+    }
+    created(obj, obj, andOpen)
   }
 
   return (
@@ -95,10 +122,10 @@ function CreateForm({ app, wf, type }: { app: App; wf: Workflow; type: ObjectTyp
           <Button variant="ghost" onClick={close}>
             Cancel
           </Button>
-          <Button disabled={!rights.allowed} onClick={() => submit(true)}>
+          <Button disabled={!rights.allowed || busy} onClick={() => void submit(true)}>
             Create &amp; open
           </Button>
-          <Button variant="primary" disabled={!rights.allowed} onClick={() => submit(false)}>
+          <Button variant="primary" disabled={!rights.allowed || busy} onClick={() => void submit(false)}>
             Create {type.name}
           </Button>
         </>
@@ -155,6 +182,7 @@ function CreateForm({ app, wf, type }: { app: App; wf: Workflow; type: ObjectTyp
         lists={app.lists}
         users={users}
         values={values}
+        access={access}
         errors={errors}
         onChange={(v) => {
           setValues(v)

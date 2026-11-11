@@ -29,7 +29,8 @@ export function HomePage({ me, ctx, app, users, sim, tick, data }: Props) {
   const { clock, basket, queues, distribution, requests, supervision } = data
   const ws = useWorkspace.getState()
   const date = simDate(clock)
-  const running = useSim((s) => s.running)
+  // A server's work is always running; the simulation only when it is played.
+  const running = useSim((s) => s.running) || !!ctx.live
 
   const overdue = basket.filter((i) => i.overdue)
   const soon = basket.filter((i) => dueTone(i.due, clock) === 'soon')
@@ -105,7 +106,7 @@ export function HomePage({ me, ctx, app, users, sim, tick, data }: Props) {
                 className="h-10 px-4 text-[15px]"
                 icon={<Play size={16} />}
                 disabled={!queueWaiting}
-                onClick={() => getNext(me.id)}
+                onClick={() => void getNext()}
                 title="Pull the most urgent item from your queues"
               >
                 Get next
