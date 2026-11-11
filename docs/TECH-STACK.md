@@ -126,9 +126,9 @@ a role into its own service later is a deployment change, not a rewrite.
 | Internationalization | FormatJS (`react-intl`) message catalogs; `Intl` for dates, numbers and currency | Planned; labels designers type stay as entered and can carry translations per locale. |
 | Mobile | The Workspace as an installable PWA (offline read of my work, push notifications) | Planned for field users such as officers. |
 
-The studio needs no server: it simulates the organization in the browser. In M3 the Workspace
-and Monitor gain a server mode that reads the API and live stream instead of the simulator. The
-engine is identical either way.
+The studio needs no server: it simulates the organization in the browser. Served by a Modus
+server, its Workspace and Monitor have a Live mode that reads the API and the live stream instead
+of the simulator, and the Workspace acts through the API. The engine is identical either way.
 
 ## API edge
 

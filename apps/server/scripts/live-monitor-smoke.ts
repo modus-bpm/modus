@@ -1,11 +1,13 @@
-// End-to-end smoke check for the live Monitor: a real server, serving the built Studio, answers the
-// Monitor endpoints and streams a change when an invoice is created through the API.
+// End-to-end smoke check for the live Monitor and Workspace: a real server, serving the built Studio,
+// answers the Monitor endpoints, streams a change when an invoice is created through the API, and takes
+// that invoice through a clerk's Workspace (their share of the state, start, release, search).
 //
 //   pnpm --filter @modus-bpm/studio build
 //   pnpm --filter @modus-bpm/server smoke:live
 //
-// It builds nothing itself. The server runs as a child process (in memory, nothing written) on a free
-// port, or on SMOKE_PORT if set, and is always stopped. Exits non-zero with the failed check on any problem.
+// It builds nothing itself. The server runs as a child process on a free port, or on SMOKE_PORT if set,
+// and is always stopped. It runs in memory (nothing written), or on PostgreSQL when SMOKE_DATABASE_URL
+// names a throwaway database. Exits non-zero with the failed check on any problem.
 
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -66,9 +68,12 @@ try {
 const base = `http://127.0.0.1:${port}`
 const as = (user: string) => ({ 'x-user-id': user })
 
+// In memory unless SMOKE_DATABASE_URL names a PostgreSQL database to run on (a throwaway one: the check creates work in it).
+const storage = process.env.SMOKE_DATABASE_URL ? { DB_DIALECT: 'postgres', DATABASE_URL: process.env.SMOKE_DATABASE_URL } : { DB_DIALECT: 'memory' }
+
 const child = spawn(join(serverDir, 'node_modules/.bin/tsx'), ['src/main.ts'], {
   cwd: serverDir,
-  env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', STATIC_DIR: studioDist, LOG_LEVEL: 'warn', DATA_DIR: '', DB_DIALECT: 'memory', TIME_SCALE: '1' },
+  env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', STATIC_DIR: studioDist, LOG_LEVEL: 'warn', DATA_DIR: '', TIME_SCALE: '1', ...storage },
   stdio: ['ignore', 'inherit', 'inherit'],
 })
 let exited = false
@@ -199,7 +204,39 @@ try {
   await waitFor(`the stream should deliver a change naming ${id}`, () => stream.changes.some((c) => c.items?.includes(id)))
   step(`stream delivered a change for ${id}`)
 
-  console.log('\nLive Monitor smoke check passed.')
+  // The Workspace: the requester finds it in theirs, a worker matches it, and the clerk it reaches works it through the API.
+  interface Slice {
+    items: Array<{ id: string; tokens: Array<{ id: string; nodeId: string; state: string; userId?: string }> }>
+  }
+  const post = async (path: string, user: string | undefined, body: unknown = {}) => {
+    const res = await fetch(`${base}${path}`, { method: 'POST', headers: { ...(user ? as(user) : {}), 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    check(res.ok, `POST ${path} answered ${res.status}: ${await res.clone().text()}`)
+    return res.json()
+  }
+  const requester = await getJson<Slice>(`/api/apps/${APP}/workspace`, 'u_maya')
+  check(requester.items.some((o) => o.id === id), `the requester's Workspace should hold ${id}`)
+  step(`GET /api/apps/${APP}/workspace holds ${id} for its requester`)
+
+  const { jobs } = (await post('/api/jobs/poll', undefined, { serviceId: 'svc_erp', workerId: 'smoke', max: 10 })) as { jobs: Array<{ id: string }> }
+  for (const j of jobs) await post(`/api/jobs/${encodeURIComponent(j.id)}/complete`, undefined, { outputs: { matched: true } })
+  const matched = await getJson<Slice & { gone: string[] }>(`/api/apps/${APP}/workspace/items?ids=${id}`, 'u_maya')
+  const work = matched.items.find((o) => o.id === id)?.tokens.find((t) => t.nodeId === 'n_clerk')
+  check(work?.userId, `${id} should be with an AP clerk once its PO is matched`)
+  const clerk = work!.userId!
+  const theirs = await getJson<Slice>(`/api/apps/${APP}/workspace`, clerk)
+  check(theirs.items.some((o) => o.tokens.some((t) => t.id === work!.id && t.userId === clerk)), `the clerk's Workspace should hold the work on ${id}`)
+  step(`the work on ${id} is in ${clerk}'s Workspace`)
+
+  await post(`/api/apps/${APP}/work/${encodeURIComponent(work!.id)}/start`, clerk)
+  await post(`/api/apps/${APP}/work/${encodeURIComponent(work!.id)}/release`, clerk, { outcomeId: 'o_k_ok' })
+  const left = await getJson<Slice & { gone: string[] }>(`/api/apps/${APP}/workspace/items?ids=${id}`, clerk)
+  // Released, it leaves the clerk's Workspace, unless the clerk is also the one who asked for it.
+  check(clerk === 'u_maya' ? left.items.some((o) => o.id === id) : left.gone.includes(id), `${id} should have left ${clerk}'s Workspace once released`)
+  const found = await getJson<{ total: number; hits: Array<{ obj: { id: string } }> }>(`/api/apps/${APP}/workspace/search?q=${encodeURIComponent('is:open')}&limit=200`, 'u_maya')
+  check(found.hits.some((h) => h.obj.id === id), `the requester's search should find ${id}`)
+  step(`${clerk} started and released it; it left their Workspace and the requester still finds it`)
+
+  console.log('\nLive smoke check passed: the Monitor and the Workspace.')
 } catch (e) {
   failed = true
   console.error(`\nFAIL  ${e instanceof SmokeError ? e.message : e instanceof Error ? (e.stack ?? e.message) : String(e)}`)

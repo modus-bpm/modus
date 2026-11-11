@@ -8,14 +8,16 @@ browser studio (simulated); *Skeleton* means the server path exists in a first f
 
 The next work is what one organization needs to run its real work on a Modus server. In order:
 
-1. **Workspace on the server**: worklists, forms and requests against the API (M3). The API has
-   most of what it needs; the Studio's Workspace isn't wired to it yet.
-2. **Publish from the Studio to a server**: drafts, versions and moving work in flight, on the
+1. **Publish from the Studio to a server**: drafts, versions and moving work in flight, on the
    server's live state. Today a server runs the sample design it starts with.
-3. **OIDC sign-in** (Keycloak, Entra ID) in place of the `x-user-id` stand-in, pulled forward
+2. **OIDC sign-in** (Keycloak, Entra ID) in place of the `x-user-id` stand-in, pulled forward
    from M2.
-4. **Running one deployment**: backups and restore, upgrades, and somewhere to keep attached
+3. **Running one deployment**: backups and restore, upgrades, and somewhere to keep attached
    files (pulled forward from M6 and M2).
+
+Done first: the **Workspace on the server**. Served by a Modus server, the Studio's Workspace
+works the server's live work through the API (see
+[ARCHITECTURE.md](ARCHITECTURE.md#the-studio-on-a-server-the-workspace-m3)).
 
 Engine and scale work waits until a real deployment shows where the limits are: the rest of the
 M1 engine split, locking per item, and the M5 load targets.
@@ -97,7 +99,7 @@ M1 engine split, locking per item, and the M5 load targets.
 | --- | --- |
 | Same engine in browser and server (live mode) | Skeleton |
 | REST API + live stream (SSE) | Skeleton |
-| Workspace on the server: worklists, forms and requests against the API | Next (M3) |
+| Workspace on the server: the served Studio's Workspace works the server's live work through the API (home, my work and its form, queues, dispatch board, supervise, requests, new request, search, Ask Modus), kept current from the stream, with a switch back to the simulation | Done (M3) |
 | Publish from the Studio to a server: drafts, versions and moving work in flight, on the live state | Next (M3) |
 | PostgreSQL storage: design, live state and the event log, with migrations at startup; Compose runs Modus on Postgres by default | Done (M2) |
 | One transaction per command: state, audit entries, item and work-item projections, outbox and clock commit together | Done (M2) |
