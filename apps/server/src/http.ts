@@ -74,6 +74,7 @@ import {
   workSetPriority,
   workStart,
   workingNow,
+  workspaceColleagues,
   workspaceItem,
   workspaceItems,
   workspaceSlice,
@@ -430,14 +431,23 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   // supervision) over this, so the pages are the same ones the simulation uses. Fields a person may
   // not see are left out here, on the server (core's workspaceItem).
 
-  /** How much work each person has open and whether they are working now: the pickers show it. */
-  const loadsOf = (sim: SimState, ctx: Ctx) => Object.fromEntries(Object.entries(viewOf(sim, ctx).users).map(([id, u]) => [id, { open: u.open, working: u.working }]))
+  /**
+   * How much work the caller's colleagues have open and whether they are working now, for the pickers
+   * (delegate, hand out, reassign). Only the people core's workspaceColleagues names: their teams, and
+   * the groups whose work they hand out or supervise.
+   */
+  const loadsOf = (sim: SimState, ctx: Ctx, user: Id) => {
+    const users = viewOf(sim, ctx).users
+    const out: Record<Id, { open: number; working: boolean }> = {}
+    for (const id of workspaceColleagues(ctx, user)) if (users[id]) out[id] = { open: users[id].open, working: users[id].working }
+    return out
+  }
 
   /** Everything in the caller's Workspace: active work that reaches them, and the requests they made. */
   app.get('/api/apps/:app/workspace', async (req) => {
     const { app: appId } = appParams.parse(req.params)
     const user = who(req)
-    return rt.read(appId, (sim, ctx) => ({ ...workspaceSlice(sim, ctx, user), clock: rt.clockNow(appId), loads: loadsOf(sim, ctx) }))
+    return rt.read(appId, (sim, ctx) => ({ ...workspaceSlice(sim, ctx, user), clock: rt.clockNow(appId), loads: loadsOf(sim, ctx, user) }))
   })
 
   const idList = (max: number) =>
@@ -457,7 +467,7 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const { app: appId } = appParams.parse(req.params)
     const user = who(req)
     const q = workspaceItemsQuery.parse(req.query)
-    return rt.read(appId, (sim, ctx) => ({ ...workspaceItems(sim, ctx, user, q.ids, q.pin), clock: rt.clockNow(appId), loads: loadsOf(sim, ctx) }))
+    return rt.read(appId, (sim, ctx) => ({ ...workspaceItems(sim, ctx, user, q.ids, q.pin), clock: rt.clockNow(appId), loads: loadsOf(sim, ctx, user) }))
   })
 
   /** A hit with its item as the caller may see it, so the Workspace can show and open it. */

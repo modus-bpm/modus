@@ -81,6 +81,12 @@ describe('a person’s Workspace', () => {
     expect(carla.supervision.steps.find((s) => s.nodeId === 'n_clerk')!.items.map((i) => i.obj.number)).toContain(obj.number)
     expect(carla.basket.map((i) => i.obj.id)).not.toContain(obj.id)
 
+    // Workloads: a clerk sees the clerks', Carla also the approvers' she hands out to, a stranger no one's.
+    expect(Object.keys(theirs.s.loads)).not.toContain('u_marcus')
+    expect(Object.keys(theirs.s.loads)).not.toContain('u_carmen')
+    expect(Object.keys(carla.s.loads)).toEqual(expect.arrayContaining([clerk, 'u_marcus']))
+    expect((await slice('nobody-we-know')).loads).toEqual({})
+
     // A patrol officer has nothing to do with invoices.
     expect((await slice('u_carmen')).items).toEqual([])
     expect((await slice('nobody-we-know')).items).toEqual([])

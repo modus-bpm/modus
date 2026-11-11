@@ -43,22 +43,80 @@ function hiddenFrom(sim: SimState, ctx: Ctx, obj: SimObject, userId: Id): Set<Id
 }
 
 /**
- * An item as this person may see it: hidden fields left out and history lines that show them
- * redacted. Someone who meets it only in a worklist (a queue they fetch from, a step they hand out
- * or supervise) and may not read it otherwise gets its title alone, and no history.
+ * An item as this person may see it. Its data is built from the type's fields, leaving out the
+ * hidden ones, and history lines that show a hidden field read their redacted text.
+ *
+ * Someone who meets it only in a worklist (a queue they fetch from, a step they hand out or
+ * supervise) and may not read it otherwise gets what a worklist row shows and no more: its number,
+ * title, priority, due date and where its work is. No other data, no history, no reasons.
  */
 export function workspaceItem(sim: SimState, ctx: Ctx, obj: SimObject, userId: Id): SimObject {
   const hidden = hiddenFrom(sim, ctx, obj, userId)
-  const titleOnly = !obj.tokens.some((t) => t.userId === userId) && !canReadItem(ctx, obj, userId)
   const type = ctx.app.objectTypes.find((t) => t.id === obj.typeId)
   const titleField = type && (type.fields.find((f) => f.id === type.titleFieldId) ?? type.fields.find((f) => f.summary))
+  const rowOnly = !obj.tokens.some((t) => t.userId === userId) && !canReadItem(ctx, obj, userId)
   const data: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(obj.data)) {
-    if (hidden.has(k)) continue
-    if (titleOnly && k !== titleField?.id) continue
-    data[k] = v
+  for (const f of type?.fields ?? []) {
+    if (hidden.has(f.id) || !(f.id in obj.data)) continue
+    if (rowOnly && f.id !== titleField?.id) continue
+    data[f.id] = obj.data[f.id]
   }
-  return { ...obj, data, history: titleOnly ? [] : visibleHistory(ctx, obj, userId, hidden) }
+  if (!rowOnly) return { ...obj, data, history: visibleHistory(ctx, obj, userId, hidden) }
+  return {
+    id: obj.id,
+    number: obj.number,
+    typeId: obj.typeId,
+    workflowId: obj.workflowId,
+    data,
+    createdAt: obj.createdAt,
+    createdBy: obj.createdBy,
+    status: obj.status,
+    completedAt: obj.completedAt,
+    priority: obj.priority,
+    dueBy: obj.dueBy,
+    // Expedited or not decides its place in every list; who asked and why stay behind.
+    ...(obj.expedite ? { expedite: { by: '', at: obj.expedite.at } } : {}),
+    tokens: obj.tokens.map((t) => ({
+      id: t.id,
+      objectId: t.objectId,
+      workflowId: t.workflowId,
+      nodeId: t.nodeId,
+      enteredAt: t.enteredAt,
+      state: t.state,
+      userId: t.userId,
+      assignedAt: t.assignedAt,
+      startedAt: t.startedAt,
+      forks: [],
+      calls: t.calls,
+      manual: t.manual,
+      escalated: t.escalated,
+    })),
+    tokenSeq: obj.tokenSeq,
+    passed: [],
+    // Which version of each workflow it runs: the read models look its steps up there.
+    versions: obj.versions,
+    history: [],
+  }
+}
+
+/**
+ * Whose workload this person may see: their own, their teammates', and the members of the groups
+ * whose work they hand out or supervise. Administrators see everyone's.
+ */
+export function workspaceColleagues(ctx: Ctx, userId: Id): Set<Id> {
+  const idx = buildIndex(ctx)
+  if (idx.user.get(userId)?.roles?.includes('admin')) return new Set(ctx.users.map((u) => u.id))
+  const out = new Set<Id>([userId])
+  const add = (groupId: Id | undefined) => {
+    for (const id of idx.group.get(groupId ?? '')?.memberIds ?? []) out.add(id)
+  }
+  for (const g of ctx.groups) if (g.memberIds.includes(userId) || g.supervisorId === userId) add(g.id)
+  for (const { node } of idx.steps) {
+    if (node.type !== 'user') continue
+    const d = node.data
+    if (supervisesStep(idx, node.id, userId) || distributorsOf(idx, { distributorGroupId: d.distributorGroupId, supervisorId: d.supervisorId, groupId: d.groupId }).includes(userId)) add(d.groupId)
+  }
+  return out
 }
 
 export interface WorkspaceSlice {
