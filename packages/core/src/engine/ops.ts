@@ -548,7 +548,8 @@ export function superviseSetPriority(sim: SimState, ctx: Ctx, objectId: Id, prio
   return adminSetPriority(sim, ctx, objectId, priority, userName(idx, byUserId))
 }
 
-function supervisesItem(idx: Index, obj: SimObject, userId: Id): boolean {
+/** Does this person supervise the item: its process, or any of the work it has now? */
+export function supervisesItem(idx: Index, obj: SimObject, userId: Id): boolean {
   return supervisesProcess(indexFor(idx, obj), obj.workflowId, userId) || obj.tokens.some((t) => canSuperviseToken(idx, obj, t, userId))
 }
 

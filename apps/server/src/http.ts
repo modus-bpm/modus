@@ -19,6 +19,7 @@ import {
   adminAssign,
   adminMove,
   adminRetry,
+  ask,
   basketOf,
   buildIndex,
   canCreate,
@@ -49,6 +50,7 @@ import {
   requestsBy,
   type Result,
   searchItems,
+  type SearchHit,
   type SimState,
   type SimView,
   setExpedite,
@@ -57,17 +59,24 @@ import {
   superviseRelease,
   superviseRetry,
   superviseReturn,
+  superviseSetPriority,
+  supervisesItem,
   supervisesStep,
   supervisionFor,
   workClaim,
   workDelegate,
   workDistribute,
+  workDistributeEvenly,
   workNext,
   workRelease,
   workReturn,
   workSave,
+  workSetPriority,
   workStart,
   workingNow,
+  workspaceItem,
+  workspaceItems,
+  workspaceSlice,
 } from '@modus-bpm/core'
 import { answer, type ModelAssistant } from './assistant'
 import { canRead, designDto, findItem, hitDto, itemDto, workItemDto } from './dto'
@@ -364,6 +373,20 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     return send(reply, r)
   })
 
+  /** Change an item's priority: its requester, or whoever is working it. */
+  const priorityBody = z.object({ priority: z.enum(['low', 'normal', 'high', 'urgent']) })
+  app.post('/api/apps/:app/items/:itemId/priority', async (req, reply) => {
+    const { app: appId, itemId } = itemParams.parse(req.params)
+    const user = who(req)
+    const b = priorityBody.parse(req.body)
+    const r = await rt.run(appId, (sim, ctx): Result | Refusal => {
+      const obj = findItem(sim, itemId)
+      if (!obj || !canRead(sim, ctx, obj, user)) return refuse(404, 'No such item.')
+      return workSetPriority(sim, ctx, obj.id, user, b.priority)
+    })
+    return send(reply, r)
+  })
+
   // ----- Search -----
 
   const searchQuery = z.object({
@@ -400,6 +423,66 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const b = askBody.parse(req.body)
     rt.ctx(appId) // an unknown application is a 404 before any model call
     return answer({ rt, model: opts.assistant, log: req.log }, appId, user, b.question, b.history)
+  })
+
+  // ----- The Workspace: one person's share of the state, as they may see it -----
+  // The Studio's Workspace runs the engine's read models (basket, queues, dispatch board, requests,
+  // supervision) over this, so the pages are the same ones the simulation uses. Fields a person may
+  // not see are left out here, on the server (core's workspaceItem).
+
+  /** How much work each person has open and whether they are working now: the pickers show it. */
+  const loadsOf = (sim: SimState, ctx: Ctx) => Object.fromEntries(Object.entries(viewOf(sim, ctx).users).map(([id, u]) => [id, { open: u.open, working: u.working }]))
+
+  /** Everything in the caller's Workspace: active work that reaches them, and the requests they made. */
+  app.get('/api/apps/:app/workspace', async (req) => {
+    const { app: appId } = appParams.parse(req.params)
+    const user = who(req)
+    return rt.read(appId, (sim, ctx) => ({ ...workspaceSlice(sim, ctx, user), clock: rt.clockNow(appId), loads: loadsOf(sim, ctx) }))
+  })
+
+  const idList = (max: number) =>
+    z
+      .string()
+      .max(40_000)
+      .default('')
+      .transform((s) => s.split(',').filter(Boolean))
+      .pipe(z.array(z.string().max(200)).max(max))
+  const workspaceItemsQuery = z.object({ ids: idList(500), pin: idList(100) })
+
+  /**
+   * Items that changed (`ids`, from the live stream), as the caller may see them now; those that left
+   * their Workspace come back in `gone`. `pin` names items they opened from a search: kept while readable.
+   */
+  app.get('/api/apps/:app/workspace/items', async (req) => {
+    const { app: appId } = appParams.parse(req.params)
+    const user = who(req)
+    const q = workspaceItemsQuery.parse(req.query)
+    return rt.read(appId, (sim, ctx) => ({ ...workspaceItems(sim, ctx, user, q.ids, q.pin), clock: rt.clockNow(appId), loads: loadsOf(sim, ctx) }))
+  })
+
+  /** A hit with its item as the caller may see it, so the Workspace can show and open it. */
+  const workspaceHit = (h: SearchHit, sim: SimState, ctx: Ctx, user: Id) => ({ ...h, obj: workspaceItem(sim, ctx, h.obj, user) })
+
+  /** The Workspace's search: core's result as it is, over every item the caller may read. */
+  app.get('/api/apps/:app/workspace/search', async (req) => {
+    const { app: appId } = appParams.parse(req.params)
+    const user = who(req)
+    const q = searchQuery.parse(req.query)
+    return rt.read(appId, (sim, ctx) => {
+      const r = searchItems(sim, ctx, q.q, { userId: user, sort: q.sort, limit: q.limit })
+      return { ...r, hits: r.hits.map((h) => workspaceHit(h, sim, ctx, user)) }
+    })
+  })
+
+  /** Ask Modus as the Workspace shows it: the built-in assistant's reply, with the items it found. */
+  app.post('/api/apps/:app/workspace/ask', async (req) => {
+    const { app: appId } = appParams.parse(req.params)
+    const user = who(req)
+    const { question } = z.object({ question: z.string().trim().max(2000) }).parse(req.body)
+    return rt.read(appId, (sim, ctx) => {
+      const r = ask(sim, ctx, question, { userId: user })
+      return { ...r, hits: r.hits?.map((h) => workspaceHit(h, sim, ctx, user)) }
+    })
   })
 
   // ----- My work (the workbasket) -----
@@ -514,6 +597,17 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     return send(reply, await rt.run(appId, (sim, ctx) => workDistribute(sim, ctx, workItemId, user, b.to)))
   })
 
+  /** A dispatcher spreads everything waiting at a step evenly across its available members. */
+  app.post('/api/apps/:app/my/distribution/:stepId/evenly', async (req, reply) => {
+    const { app: appId, stepId } = z.object({ app: z.string(), stepId: z.string() }).parse(req.params)
+    const user = who(req)
+    const r = await rt.run(appId, (sim, ctx): Result<number> | Refusal => {
+      if (buildIndex(ctx).node.get(stepId)?.node.type !== 'user') return refuse(404, 'No such people step.')
+      return workDistributeEvenly(sim, ctx, stepId, user)
+    })
+    return send(reply, r)
+  })
+
   // ----- Supervisors: the administrator's levers, scoped to the work they supervise -----
   // 404 for no such active work item, 403 when the caller doesn't supervise it,
   // 409 when the engine refuses (for example, reassigning outside the step's group).
@@ -555,6 +649,20 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
       if (idx.node.get(stepId)?.node.type !== 'user') return refuse(404, 'No such people step.')
       if (!supervisesStep(idx, stepId, user)) return refuse(403, 'Only an administrator or a supervisor of this step can redistribute it.')
       return superviseRedistribute(sim, ctx, stepId, user)
+    })
+    return send(reply, r)
+  })
+
+  /** Change the priority of an active item the caller supervises. */
+  app.post('/api/apps/:app/supervise/items/:itemId/priority', async (req, reply) => {
+    const { app: appId, itemId } = itemParams.parse(req.params)
+    const user = who(req)
+    const b = priorityBody.parse(req.body)
+    const r = await rt.run(appId, (sim, ctx): Result | Refusal => {
+      const obj = findItem(sim, itemId)
+      if (!obj || obj.status !== 'active') return refuse(404, 'No such active item.')
+      if (!supervisesItem(buildIndex(ctx), obj, user)) return refuse(403, 'Only an administrator or a supervisor of this item can change its priority here.')
+      return superviseSetPriority(sim, ctx, obj.id, b.priority, user)
     })
     return send(reply, r)
   })
