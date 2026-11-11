@@ -55,7 +55,7 @@ data model and request sequences. [DEPLOYMENT.md](DEPLOYMENT.md) has the operato
 | Assistant | Built-in interpreter (offline) + Claude via the Anthropic API with tool use; a pluggable model port | — | Built-in **done**; model path in the server |
 | Messaging | Outbox tables first; NATS JetStream (with its MQTT listener) for event ingest and fan-out | Apache-2.0 | Planned (M4–M5) |
 | Automation | REST/OpenAPI connector, MCP client (TypeScript SDK v2), worker long-poll protocol, JSONata mapping | MIT / Apache-2.0 | Protocol **skeleton** |
-| Identity | OIDC (Keycloak bundled; Entra ID, Okta, Login.gov), SAML, SCIM 2.0 | Apache-2.0 | Planned (M2–M6) |
+| Identity | OIDC through `openid-client` (Keycloak bundled for development), a shared password for demos, machine tokens | MIT (openid-client), Apache-2.0 (Keycloak) | **Done** (Entra ID, Okta, Login.gov, SAML, SCIM 2.0: planned) |
 | Files | Local volume (single node) or any S3-compatible store | — | Planned (M2) |
 | Observability | OpenTelemetry (traces, metrics), pino JSON logs, Prometheus, Grafana | Apache-2.0 / MIT / AGPL (Grafana, optional) | Planned |
 | Packaging | One OCI image; Docker Compose; Helm chart; GHCR | — | **In progress** |
@@ -440,7 +440,7 @@ flowchart TB
 | Try it | Open the [live demo](https://modus-bpm.github.io/modus/) — or the single-file build, which runs from disk with no install. |
 | Develop | `pnpm install && pnpm dev` (studio on Vite) and `pnpm --filter @modus-bpm/server dev` (API). |
 | Run the product | `docker run -p 8787:8787 ghcr.io/modus-bpm/modus` → studio and API on one port, in-memory storage with a JSON snapshot on a volume. |
-| With a database and sign-in | `docker compose --profile keycloak up` (Postgres starts by default; Keycloak is not used yet). |
+| With a database and sign-in | `docker compose --profile keycloak up` (Postgres starts by default; Keycloak carries a development realm for `MODUS_AUTH=oidc`, see DEPLOYMENT.md). |
 | Without Docker | A planned embedded mode uses **PGlite** (Postgres compiled to WebAssembly) so the same Postgres adapter runs in one process, and Node's single-executable applications can ship it as one binary. |
 
 Local and SaaS differ only in configuration: the same image, the same storage adapter, the

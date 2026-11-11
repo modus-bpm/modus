@@ -22,16 +22,17 @@ today and what is planned.
 | Packaging | One image (amd64 and arm64), Docker Compose, a Helm chart, CI that builds every PR and publishes `main` | Signed images, release bundles |
 | Storage | **PostgreSQL** (`DB_DIALECT=postgres`, the Compose default): design, each application's live state, the event log, item and work-item projections and an outbox, all written in one transaction per command, with versioned migrations run at startup. Or **in memory**, snapshotted to JSON files in `DATA_DIR`. | Per-item locking (after M1); SQL Server (M6), Oracle (v1.1) behind the same storage ports |
 | Scale | On PostgreSQL, several replicas share one database, one command at a time per application. In memory, one process. | Roles split across deployments |
-| Design | The sample design is written at the first start only. After that the stored design is what runs, and designers change it from the Studio in Live: save (workflow maps as drafts), publish a version, move work in flight. Every replica picks a change up without a restart. | Sign-in decides who is a designer (OIDC) |
-| Identity | The `x-user-id` header: whoever calls the API says who they are | OIDC sign-in (Keycloak, Entra ID, Login.gov), SCIM group sync |
+| Design | The sample design is written at the first start only. After that the stored design is what runs, and designers change it from the Studio in Live: save (workflow maps as drafts), publish a version, move work in flight. Every replica picks a change up without a restart. | Roles from the identity provider's claims |
+| Identity | A setting, `MODUS_AUTH` ([Sign-in](#sign-in)): `none` (the caller says who they are), `password` (one shared password, for demos) or `oidc` (an identity provider; tested against Keycloak). Machine tokens in each. | Entra ID, Okta and Login.gov tested; roles and groups from claims; SAML; SCIM group sync |
 | Tenancy | One organization per installation | Tenant id in every key; Postgres row-level security for hosted; a database per tenant for regulated customers |
 | Observability | JSON logs on stdout, live counts per step (`/overview`), OCEL 2.0 export | OpenTelemetry traces, Prometheus metrics |
 | Outbox | Every message is posted to configured webhook endpoints, signed, with retries, shared by all replicas ([Webhooks](#webhooks)) | Email from Modus, REST and MCP connectors (M4) |
 | Assistant | Claude through read-only tools when `ANTHROPIC_API_KEY` is set; the built-in interpreter otherwise | |
 
-> **Treat today's server as a pilot.** Because identity is a header, anyone who can reach the
-> API can act as anyone. Run it for demos, evaluations and pilots on a trusted network, not on
-> the open internet, until OIDC lands.
+> **The default trusts whoever calls.** With `MODUS_AUTH=none` anyone who can reach the API can
+> act as anyone, administrators included. That is for a laptop or a closed network. Before
+> other people can reach a server, set `MODUS_AUTH=password` (a demo) or `MODUS_AUTH=oidc`
+> (real work), and serve it over https.
 
 ## Run it locally
 
@@ -82,8 +83,9 @@ Compose starts `postgres` (PostgreSQL 18, data in the `postgres-data` volume, pu
 at startup. The password is a development-only default (`modus-dev-only`); set
 `POSTGRES_PASSWORD` in an untracked `.env` before the volume is first created (it is spliced
 into the connection string, so use URL-safe characters). Two optional profiles hold
-infrastructure on the roadmap that Modus does not use yet: `nats` (NATS JetStream with an MQTT
-listener, for event ingest) and `keycloak` (OIDC). They never start unless named:
+extras: `nats` (NATS JetStream with an MQTT listener, for event ingest; on the roadmap, not used
+yet) and `keycloak` (an identity provider with a development realm, for trying
+[`MODUS_AUTH=oidc`](#sign-in)). They never start unless named:
 `docker compose --profile nats up -d`.
 
 Or run the image directly (in memory, unless you pass `DB_DIALECT` and `DATABASE_URL`):
@@ -438,6 +440,112 @@ is rendered.
 - Each server routes messages with its own endpoint list. During a rollout that adds an endpoint,
   messages that old pods fan out are not sent to the new endpoint.
 
+## Sign-in
+
+`MODUS_AUTH` says how the server learns who is calling. Pick by who can reach it.
+
+| `MODUS_AUTH` | Who gets in | Who they are | Use it for |
+| --- | --- | --- | --- |
+| `none` (default) | Anyone who can reach the server | Whoever they say (the `x-user-id` header; the Studio's "Working as" and "Acting as") | Your own machine, a closed network |
+| `password` | Anyone with the one shared password | Whoever they choose, as above | A demo for a team to try: it keeps strangers out, it does not tell people apart |
+| `oidc` | People your identity provider signs in, who are also people in the Modus design | Themselves; `x-user-id` is ignored | Real work |
+
+In `password` and `oidc` everything under `/api` needs a sign-in, except the health and
+readiness probes. The Studio itself still loads for anyone: without signing in it is the
+simulation in the browser, with a **Sign in** button that turns on Live.
+
+### A demo with a shared password
+
+```bash
+MODUS_AUTH=password
+MODUS_AUTH_PASSWORD=<what you hand out, 8+ characters>
+MODUS_SESSION_SECRET=<32+ random characters, e.g. openssl rand -hex 32>
+```
+
+Everyone who has the password can act as any person in the design, administrators included:
+that is the point of a demo, and the reason not to keep real work behind it. Five wrong
+passwords in a minute from one address (thirty from everywhere) pause sign-in for a minute.
+
+### An identity provider (OIDC)
+
+```bash
+MODUS_AUTH=oidc
+MODUS_PUBLIC_URL=https://modus.example.org        # where browsers reach Modus
+MODUS_OIDC_ISSUER=https://id.example.org/realms/modus
+MODUS_OIDC_CLIENT_ID=modus
+MODUS_OIDC_CLIENT_SECRET=<from the provider>      # leave out for a public client
+MODUS_OIDC_ADMINS=you@example.org                 # the first administrators
+MODUS_SESSION_SECRET=<32+ random characters>
+```
+
+At the provider, register a client for the authorization code flow with PKCE (S256) and the
+redirect address `<MODUS_PUBLIC_URL>/api/auth/callback`.
+
+- **Who a sign-in is.** The provider's `email` claim (or the claim named in
+  `MODUS_OIDC_CLAIM`, such as `preferred_username`) is matched, ignoring case, against each
+  person's **Sign-in name** on the Studio's People page. Nobody is matched by id.
+- **The first administrator.** Someone whose claim is listed in `MODUS_OIDC_ADMINS` is added to
+  the design as an administrator at their first sign-in. They give everyone else a sign-in
+  name. Only administrators can change sign-in names, and no two people share one.
+- **Everyone else** who signs in at the provider but has no sign-in name in Modus is told so
+  and gets nothing.
+- **Unverified addresses are refused.** With the `email` claim, the provider must also send
+  `email_verified: true`. Set `MODUS_OIDC_TRUST_EMAIL=true` only for a provider whose addresses
+  your organization assigns and that doesn't send the flag. For Entra ID prefer
+  `MODUS_OIDC_CLAIM=preferred_username`.
+- **Leaving.** Removing a person from the design ends their sign-in at once. Signing out of
+  Modus does not sign out of the provider.
+
+Tested against Keycloak 26. Any provider with OIDC discovery should work; Entra ID, Okta and
+Google have not been tried yet, and Login.gov (`private_key_jwt`) is not supported yet. Roles
+and groups stay in the Modus design: nothing is read from the provider's group claims yet.
+
+To try it on your machine, the Compose file has a Keycloak with a development realm (client
+`modus`, people `admin@example.org` and `clerk@example.org`, every secret `modus-dev-only`):
+
+```bash
+docker compose --profile keycloak up -d keycloak
+pnpm --filter @modus-bpm/studio build
+MODUS_AUTH=oidc MODUS_PUBLIC_URL=http://localhost:8787 \
+  MODUS_OIDC_ISSUER=http://localhost:8180/realms/modus MODUS_OIDC_ALLOW_HTTP=true \
+  MODUS_OIDC_CLIENT_ID=modus MODUS_OIDC_CLIENT_SECRET=modus-dev-only \
+  MODUS_OIDC_ADMINS=admin@example.org STATIC_DIR=../studio/dist \
+  pnpm --filter @modus-bpm/server start
+```
+
+The server and the browser must reach the provider at the same address, so the `modus`
+container in Compose cannot use this Keycloak as `localhost`: run the server on the host as
+above, or point it at a provider with a real name.
+
+### Sessions
+
+A sign-in is a cookie signed with `MODUS_SESSION_SECRET` (HttpOnly, SameSite=Lax, and Secure
+behind https), good for `MODUS_SESSION_HOURS`. Nothing is stored, so every replica with the
+same secret accepts it. Without the variable each process makes its own secret at startup:
+sign-ins end at a restart and replicas refuse each other's, so set it for anything but a
+quick try. Changing it signs everyone out.
+
+### Machines
+
+Workers and scripts send `Authorization: Bearer <token>`. `MODUS_API_TOKENS` lists them as
+`personId:token`, comma-separated, each token 24 or more characters; a caller with a token
+acts as that person, in every mode. Give a machine its own person in the design, with only
+the roles it needs.
+
+```bash
+MODUS_API_TOKENS=u_worker:$(openssl rand -hex 24)
+curl -H "Authorization: Bearer $TOKEN" https://modus.example.org/api/apps
+```
+
+### Known limits
+
+- The Studio's designer pages show a signed-in person who is not a designer the simulation,
+  with a note that they can't change the server's design.
+- A person's sign-in name goes out with the design, so colleagues can read it.
+- The load tools and the live smoke check sign in with `x-user-id` only (`MODUS_AUTH=none`).
+- The Helm chart has no values for these yet: pass them through `extraEnv`, the secrets from
+  a Secret.
+
 ## Configuration reference
 
 Every setting is an environment variable, read and checked once at startup by
@@ -465,6 +573,20 @@ a message that names the variable.
 | `WEBHOOKS_ALLOW_HTTP` | `false` | `true` allows `http://` webhook URLs. |
 | `WEBHOOKS_KEEP_DAYS` | `7` | Days to keep outbox messages that went out, 1 to 365. |
 | `WEBHOOKS_KEEP_FAILED_DAYS` | `30` | Days to keep outbox messages with a failed delivery, 1 to 365. |
+| `MODUS_AUTH` | `none` | How the server learns who is calling: `none`, `password` or `oidc`. See [Sign-in](#sign-in). With `none` on any interface but loopback the server warns at startup. |
+| `MODUS_AUTH_PASSWORD` | unset | The shared password for `MODUS_AUTH=password`, 8 or more characters. Secret: never logged. |
+| `MODUS_SESSION_SECRET` | a random one per start | Signs the sign-in cookies, 32 or more characters. Every replica needs the same one. Secret: never logged. |
+| `MODUS_SESSION_HOURS` | `12` | Hours a sign-in lasts. |
+| `MODUS_PUBLIC_URL` | unset | Where browsers reach Modus. Required for `oidc` (the redirect address is `<it>/api/auth/callback`); `https://` here marks cookies Secure. |
+| `MODUS_OIDC_ISSUER` | unset | The identity provider's issuer address. Required for `oidc`; `https://` unless `MODUS_OIDC_ALLOW_HTTP=true`. |
+| `MODUS_OIDC_CLIENT_ID` | unset | The client registered for Modus at the provider. Required for `oidc`. |
+| `MODUS_OIDC_CLIENT_SECRET` | unset | The client's secret; leave unset for a public client. Secret: never logged. |
+| `MODUS_OIDC_CLAIM` | `email` | The claim matched against people's sign-in names. |
+| `MODUS_OIDC_SCOPES` | `openid email profile` | Scopes asked of the provider. |
+| `MODUS_OIDC_ADMINS` | unset | Comma-separated claim values added as administrators at their first sign-in. |
+| `MODUS_OIDC_TRUST_EMAIL` | `false` | `true` takes an `email` claim without `email_verified: true`. |
+| `MODUS_OIDC_ALLOW_HTTP` | `false` | `true` accepts an `http://` issuer (a local Keycloak). |
+| `MODUS_API_TOKENS` | unset | Machine tokens, `personId:token` comma-separated, 24 or more characters each. Secret: never logged. |
 | `TENANT_MODE` | `single` | `multi` is planned; accepted with a warning, runs as one tenant. |
 | `MODUS_ROLES` | all six | Comma-separated roles this process plays (`api,engine,automation,scheduler,ingest,realtime`). Unknown roles stop the server; a subset is accepted with a warning and every role still runs. |
 | `NODE_ENV` | image: `production` | Standard Node.js setting. |

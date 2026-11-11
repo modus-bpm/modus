@@ -6,8 +6,15 @@
 #
 # `modus` and `postgres` start by default: Modus keeps the design, live state
 # and event log in PostgreSQL (the postgres-data volume) and runs its schema
-# migrations at startup. The nats and keycloak profiles are infrastructure the
-# roadmap adds (docs/DEPLOYMENT.md); Modus does not use them yet.
+# migrations at startup. The nats profile is infrastructure the roadmap adds; Modus
+# does not use it yet. The keycloak profile is an identity provider for trying
+# MODUS_AUTH=oidc with a server run on your machine (docs/DEPLOYMENT.md, "Sign-in").
+#
+# Sign-in: MODUS_AUTH=none by default, so anyone who can reach port 8787 can act as
+# anyone. For a demo others can reach, put in .env:
+#   MODUS_AUTH=password
+#   MODUS_AUTH_PASSWORD=<a password to hand out>
+#   MODUS_SESSION_SECRET=<32+ random characters>
 #
 # Secrets come from your shell or an untracked .env file next to this one,
 # never from this file: ANTHROPIC_API_KEY=... docker compose up
@@ -32,6 +39,19 @@ services:
       # `memory` ignores DATABASE_URL and snapshots to /data instead.
       DB_DIALECT: ${DB_DIALECT:-postgres}
       DATABASE_URL: postgres://modus:${POSTGRES_PASSWORD:-modus-dev-only}@postgres:5432/modus
+      # Sign-in (docs/DEPLOYMENT.md, "Sign-in"): none, password or oidc. Empty values count as unset.
+      MODUS_AUTH: ${MODUS_AUTH:-none}
+      MODUS_AUTH_PASSWORD: ${MODUS_AUTH_PASSWORD:-}
+      MODUS_SESSION_SECRET: ${MODUS_SESSION_SECRET:-}
+      MODUS_SESSION_HOURS: ${MODUS_SESSION_HOURS:-}
+      MODUS_PUBLIC_URL: ${MODUS_PUBLIC_URL:-}
+      MODUS_OIDC_ISSUER: ${MODUS_OIDC_ISSUER:-}
+      MODUS_OIDC_CLIENT_ID: ${MODUS_OIDC_CLIENT_ID:-}
+      MODUS_OIDC_CLIENT_SECRET: ${MODUS_OIDC_CLIENT_SECRET:-}
+      MODUS_OIDC_CLAIM: ${MODUS_OIDC_CLAIM:-}
+      MODUS_OIDC_ADMINS: ${MODUS_OIDC_ADMINS:-}
+      MODUS_OIDC_TRUST_EMAIL: ${MODUS_OIDC_TRUST_EMAIL:-}
+      MODUS_API_TOKENS: ${MODUS_API_TOKENS:-}
     volumes:
       - modus-data:/data
     depends_on:
@@ -96,11 +116,14 @@ services:
       - ./deploy/compose/nats.conf:/etc/nats/nats.conf:ro
       - nats-data:/data
 
-  # Keycloak as the OIDC provider that will replace the x-user-id header (milestone M2).
+  # Keycloak with a development realm (deploy/keycloak/modus-realm.json: client `modus`, two people),
+  # for trying MODUS_AUTH=oidc with a server run on your machine at http://localhost:8787.
   keycloak:
     profiles: [keycloak]
     image: quay.io/keycloak/keycloak:26.6
-    command: ['start-dev']
+    command: ['start-dev', '--import-realm']
+    volumes:
+      - ./deploy/keycloak:/opt/keycloak/data/import:ro
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       # Development only; set your own in .env.
