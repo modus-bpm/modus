@@ -76,10 +76,10 @@ export function findStep(app: App, nodeId: Id): { node: WfNode; wf: Workflow } |
 // ---------- Publishing ----------
 
 /** Copy the working copy into the next version and make it the one new items start on. */
-export function publishWorkflow(wf: Workflow, opts: { at?: number; note?: string } = {}): Workflow {
+export function publishWorkflow(wf: Workflow, opts: { at?: number; note?: string; by?: string } = {}): Workflow {
   const version = latestVersion(wf) + 1
   const note = opts.note?.trim()
-  const v: WorkflowVersion = { version, publishedAt: opts.at ?? 0, ...(note ? { note } : {}), snapshot: snapshotOf(wf) }
+  const v: WorkflowVersion = { version, publishedAt: opts.at ?? 0, ...(opts.by ? { publishedBy: opts.by } : {}), ...(note ? { note } : {}), snapshot: snapshotOf(wf) }
   return { ...wf, versions: [...(wf.versions ?? []), v], published: version }
 }
 

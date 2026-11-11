@@ -37,6 +37,33 @@ export function pinInFlight(sim: SimState, ctx: Ctx): number {
   return changed
 }
 
+/**
+ * The items in flight that run a workflow, reduced to what the version panels read (which version
+ * each runs, and where its work is): enough for `versionUsage`, `missingSteps` and `itemVersion` to
+ * give the same answers as over the whole state, and nothing of the items' data or history. A
+ * server sends this to a designer instead of its state.
+ */
+export function versionItems(sim: SimState, workflowId: Id): SimObject[] {
+  return activeObjects(sim)
+    .filter((obj) => runsIn(obj, workflowId))
+    .map((obj) => ({
+      id: obj.id,
+      number: obj.number,
+      typeId: obj.typeId,
+      workflowId: obj.workflowId,
+      data: {},
+      createdAt: obj.createdAt,
+      createdBy: '',
+      status: obj.status,
+      priority: obj.priority,
+      tokens: obj.tokens.map((t) => ({ id: t.id, objectId: t.objectId, workflowId: t.workflowId, nodeId: t.nodeId, enteredAt: t.enteredAt, state: t.state, forks: [], calls: t.calls })),
+      tokenSeq: obj.tokenSeq,
+      passed: [],
+      versions: obj.versions,
+      history: [],
+    }))
+}
+
 export interface VersionUsage {
   /** Items in flight on each version, by version number. */
   counts: Record<number, number>

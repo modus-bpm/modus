@@ -515,6 +515,8 @@ export interface WorkflowVersion {
   version: number
   /** When it was published (simulation minute). */
   publishedAt: number
+  /** Who published it, by name (a server records it). */
+  publishedBy?: string
   note?: string
   snapshot: WorkflowSnapshot
 }

@@ -1,8 +1,10 @@
 # Publish from the Studio to a server
 
-Status: proposed 2026-11-10, not approved. Four questions are open (section 7); each has a
-recommendation, and the rest of this document is written as if the recommendations stand.
-Follows the Workspace on the server
+Status: approved 2026-11-10, with two of the four questions decided the other way from the
+recommendation: every design page saves to the server (not workflows only), and the publish
+dialog's forecast runs on the server (not Simulation only). Drafts reach the server on Save, and
+only administrators move items in flight, as recommended. The decisions and what they changed are
+in section 7; sections 1 to 6 are written as built. Follows the Workspace on the server
 ([ARCHITECTURE.md](../ARCHITECTURE.md#the-studio-on-a-server-the-workspace-m3)). Second item in the
 [order of work](../ROADMAP.md#next).
 
@@ -39,164 +41,140 @@ So the work is plumbing and rules, not new engine behavior.
 
 ## 1. What is saved, and when
 
-The server keeps one design document, as now. Three things change it:
+The server keeps one design document, as now. In Live the Studio's designer pages work on a copy
+of it in the browser, and **Save** sends the copy back. What a save means depends on the part:
 
-| Operation | What it writes | Who |
-| --- | --- | --- |
-| **Save draft** | One workflow's draft (nodes, edges, target time, field locks, supervisors, expedite policy). Runs nothing: items keep the versions they are on. | Designer or administrator |
-| **Publish** | The draft as the next version, made the published one. With "items in flight too", also moves them (below). | Designer or administrator; moving items in flight needs an administrator |
-| **Restore as draft** | The draft, replaced by an older version's snapshot. | Designer or administrator |
+| Part of the design | When it takes effect |
+| --- | --- |
+| A workflow's map and settings (steps, paths, target time, field locks, supervisors, expedite policy) | Saved as the **draft**. Runs nothing: items keep the versions they are on until it is published. |
+| Everything else: object types, lists, people, groups, services, templates, new applications and workflows | **At once**, as in the Studio. A new workflow starts at version 1, published, from its map. |
 
-"Nobody yet" in the publish dialog is Save draft: it stores the draft on the server and publishes
-nothing.
+Nothing is sent as the designer edits: a half-drawn map shouldn't become the shared draft.
+Unsaved changes show as such, and leaving with them asks first.
 
-The Studio edits the draft in the browser as it does today and sends it when the designer presses
-**Save draft** (or publishes). It does not save on every change: a half-drawn map shouldn't
-become the shared draft, and one request per drag would fight other designers. Unsaved changes
-show as such, and leaving with them asks first.
+"Nobody yet" in the publish dialog is Save. **Restore as draft** copies an older version onto the
+map in the browser, and Save makes it the server's draft. **Publish** is its own request (section
+4), and the Studio saves first when there are unsaved changes.
 
-Everything else in the design (object types, lists, people, groups, services, templates, new
-applications and workflows) is **not editable on a server in this piece** (question 1). In Live
-those pages are read-only and say so. An administrator can still replace the whole design with a
-file (section 5), which is how a pilot gets its own application onto a server.
+Because the rest of the design is live the moment it is saved, the server refuses a save that
+would strand work or lock people out:
+
+- removing an application that has items, a workflow that items were created in or are running,
+  or an object type that items have;
+- removing a person who holds work (reassign it first);
+- changing a workflow's kind or object type (make a new workflow);
+- leaving the design with no administrator;
+- changing anyone's roles, unless the caller is an administrator.
+
+A workflow's versions and which one is published are the server's: a save can't add, change or
+remove them, whatever the document sent says. Services keep their connection details (address,
+credential name), which the server never sends out and a save can't set.
 
 ## 2. Two designers at once
 
-The design document gets a **revision**: a number that goes up by one with every write.
+The design document has a **revision**: a number that goes up by one with every write.
 
-- Every write names the revision it was made against. If the stored one is newer, the server
-  refuses with 409 and says who changed what, and the Studio reloads the design and keeps the
-  designer's unsaved draft beside it so they can save again or discard.
-- Writes are per workflow, so two designers on different workflows don't collide in practice:
-  the server applies the workflow's change to the current document. Only two writes to the
-  **same workflow** conflict.
-- Each save records who and when on the workflow (`draftBy`, `draftAt`), so History can say whose
-  draft it is.
+- A save names the revision it was made from. If the stored one is newer, the server refuses
+  with 409 and changes nothing.
+- The Studio then loads the newer design and carries the designer's own changes over to it, part
+  by part (a workflow, an object type, a list, a person, a group, a service, a template, an
+  application's own settings). Parts only the designer changed keep their changes; parts only
+  someone else changed take theirs; the save is tried again. A part **both** changed is a real
+  conflict: the Studio names it and asks whose to keep.
 
-No locks and no merging: a second designer on the same workflow sees the conflict and decides.
+No locks and no merging inside a part.
 
-## 3. One transaction, and the other replicas
+## 3. Writes, and the other replicas
 
-Publish with "items in flight too" changes the design and the state together: the version must
-exist before items are pinned to it, and a server that crashed between the two would leave items
-on a version nobody has. So the design write joins the command's transaction:
+The design row is written on its own, never inside a command's transaction, so `Storage.transact`
+keeps its shape. Publishing for items in flight is three steps in an order that is safe to stop
+after any of them:
 
-- `Storage.transact` takes an optional `design` in what the command returns, written in the same
-  transaction as the state, audit entries, projections and outbox, under the application's lock.
-- A design write locks the design row first, then the application: always in that order, so two
-  publishes can't deadlock.
-- Publish for new items only, Save draft and Restore change no state, but go the same way (an
-  empty command) so there is one path and one order.
-- `pinInFlight` runs before the version is added, as in the Studio, so items that started before
-  a workflow had versions stay where they are.
+1. A command pins every item in flight to the version it runs now (`pinInFlight`), so items that
+   started before the workflow had versions don't follow the publish.
+2. The design write adds the version and makes it the published one.
+3. For "items in flight too", a command moves them (`migrateItems`).
 
-**Replicas.** The change notice carries the design revision when a commit changed the design. A
-replica that hears a newer revision than it holds reloads the design **before** it applies the
-state change, in the application's queue, so no command there runs items against a design that
-lacks their version. On reconnect it reloads the design with everything else. A migration adds
-`design.revision` (starting at 1) and is compatible with the previous release.
+A server that dies after step 2 has published for new items only, which is a state an
+administrator can choose anyway, and "move items" in History finishes the job. The other order
+(items pinned to a version the design doesn't have yet) can't happen.
+
+**Replicas.** Every design write tells listeners its revision. A replica that hears a newer one
+reloads the design. That alone would leave a gap: a command arriving before the notice would run
+items against a design that lacks their version. So each transaction is handed the stored
+revision, and a command whose server holds an older design reloads it first. On reconnect the
+design is reloaded with everything else. Migration 0006 adds `design.revision` (starting at 1)
+and is compatible with the previous release.
 
 **After the first start.** The runtime writes the sample design only when storage has none and
-`seedIfEmpty` is on, as now. From then on the stored design is the only source: a stored design
-is never replaced or patched from the sample, and a server with an empty database and
-`seedIfEmpty` off starts with an empty design rather than the sample.
+`seedIfEmpty` is on. From then on the stored design is the only source: it is never replaced or
+patched from the sample, and with `seedIfEmpty` off an empty database starts with an empty design.
+
+**Unversioned designs.** A design stored by an earlier release has workflows with no versions,
+which run their map directly. Before the first write, each gets a version 1 made from its map as
+it stands, so saving a draft never changes what runs.
+
+Browsers learn of a design change from the event stream (`event: design`), and reload it.
 
 ## 4. Routes
 
-All under `/api/design`, all needing a designer or an administrator unless said otherwise.
-
 | Route | Does |
 | --- | --- |
-| `GET /api/design` | As now, for any named user, plus `revision`. Drafts are left out for people who are neither designers nor administrators: they get each workflow as its published version. |
-| `PUT /api/design/apps/:app/workflows/:wf/draft` `{ revision, draft }` | Save draft. |
-| `POST …/workflows/:wf/publish` `{ revision, draft?, note, who: 'new' \| 'all', stepMap? }` | Publish (saving `draft` first when sent). `who: 'all'` needs an administrator and answers with the migration: how many moved, and which stayed and why. |
-| `POST …/workflows/:wf/restore` `{ revision, version }` | Restore a version as the draft. |
-| `GET …/workflows/:wf/usage?draft=` | Who runs which version, and the steps items are at that the draft (the saved one, or the one sent) doesn't have: what the step-mapping preview shows. |
-| `POST …/workflows/:wf/migrate` `{ toVersion, objectIds?, stepMap? }` | Move items between versions without publishing (History's "move items", and one item from its drawer). Administrator. |
-| `PUT /api/design` `{ revision, design }` | Replace the whole design. Administrator. Section 5. |
+| `GET /api/design` | As before, for any named user, plus `revision`. People who are neither designers nor administrators get each workflow as its published version, without the draft. |
+| `PUT /api/design` `{ revision, design }` | Save: drafts for workflows, at once for the rest, under the rules in section 1. Designer or administrator. |
+| `POST /api/apps/:app/workflows/:wf/publish` `{ revision, note?, who: 'new' \| 'all', stepMap? }` | Publish the saved draft as the next version. `who: 'all'` needs an administrator and answers with the migration: how many moved, and which stayed and why. |
+| `GET /api/apps/:app/workflows/:wf/items` | The items in flight that run the workflow, reduced to which version each runs and where its work is (core's `versionItems`): what History, the publish dialog and the step mapping count. Designer, administrator or auditor. |
+| `POST /api/apps/:app/workflows/:wf/migrate` `{ toVersion, objectIds?, stepMap? }` | Move items between versions without publishing. Administrator. |
+| `POST /api/apps/:app/workflows/:wf/forecast` `{ who, stepMap?, hours }` | Run a copy of the live state forward with and without the draft published (core's `previewPublish`). Designer or administrator. |
 
-The draft is validated before it is stored: the shape (zod, from the model's types), that step and
-path ids are unique and paths join steps that exist, and that it stays the same workflow (id, kind
-and object type can't change here). What a design may reference (a group, a service, a field) is
-checked the way the Studio already warns about it, and refused only where the engine would fail.
+The document a save sends is checked before anything is stored: its shape, that ids are unique,
+that paths join steps that exist and workflows name an object type their application has.
 
-## 5. Replacing the whole design
+## 5. The forecast
 
-`PUT /api/design` takes a design exported from a Studio. It is how a pilot's own application
-reaches a server until the other design pages are editable there.
-
-- Refused when it would remove an application that has items, or a workflow version that items
-  in flight run. Those are the two ways to strand work.
-- Workflows keep their version history when the incoming design has the same workflow: versions
-  on the server that the file lacks are kept, never dropped.
-- New applications start empty on every replica when it hears the revision.
+"Try it first" in the publish dialog asks the server. The server copies the application's state,
+and runs the copy forward twice with **simulated people and arrivals** (the design's handling
+times, outcome weights and arrival rates), once as it is and once with the draft published the way
+the dialog says. Nothing is written. It answers with the same comparison the Simulation shows.
+It runs in the request, so a long horizon on a large state takes a noticeable moment.
 
 ## 6. The Studio
 
-In Live, the designer's workflow page works on the server's design:
+In Live the designer pages show and edit the server's design; in Simulation, the design in the
+browser, as before. One switch (the Monitor's and Workspace's Live / Simulation) decides for the
+whole Studio.
 
-- The map opens on the server's draft. Edits stay in the browser until **Save draft**; a marker
-  shows "unsaved changes" against the saved draft, as "draft differs from version N" does today.
-- The publish dialog, History, step mapping and the item-version control read usage from the
-  server and call the routes above. The dialog's choices and wording stay as they are.
-- "Try a draft before publishing" (running the live state forward with and without the draft)
-  stays a Simulation feature in this piece (question 4). In Live the dialog shows what changes
-  and who is at removed steps, without the forecast.
-- Simulation is unchanged: the design in the browser, the simulation's items.
+- The design store holds whichever design is being edited. Entering Live puts the browser's own
+  design aside (it stays in the browser's storage untouched) and loads the server's; leaving
+  brings it back.
+- The header shows **Save** with a count of changed parts, and "Saved" otherwise.
+- The publish dialog, History, step mapping and the item-version control count items from
+  `…/items` and act through the routes. Their choices and wording are unchanged.
+- Until OIDC the Studio acts as the administrator chosen in the Monitor.
 
-The designer pages reuse one source for "the design being edited", the way the Workspace got one
-source for its work: the browser's design in Simulation, the server's in Live.
+## 7. Decisions
 
-## 7. Open questions
-
-1. **How much of the design is editable on a server in this piece?**
-   Recommended: workflows only (draft, publish, restore, migrate), plus replacing the whole design
-   from a file. Object types, lists, people and groups have no draft: in the Studio a change to
-   them is live at once, and on a server that means a deleted field or group changes running work
-   the moment it is saved. They deserve their own rules (and people and groups mostly come from
-   the identity provider once OIDC is in), so they wait.
-   Alternative: every design page saves to the server, live at once as in the Studio. More useful
-   for a pilot setting itself up, and the riskiest thing a designer could do to live work.
-
-2. **When does a draft reach the server?**
-   Recommended: when the designer presses Save draft (or publishes).
-   Alternative: saved as they edit, a moment after each change. Nothing is ever lost, but every
-   half-finished state is the shared draft and conflicts between two designers become common.
-
-3. **Who may do what?**
-   Recommended: designers and administrators save drafts, restore and publish for new items;
-   only administrators move items in flight (at publish or later). Moving running work is the
-   administrator's lever everywhere else in Modus.
-   Alternative: designers may do all of it.
-
-4. **The forecast in the publish dialog ("try a draft") in Live.**
-   Recommended: leave it to Simulation for now. It runs the whole state forward in the browser,
-   and in Live the browser holds only one person's share of the state.
-   Alternative: run it on the server and send the result. More work and a heavy request.
+1. **How much of the design is editable on a server?** Decided: every design page, live at once
+   as in the Studio (recommended: workflows only, plus replacing the design from a file). This
+   added the refusals in section 1 and the part-by-part carry-over in section 2, and made a
+   separate "replace the whole design" route unnecessary: importing a file in Live is an edit
+   like any other, saved the same way.
+2. **When does a draft reach the server?** Decided as recommended: on Save.
+3. **Who may do what?** Decided as recommended: designers and administrators save and publish
+   for new items; only administrators move items in flight; only administrators change roles.
+4. **The forecast in Live.** Decided: run it on the server (recommended: Simulation only). See
+   section 5.
 
 ## 8. Tests
 
-- Core: nothing new to prove about versions and migration; one test that a draft saved, published
-  and migrated through the server's operations leaves the same design and state as the same steps
-  in the Studio's actions.
 - Storage contract (memory and PostgreSQL): the revision goes up by one per write; a write against
-  an old revision is refused and changes nothing; a design written in a command's transaction
-  commits or rolls back with it.
+  an old revision is refused and changes nothing; of several writers against one revision, one
+  gets through; listeners hear each revision; a transaction is told the revision it runs under.
 - Runtime, two replicas on one database: the second runs a newly published version for a new item
-  without a restart; hears design and state from one commit in the right order; reloads the design
-  on reconnect.
-- Routes: who may (designer, administrator, neither); conflict (409) leaves the design as it was;
-  validation refuses a broken draft; publish for new items leaves items in flight on their
-  version; publish for all moves them and reports the skipped; restore; replace refuses to strand
-  work; drafts are hidden from people who aren't designers.
-- Studio: the design source's store against a fake server (save, conflict and reload, publish,
-  restore, usage).
-- The live smoke check: publish a version through the routes and create an item that runs it.
-
-## 9. Order of work
-
-1. Revision, design in the command's transaction, replicas reload: storage and runtime, with tests.
-2. The routes and their rules.
-3. Replace the whole design.
-4. The Studio's design source and the versions panels in Live.
-5. Docs and the smoke check.
+  without a restart, with or without having heard the notice.
+- Routes: who may; conflict leaves the design as it was; a broken document is refused; each
+  refusal in section 1; publish for new items leaves items in flight on their version; publish
+  for all moves them and reports the skipped; drafts are hidden from people who aren't designers.
+- Studio: the design source's store against a fake server (save, conflict and carry-over,
+  publish, the items for the version panels).
+- The live smoke check: save a draft, publish it and create an item that runs it.
