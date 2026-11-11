@@ -3,9 +3,10 @@
 
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type AuditEntry, changedItems, changesBetween, completeJob, copyState, createObject, type Ctx, type Design, newSim, type OutboxMessage, pollJobs, projectItem, publishWorkflow, runnable, type SimState, withChanges, withoutItems, workNext } from '@modus-bpm/core'
+import { type AuditEntry, changedItems, changesBetween, completeJob, copyState, createObject, type Ctx, type Design, missingSteps, newSim, type OutboxMessage, pollJobs, projectItem, publishWorkflow, runnable, type SimObject, type SimState, withChanges, withoutItems, workNext, workspaceState } from '@modus-bpm/core'
 import { seedDesign } from '@modus-bpm/core/model/seed'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { buildServer } from '../http'
 import type { Delivery, LoggedEvent, Storage, Write } from '../ports'
 import { DesignConflict, Runtime } from '../runtime'
 import { Sender } from '../sender'
@@ -581,6 +582,99 @@ export function storageContract(name: string, target: ContractTarget) {
         // A write made from a revision that is no longer the stored one changes nothing, wherever it is made.
         await expect(publishRenamed(b, 2, 'Too late')).rejects.toBeInstanceOf(DesignConflict)
         expect((await (await reopen()).designs.current())?.revision).toBe(3)
+        await a.stop()
+        await b.stop()
+      })
+
+      it('take a designer through save, publish, move and restore on one server while the other runs each result', async () => {
+        const a = await Runtime.create({ storage: await create() })
+        const b = await Runtime.create({ storage: await peer() })
+        const apiA = buildServer(a, { logger: false })
+        const apiB = buildServer(b, { logger: false })
+        const as = (user: string) => ({ 'x-user-id': user })
+        type Served = Design & { revision: number }
+        const wfOf = (d: Design) => d.apps.find((x) => x.id === 'app_invoice')!.workflows.find((w) => w.id === 'w_invoice')!
+        const designOn = async (api: typeof apiA, user = 'u_avery') => (await api.inject({ method: 'GET', url: '/api/design', headers: as(user) })).json() as Served
+        const saveOnA = async (change: (wf: ReturnType<typeof wfOf>) => void) => {
+          const d = await designOn(apiA)
+          change(wfOf(d))
+          const res = await apiA.inject({ method: 'PUT', url: '/api/design', headers: as('u_avery'), payload: { revision: d.revision, design: d } })
+          expect(res.statusCode).toBe(200)
+          return (res.json() as { value: Served }).value
+        }
+        const publishOnA = async (revision: number, who: 'new' | 'all', stepMap: Record<string, string> = {}) => {
+          const res = await apiA.inject({ method: 'POST', url: '/api/apps/app_invoice/workflows/w_invoice/publish', headers: as('u_avery'), payload: { revision, who, stepMap } })
+          expect(res.statusCode).toBe(200)
+          return (res.json() as { value: { revision: number; version: number; migration?: { moved: number; skipped: unknown[] } } }).value
+        }
+        /** An invoice made through the second server, matched there, waiting with a clerk. */
+        const invoiceOnB = async (invno: string) => {
+          const made = await apiB.inject({ method: 'POST', url: '/api/apps/app_invoice/items', headers: as('u_maya'), payload: { workflowId: 'w_invoice', data: { f_invno: invno, f_vendor: 'l_vendors_0', f_lines: [{ id: 'row_1', c_desc: 'Desks', c_qty: 1, c_price: 100 }], f_dept: 'l_org_0', f_cc: 'l_org_1' } } })
+          expect(made.statusCode).toBe(201)
+          const polled = (await apiB.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 't', max: 10 } })).json() as { jobs: Array<{ id: string }> }
+          for (const j of polled.jobs) await apiB.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, payload: { outputs: { matched: true } } })
+          return b.state('app_invoice').objects[(made.json() as { value: { id: string } }).value.id]!
+        }
+        const onB = (id: string) => b.state('app_invoice').objects[id]!
+        const clerkLabel = (d: Design) => wfOf(d).nodes.find((n) => n.id === 'n_clerk')?.data.label
+
+        // Save a draft on A. B holds it as the draft and still runs what was published.
+        const first = await invoiceOnB('TWO-1')
+        const saved = await saveOnA((wf) => void (wf.nodes.find((n) => n.id === 'n_clerk')!.data.label = 'Clerk check'))
+        await vi.waitFor(async () => expect((await designOn(apiB)).revision).toBe(saved.revision))
+        expect(clerkLabel(await designOn(apiB))).toBe('Clerk check')
+        expect(clerkLabel(await designOn(apiB, 'u_maya'))).toBe('AP clerk review')
+        expect((await invoiceOnB('TWO-2')).versions).toEqual({ w_invoice: 1 })
+
+        // Publish for new items on A. B's very next item runs version 2; the items in flight keep theirs.
+        const second = await publishOnA(saved.revision, 'new')
+        expect(second.version).toBe(2)
+        const fresh = await invoiceOnB('TWO-3')
+        expect(fresh.versions).toEqual({ w_invoice: 2 })
+        expect(onB(first.id).versions).toEqual({ w_invoice: 1 })
+
+        // A draft that replaces the clerk step, published for items in flight too, with the step map.
+        const replaced = await saveOnA((wf) => {
+          const clerk = wf.nodes.find((n) => n.id === 'n_clerk')!
+          wf.nodes.push({ ...structuredClone(clerk), id: 'n_clerk2', data: { ...structuredClone(clerk.data), label: 'Clerk review, new' } } as typeof clerk)
+          wf.nodes = wf.nodes.filter((n) => n.id !== 'n_clerk')
+          for (const e of wf.edges) {
+            if (e.source === 'n_clerk') e.source = 'n_clerk2'
+            if (e.target === 'n_clerk') e.target = 'n_clerk2'
+          }
+        })
+        // What the step-mapping preview shows, asked of B: three items at the step version 3 doesn't have.
+        await vi.waitFor(async () => expect((await designOn(apiB)).revision).toBe(replaced.revision))
+        const inFlight = (await apiB.inject({ method: 'GET', url: '/api/apps/app_invoice/workflows/w_invoice/items', headers: as('u_avery') })).json() as { clock: number; items: SimObject[] }
+        const missing = missingSteps(workspaceState('app_invoice', inFlight.clock, inFlight.items), b.ctx('app_invoice'), 'w_invoice', wfOf(b.design).nodes)
+        expect(missing).toMatchObject([{ nodeId: 'n_clerk', count: 3 }])
+        const third = await publishOnA(replaced.revision, 'all', { n_clerk: 'n_clerk2' })
+        expect(third).toMatchObject({ version: 3, migration: { moved: 3, skipped: [] } })
+        await vi.waitFor(() => {
+          for (const o of Object.values(b.state('app_invoice').objects)) {
+            expect(o.versions).toEqual({ w_invoice: 3 })
+            expect(o.tokens.map((t) => t.nodeId)).toEqual(['n_clerk2'])
+          }
+        })
+
+        // Restore version 1 as the draft on A. On B it is the draft, version 3 stays live, and new items run 3.
+        const v1 = wfOf(await designOn(apiA)).versions!.find((v) => v.version === 1)!
+        const restored = await saveOnA((wf) => Object.assign(wf, structuredClone(v1.snapshot)))
+        await vi.waitFor(async () => expect((await designOn(apiB)).revision).toBe(restored.revision))
+        const nowB = wfOf(await designOn(apiB))
+        expect(nowB.nodes.find((n) => n.id === 'n_clerk')?.data.label).toBe('AP clerk review')
+        expect(nowB.nodes.some((n) => n.id === 'n_clerk2')).toBe(false)
+        expect(nowB.published).toBe(3)
+        const last = await invoiceOnB('TWO-4')
+        expect(last.versions).toEqual({ w_invoice: 3 })
+        expect(last.tokens.map((t) => t.nodeId)).toEqual(['n_clerk2'])
+
+        // What storage holds is what both hold.
+        const stored = (await (await reopen()).designs.current())!
+        expect(stored.revision).toBe(restored.revision)
+        for (const rt of [a, b]) expect(rt.designRevision).toBe(stored.revision)
+        await apiA.close()
+        await apiB.close()
         await a.stop()
         await b.stop()
       })
