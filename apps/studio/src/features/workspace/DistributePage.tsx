@@ -1,15 +1,14 @@
 import { GripVertical, Scale, Send, UserX } from 'lucide-react'
 import { type DragEvent, useState } from 'react'
 import { Avatar, Badge, Button, Card, cx, EmptyState, Meter, Select } from '../../components/ui'
-import { type DistributionSummary, type WorkItem, workDistribute, workDistributeEvenly } from '@modus-bpm/core'
+import type { DistributionSummary, WorkItem } from '@modus-bpm/core'
 import { objectTitle } from '@modus-bpm/core/model/format'
 import type { App, Group, Id, User } from '@modus-bpm/core/model/types'
 import { formatDuration } from '@modus-bpm/core/model/util'
-import { useSim } from '../../store/sim'
 import { useUi } from '../../store/ui'
 import { PriorityBadge } from '../objects/PriorityBadge'
 import { sortItems } from './format'
-import { perform, type WorkData } from './live'
+import { currentLoads, perform, type WorkData } from './live'
 import { Count, DueLabel, PageHeader } from './parts'
 
 const DRAG_TYPE = 'application/x-modus-token'
@@ -25,17 +24,16 @@ interface Props {
 /** For dispatchers: hand waiting work to the people on the team, by drag and drop or from a menu. */
 export function DistributePage({ me, app, users, groups, data }: Props) {
   const { distribution, clock } = data
-  const appId = useUi((s) => s.appId)
-  // Live open items per person (read at the throttled render rate).
-  const loads = useSim.getState().views[appId]?.users ?? {}
+  // Open items per person (read at the throttled render rate).
+  const loads = currentLoads()
 
-  const hand = (item: WorkItem, toId: Id) => {
+  const hand = async (item: WorkItem, toId: Id) => {
     const to = users.find((u) => u.id === toId)
-    if (perform((sim, ctx) => workDistribute(sim, ctx, item.token.id, me.id, toId)).ok) useUi.getState().toast(`${item.obj.number} → ${to?.name ?? 'teammate'}`, 'success')
+    if ((await perform({ do: 'distribute', tokenId: item.token.id, to: toId })).ok) useUi.getState().toast(`${item.obj.number} → ${to?.name ?? 'teammate'}`, 'success')
   }
 
-  const evenly = (d: DistributionSummary) => {
-    const r = perform((sim, ctx) => workDistributeEvenly(sim, ctx, d.nodeId, me.id))
+  const evenly = async (d: DistributionSummary) => {
+    const r = await perform({ do: 'distributeEvenly', stepId: d.nodeId })
     if (r.ok)
       useUi
         .getState()

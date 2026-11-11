@@ -7,6 +7,7 @@ import type { App, Id } from '@modus-bpm/core/model/types'
 import { PriorityBadge } from '../objects/PriorityBadge'
 import { agoText } from './format'
 import { DueLabel, STATUS, titleHidden } from './parts'
+import { workStore } from '../../server/work'
 import type { SearchSort } from './store'
 
 // Shared by the Search page, the quick-search overlay and Ask Modus: running a
@@ -25,12 +26,32 @@ export function useDebounced<T>(value: T, ms: number): T {
   return settled
 }
 
-/** Live search as you type (debounced), scoped to what the person may see; follows the simulation via `tick`. */
+/**
+ * Search as you type (debounced), scoped to what the person may see, and kept current via `tick`.
+ * Over the simulation the engine searches in this browser. Over a server (a live context) the server
+ * searches everything the person may read there, and the items it finds are kept so they can be opened.
+ */
 export function useItemSearch(sim: SimState | undefined, ctx: Ctx, userId: Id, query: string, tick: string, opts: { sort?: SearchSort; limit: number }): { result?: SearchResult; settled: boolean } {
   const q = useDebounced(query.trim(), 150)
   const { sort, limit } = opts
-  const result = useMemo(() => (sim && q ? searchItems(sim, ctx, q, { userId, limit, sort }) : undefined), [sim, ctx, userId, q, sort, limit, tick])
-  return { result, settled: q === query.trim() }
+  const live = !!ctx.live
+  const local = useMemo(() => (!live && sim && q ? searchItems(sim, ctx, q, { userId, limit, sort }) : undefined), [live, sim, ctx, userId, q, sort, limit, tick])
+  const [remote, setRemote] = useState<{ q: string; result: SearchResult }>()
+  useEffect(() => {
+    if (!live || !q) return
+    let dropped = false
+    workStore
+      .getState()
+      .search(q, { sort, limit })
+      .then((result) => !dropped && setRemote({ q, result }))
+      // Unreachable for a moment: the results already shown stay until the next change brings new ones.
+      .catch(() => {})
+    return () => {
+      dropped = true
+    }
+  }, [live, userId, q, sort, limit, tick])
+  if (!live) return { result: local, settled: q === query.trim() }
+  return { result: q && remote ? remote.result : undefined, settled: q === query.trim() && (!q || remote?.q === q) }
 }
 
 // ---------- Highlighting ----------

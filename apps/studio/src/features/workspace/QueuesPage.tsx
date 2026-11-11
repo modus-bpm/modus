@@ -1,7 +1,7 @@
 import { ChevronDown, Hand, Inbox, Play } from 'lucide-react'
 import { useState } from 'react'
 import { Button, Card, cx, EmptyState } from '../../components/ui'
-import { type QueueSummary, type WorkItem, workClaim } from '@modus-bpm/core'
+import type { QueueSummary, WorkItem } from '@modus-bpm/core'
 import { objectTitle } from '@modus-bpm/core/model/format'
 import type { App, User } from '@modus-bpm/core/model/types'
 import { formatDuration } from '@modus-bpm/core/model/util'
@@ -15,12 +15,12 @@ import { useWorkspace } from './store'
 const SHOW = 25
 
 /** Shared queues you fetch from: what is waiting in each, with Claim and Get next. */
-export function QueuesPage({ me, app, users, data }: { me: User; app: App; users: User[]; data: WorkData }) {
+export function QueuesPage({ app, users, data }: { me: User; app: App; users: User[]; data: WorkData }) {
   const { queues, clock } = data
   const total = queues.reduce((n, q) => n + q.items.length, 0)
 
-  const claim = (item: WorkItem, andOpen: boolean) => {
-    const r = perform((sim, ctx) => workClaim(sim, ctx, item.token.id, me.id))
+  const claim = async (item: WorkItem, andOpen: boolean) => {
+    const r = await perform({ do: 'claim', tokenId: item.token.id })
     if (!r.ok) return
     if (andOpen) useWorkspace.getState().openItem(item.token.id)
     else useUi.getState().toast(`${item.obj.number} is in your basket.`, 'success')
@@ -34,7 +34,7 @@ export function QueuesPage({ me, app, users, data }: { me: User; app: App; users
           subtitle="Shared work for your groups. Claim what you want to do, or press Get next for the most urgent item across all of them."
           actions={
             queues.length > 0 && (
-              <Button variant="primary" icon={<Play size={14} />} disabled={!total} onClick={() => getNext(me.id)}>
+              <Button variant="primary" icon={<Play size={14} />} disabled={!total} onClick={() => void getNext()}>
                 Get next{total > 0 && <span className="font-normal opacity-80"> · {total.toLocaleString()} waiting</span>}
               </Button>
             )

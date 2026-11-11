@@ -6,27 +6,19 @@ import {
   type Ctx,
   describeToken,
   PRIORITIES,
-  setExpedite,
   type SimState,
   type SupervisedStep,
-  superviseAssign,
-  superviseRedistribute,
-  superviseRelease,
-  superviseRetry,
-  superviseReturn,
-  superviseSetPriority,
   type WorkItem,
 } from '@modus-bpm/core'
 import { objectTitle } from '@modus-bpm/core/model/format'
 import type { App, Distribution, Group, Id, Priority, User } from '@modus-bpm/core/model/types'
 import { formatDuration } from '@modus-bpm/core/model/util'
-import { useSim } from '../../store/sim'
 import { useUi } from '../../store/ui'
 import { PriorityBadge } from '../objects/PriorityBadge'
 import { openFound } from './actions'
 import { ExpediteDialog } from './Expedite'
 import { isRejectLike, sortItems } from './format'
-import { perform, type WorkData } from './live'
+import { currentLoads, perform, type WorkData } from './live'
 import { Count, DueLabel, PageHeader, titleHidden } from './parts'
 import { ItemReadView } from './RequestsPage'
 import { useWorkspace } from './store'
@@ -60,9 +52,8 @@ const toast = (text: string, tone: 'success' | 'warn' | 'info' = 'success') => u
 export function SupervisePage({ me, app, ctx, users, groups, sim, data }: Props) {
   const viewId = useWorkspace((s) => s.viewId)
   const stepId = useWorkspace((s) => s.superviseStep)
-  const appId = useUi((s) => s.appId)
-  // Live open items per person (read at the throttled render rate).
-  const loads: Loads = useSim.getState().views[appId]?.users ?? {}
+  // Open items per person (read at the throttled render rate).
+  const loads: Loads = currentLoads()
   const { supervision } = data
 
   const viewed = viewId ? sim?.objects[viewId] : undefined
@@ -281,8 +272,8 @@ function StepDetail({ step, ...row }: RowCtx & { step: SupervisedStep }) {
   const max = Math.max(3, ...team.map((t) => t.here))
   const ws = useWorkspace.getState()
 
-  const redistribute = () => {
-    const r = perform((sim, ctx) => superviseRedistribute(sim, ctx, step.nodeId, me.id))
+  const redistribute = async () => {
+    const r = await perform({ do: 'superviseRedistribute', stepId: step.nodeId })
     if (r.ok)
       toast(
         r.value ? `Moved ${r.value} ${r.value === 1 ? 'item' : 'items'} at “${step.label}” so everyone has a fair share.` : 'Nothing to move: the work not yet started is already shared out evenly.',
@@ -391,9 +382,9 @@ function SupervisedRow({ item: i, showStep, me, app, users, groups, sim, ctx, cl
   const team = (groups.find((g) => g.id === i.step.groupId)?.memberIds ?? []).flatMap((id) => users.filter((u) => u.id === id && u.id !== i.token.userId))
   const where = sim ? describeToken(sim, ctx, i.token) : ''
 
-  const reassign = (toId: Id) => {
+  const reassign = async (toId: Id) => {
     const to = users.find((u) => u.id === toId)
-    if (perform((s, c) => superviseAssign(s, c, i.token.id, toId, me.id)).ok) toast(`${i.obj.number} is now with ${toId === me.id ? 'you' : (to?.name ?? 'them')}.`)
+    if ((await perform({ do: 'superviseAssign', tokenId: i.token.id, to: toId })).ok) toast(`${i.obj.number} is now with ${toId === me.id ? 'you' : (to?.name ?? 'them')}.`)
   }
 
   return (
@@ -433,15 +424,15 @@ function SupervisedRow({ item: i, showStep, me, app, users, groups, sim, ctx, cl
         <Button size="sm" onClick={() => setReleasing(true)} title="Choose an outcome on their behalf, with a comment">
           Release…
         </Button>
-        <RowMenu item={i} me={me} onExpedite={() => setExpediting(true)} />
+        <RowMenu item={i} onExpedite={() => setExpediting(true)} />
       </span>
-      {releasing && <ReleaseModal item={i} me={me} users={users} onClose={() => setReleasing(false)} />}
-      {expediting && <ExpediteDialog obj={i.obj} me={me} wf={i.wf} clock={clock} onClose={() => setExpediting(false)} />}
+      {releasing && <ReleaseModal item={i} users={users} onClose={() => setReleasing(false)} />}
+      {expediting && <ExpediteDialog obj={i.obj} wf={i.wf} clock={clock} onClose={() => setExpediting(false)} />}
     </li>
   )
 }
 
-function RowMenu({ item: i, me, onExpedite }: { item: WorkItem; me: User; onExpedite: () => void }) {
+function RowMenu({ item: i, onExpedite }: { item: WorkItem; onExpedite: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
@@ -449,17 +440,17 @@ function RowMenu({ item: i, me, onExpedite }: { item: WorkItem; me: User; onExpe
     setOpen(false)
     fn()
   }
-  const giveBack = () => {
-    if (perform((s, c) => superviseReturn(s, c, i.token.id, me.id)).ok) toast(`${i.obj.number} went back to ${returnTo(i.step.distribution)}.`)
+  const giveBack = async () => {
+    if ((await perform({ do: 'superviseReturn', tokenId: i.token.id })).ok) toast(`${i.obj.number} went back to ${returnTo(i.step.distribution)}.`)
   }
-  const retry = () => {
-    if (perform((s, c) => superviseRetry(s, c, i.token.id, me.id)).ok) toast(`Retried ${i.obj.number} at “${i.step.label}”.`)
+  const retry = async () => {
+    if ((await perform({ do: 'superviseRetry', tokenId: i.token.id })).ok) toast(`Retried ${i.obj.number} at “${i.step.label}”.`)
   }
-  const setPriority = (p: Priority) => {
-    if (p !== i.obj.priority && perform((s, c) => superviseSetPriority(s, c, i.obj.id, p, me.id)).ok) toast(`${i.obj.number} is now ${p} priority.`)
+  const setPriority = async (p: Priority) => {
+    if (p !== i.obj.priority && (await perform({ do: 'supervisePriority', itemId: i.obj.id, priority: p })).ok) toast(`${i.obj.number} is now ${p} priority.`)
   }
-  const unExpedite = () => {
-    if (perform((s, c) => setExpedite(s, c, i.obj.id, me.id, false)).ok) toast(`${i.obj.number} is no longer expedited.`)
+  const unExpedite = async () => {
+    if ((await perform({ do: 'expedite', itemId: i.obj.id, on: false })).ok) toast(`${i.obj.number} is no longer expedited.`)
   }
   const held = i.token.state === 'assigned' || i.token.state === 'working'
   return (
@@ -527,14 +518,14 @@ function MenuItem({ icon, children, onClick, disabled, hint }: { icon: ReactNode
 }
 
 /** Release on someone's behalf: pick the outcome and say why. */
-function ReleaseModal({ item: i, me, users, onClose }: { item: WorkItem; me: User; users: User[]; onClose: () => void }) {
+function ReleaseModal({ item: i, users, onClose }: { item: WorkItem; users: User[]; onClose: () => void }) {
   const outcomes = i.step.outcomes
   const [outcomeId, setOutcomeId] = useState(outcomes.find((o) => !isRejectLike(o.label))?.id ?? outcomes[0]?.id ?? '')
   const [comment, setComment] = useState('')
   const holder = users.find((u) => u.id === i.token.userId)
   const outcome = outcomes.find((o) => o.id === outcomeId)
-  const submit = () => {
-    if (!perform((s, c) => superviseRelease(s, c, i.token.id, outcomeId, comment, me.id)).ok) return
+  const submit = async () => {
+    if (!(await perform({ do: 'superviseRelease', tokenId: i.token.id, outcomeId, comment })).ok) return
     toast(`${i.obj.number} released as “${outcome?.label}”${holder ? ` on behalf of ${holder.name}` : ''}.`)
     onClose()
   }

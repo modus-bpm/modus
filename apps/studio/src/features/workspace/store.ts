@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AssistantReply } from '@modus-bpm/core'
 import type { Id, Priority } from '@modus-bpm/core/model/types'
+import { liveStore } from '../../server/live'
 import { useSim } from '../../store/sim'
 import { useUi } from '../../store/ui'
 
@@ -164,6 +165,12 @@ export const useWorkspace = create<WorkspaceStore>()(
 // A different person or app starts with nothing open.
 useUi.subscribe((s, prev) => {
   if (s.actingAs !== prev.actingAs || s.appId !== prev.appId) useWorkspace.setState({ tokenId: null, requestId: null, viewId: null, superviseStep: null, filter: NO_FILTER })
+})
+
+// Live and Simulation number their items alike: nothing open, drafted or answered carries over from one to the other.
+liveStore.subscribe((s, prev) => {
+  if ((s.available && s.mode === 'live') === (prev.available && prev.mode === 'live')) return
+  useWorkspace.setState({ drafts: {}, tokenId: null, requestId: null, viewId: null, superviseStep: null, chats: {} })
 })
 
 // A reset (or imported) simulation reuses token ids; drop drafts so they can't land on a different item,

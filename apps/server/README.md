@@ -14,13 +14,16 @@ TEST_DATABASE_URL=postgres://modus:modus-dev-only@127.0.0.1:5432/modus \
   pnpm --filter @modus-bpm/server test:pg      # the storage contract against PostgreSQL too
 pnpm --filter @modus-bpm/server build          # one bundled file: dist/server.mjs
 pnpm --filter @modus-bpm/studio build && \
-  pnpm --filter @modus-bpm/server smoke:live   # the live Monitor end to end (see below)
+  pnpm --filter @modus-bpm/server smoke:live   # the live Monitor and Workspace end to end (see below)
 ```
 
 `smoke:live` starts the server on a free port (or `SMOKE_PORT`) serving `apps/studio/dist`, checks
 that `/` is the Studio, reads the design and the Monitor as the sample administrator, opens the
 stream, creates an invoice, and expects `/monitor` to count it and the stream to name it within a
-few seconds. It stops the server either way and exits non-zero on the first failed check. It needs
+few seconds. Then it follows that invoice through the Workspace routes: in its requester's
+Workspace, matched by a worker, in a clerk's Workspace, started and released by them, gone from
+theirs and still found by the requester's search. It runs in memory, or on PostgreSQL when
+`SMOKE_DATABASE_URL` names a throwaway database. It stops the server either way and exits non-zero on the first failed check. It needs
 the studio build, so it isn't part of `pnpm test`.
 
 | Concern | Where |
@@ -53,12 +56,13 @@ do it, `404` when the thing doesn't exist (or they can't see it), `409` when the
 | --- | --- |
 | Discovery | `GET /api` (route list), `GET /api/apps`, `GET …/overview` |
 | Health | `GET /api/health` (liveness), `GET /api/ready` (readiness; `503` while shutting down or while the database is unreachable) |
-| Items | `POST …/items`, `GET …/items/:idOrNumber` (only what the caller may see), `POST …/items/:id/expedite` `{ on, reason }` |
+| Items | `POST …/items`, `GET …/items/:idOrNumber` (only what the caller may see), `POST …/items/:id/expedite` `{ on, reason }`, `POST …/items/:id/priority` `{ priority }` (the requester, or whoever is working it) |
 | Search | `GET …/search?q=&sort=relevance\|newest\|due\|priority&limit=` → `{ total, hits, facets }` |
 | Assistant | `POST …/assistant` `{ question, history?: [{ role, text }] }` → `{ text, query?, hits?, suggestions, source, notice? }` |
-| My work | `GET …/my/basket · queues · distribution · requests · supervision`, `POST …/my/next` |
+| My work | `GET …/my/basket · queues · distribution · requests · supervision`, `POST …/my/next`, `POST …/my/distribution/:stepId/evenly` (a dispatcher hands out everything waiting at a step) |
+| Workspace | `GET …/workspace` → `{ clock, items, olderRequests, loads }` (the caller's share of the state, as they may see it), `GET …/workspace/items?ids=&pin=` → `{ items, gone, clock, loads }`, `GET …/workspace/search?q=&sort=&limit=` (hits with their items), `POST …/workspace/ask` `{ question }` (the built-in assistant, with the items it found). The Studio's Workspace runs on these. |
 | Work items | `POST …/work/:id/claim · start · save · release · return · delegate · distribute` |
-| Supervisors | `POST …/supervise/:id/assign` `{ to }` · `return` · `release` `{ outcomeId, comment }` · `retry`, `POST …/supervise/steps/:stepId/redistribute` |
+| Supervisors | `POST …/supervise/:id/assign` `{ to }` · `return` · `release` `{ outcomeId, comment }` · `retry`, `POST …/supervise/steps/:stepId/redistribute`, `POST …/supervise/items/:id/priority` `{ priority }` |
 | Administration | `POST …/admin/work/:id/assign · move · retry` (administrators, or supervisors of that work) |
 | Workers | `POST /api/jobs/poll`, `POST /api/jobs/:id/complete`, `POST /api/jobs/:id/fail` |
 | Process mining | `GET …/export/ocel` (OCEL 2.0 JSON of the event log) |

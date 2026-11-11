@@ -1,16 +1,19 @@
-import { Eye, FileText, House, Inbox, Info, Layers, type LucideIcon, Plus, Search, Send, Sparkles, Users, X } from 'lucide-react'
+import { Eye, FileText, House, Inbox, Info, Layers, type LucideIcon, Plus, Radio, Search, Send, Sparkles, Users, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
-import { cx, EmptyState } from '../../components/ui'
+import { cx, EmptyState, Segmented } from '../../components/ui'
 import type { Ctx } from '@modus-bpm/core'
 import type { App, Group, User } from '@modus-bpm/core/model/types'
 import { formatClock } from '@modus-bpm/core/model/util'
-import { useApp, useDesign } from '../../store/design'
 import { SPEEDS, useSim } from '../../store/sim'
+import { liveStore, type LiveMode, type LiveStatus } from '../../server/live'
+import { useLive } from '../../server/useLive'
+import { useWork } from '../../server/useWork'
+import { workStore } from '../../server/work'
 import { useUi } from '../../store/ui'
 import { AskPanel } from './AskPanel'
 import { DistributePage } from './DistributePage'
 import { HomePage } from './HomePage'
-import { useLiveSim, useWorkData, useWorkspaceCtx } from './live'
+import { useWorkData, useWorkSource, type WorkSource } from './live'
 import { MyWorkPage } from './MyWorkPage'
 import { NewRequestPage } from './NewRequestPage'
 import { Count } from './parts'
@@ -26,18 +29,25 @@ import { SupervisePage } from './SupervisePage'
 
 // The Workspace: what the people doing the work see. Pick who you are working as,
 // then work your basket, fetch from queues, hand out work, supervise, search and
-// follow your requests while the simulation keeps everyone else busy.
+// follow your requests. Over the simulation it keeps everyone else busy; served by a
+// Modus server (Live), the work is the server's and every action goes to its API.
 
 export function WorkspaceView() {
   const appId = useUi((s) => s.appId)
   const actingAs = useUi((s) => s.actingAs)
-  const app = useApp(appId)
-  const users = useDesign((s) => s.design.users)
-  const groups = useDesign((s) => s.design.groups)
-  const ctx = useWorkspaceCtx()
+  const source = useWorkSource()
+  const { live, app, users, groups, ctx } = source
   const people = useMemo(() => (app ? appPeople(app, users, groups) : []), [app, users, groups])
   const suggested = useMemo(() => (ctx ? suggestedPeople(ctx, people) : []), [ctx, people])
   const me = people.find((u) => u.id === actingAs)
+  const meId = me?.id
+
+  // Live: read the server's design for the open application while the Workspace shows it.
+  useEffect(() => {
+    if (!live) return
+    void workStore.getState().open(appId)
+    return () => workStore.getState().close()
+  }, [live, appId])
 
   // Someone who doesn't take part in this app: start as its first suggested persona.
   useEffect(() => {
@@ -45,6 +55,13 @@ export function WorkspaceView() {
     if (!me && first) useUi.getState().setActingAs(first.id)
   }, [me, people, suggested])
 
+  // Live: once the server runs this application and you are one of its people, follow your work there.
+  const served = live && !!app
+  useEffect(() => {
+    if (served && meId) void workStore.getState().follow(meId)
+  }, [served, meId, appId])
+
+  if (live && (!app || !ctx || !source.sim)) return <LiveWaiting appId={appId} source={source} nobody={!!app && !people.length} />
   if (!app || !ctx) return null
   if (!people.length) {
     return (
@@ -54,7 +71,48 @@ export function WorkspaceView() {
     )
   }
   if (!me) return null
-  return <Workspace key={`${app.id}:${me.id}`} app={app} me={me} ctx={ctx} users={users} groups={groups} people={people} suggested={suggested} />
+  return <Workspace key={`${app.id}:${me.id}`} app={app} me={me} ctx={ctx} users={users} groups={groups} people={people} suggested={suggested} source={source} />
+}
+
+/** Live, with nothing to show yet: still loading, the server doesn't run this application, or it can't be reached. */
+function LiveWaiting({ appId, source, nobody }: { appId: string; source: WorkSource; nobody: boolean }) {
+  const loaded = useWork((s) => s.appId === appId && !!s.design)
+  const title = source.status === 'error' ? 'The Workspace can’t show the server’s work' : loaded && !source.app ? 'The server doesn’t run this application' : nobody ? 'No one works in this application yet' : 'Loading your work from the server…'
+  return (
+    <EmptyState icon={<Radio size={28} />} title={title}>
+      <span className="block">
+        {source.status === 'error'
+          ? source.error
+          : loaded && !source.app
+            ? 'This application is in the Studio in this browser, and the server runs the design it was started with. Switch to Simulation to try it here.'
+            : nobody
+              ? 'The server’s design gives none of its steps a group and none of its object types create permissions.'
+              : source.status === 'reconnecting'
+                ? 'The server isn’t answering. Trying again…'
+                : 'One moment.'}
+      </span>
+      <span className="mt-4 inline-block">
+        <SourceSwitch />
+      </span>
+    </EmptyState>
+  )
+}
+
+/** Live (the server's work) or Simulation (this browser): shown only when a server serves the Studio. */
+function SourceSwitch() {
+  const mode = useLive((s) => s.mode)
+  return (
+    <Segmented<LiveMode>
+      size="sm"
+      ariaLabel="Workspace source"
+      value={mode}
+      onChange={(m) => liveStore.getState().setMode(m)}
+      options={[
+        { value: 'live', label: 'Live', title: 'The server’s real work: what you do here is done there' },
+        { value: 'simulation', label: 'Simulation', title: 'This browser’s simulation of the design' },
+      ]}
+    />
+  )
 }
 
 interface WorkspaceProps {
@@ -65,10 +123,12 @@ interface WorkspaceProps {
   groups: Group[]
   people: User[]
   suggested: Array<{ user: User; role: string }>
+  source: WorkSource
 }
 
-function Workspace({ app, me, ctx, users, groups, people, suggested }: WorkspaceProps) {
-  const { sim, tick } = useLiveSim()
+function Workspace({ app, me, ctx, users, groups, people, suggested, source }: WorkspaceProps) {
+  const { sim, tick, live } = source
+  const available = useLive((s) => s.available)
   const data = useWorkData(sim, ctx, me.id, tick)
   const stored = useWorkspace((s) => s.page)
   const quickOpen = useWorkspace((s) => s.quickOpen)
@@ -180,11 +240,16 @@ function Workspace({ app, me, ctx, users, groups, people, suggested }: Workspace
           </button>
         </div>
         <div className="flex-1" />
-        <SimStatus clock={data.clock} />
+        {available && (
+          <div className="mx-3 flex justify-center">
+            <SourceSwitch />
+          </div>
+        )}
+        {live ? <LiveStatusBox clock={data.clock} status={source.status} error={source.error} /> : <SimStatus clock={data.clock} />}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <IntroBanner />
+        <IntroBanner live={live} />
         <div className="min-h-0 flex-1">
           {page === 'home' && <HomePage {...common} />}
           {page === 'work' && <MyWorkPage {...common} />}
@@ -219,16 +284,40 @@ function SimStatus({ clock }: { clock: number }) {
   )
 }
 
-/** Shown until dismissed: how the Workspace and the simulation fit together. */
-function IntroBanner() {
+/** The server's work: whether the Workspace is hearing from it, and its clock. */
+function LiveStatusBox({ clock, status, error }: { clock: number; status: LiveStatus | undefined; error: string | undefined }) {
+  const ok = status === 'live'
+  return (
+    <div className="m-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-[11px] leading-snug text-slate-600">
+      <p className="flex items-center gap-1.5 font-medium text-slate-800">
+        <span className={cx('h-2 w-2 rounded-full', ok ? 'animate-pulse bg-emerald-500' : status === 'error' ? 'bg-rose-500' : 'bg-amber-500')} />
+        {ok ? 'Live · the server’s work' : status === 'error' ? 'Not connected' : 'Reconnecting…'}
+      </p>
+      <p className="mt-0.5 font-mono text-[10.5px] text-slate-500">{formatClock(clock)}</p>
+      <p className="mt-1">{ok ? 'What you do here is done on the server, and colleagues’ work shows up as it happens.' : (error ?? 'Waiting for the server. What you see may be out of date.')}</p>
+    </div>
+  )
+}
+
+/** Shown until dismissed: how the Workspace and its source fit together. */
+function IntroBanner({ live }: { live: boolean }) {
   const dismissed = useWorkspace((s) => s.introDismissed)
   if (dismissed) return null
   return (
     <div className="flex shrink-0 items-start gap-3 border-b border-brand-100 bg-brand-50/70 px-5 py-2.5 text-[13px] text-slate-700">
       <Info size={16} className="mt-0.5 shrink-0 text-brand-600" />
       <p className="min-w-0 flex-1 leading-snug">
-        <span className="font-medium text-slate-900">You’re working as one person while the simulation runs everyone else.</span> Colleagues keep releasing their work and new items keep arriving. Your
-        own basket waits for you: nothing in it moves until you act. Switch person any time with “Working as”.
+        {live ? (
+          <>
+            <span className="font-medium text-slate-900">This is the server’s real work.</span> What you do here is saved there and everyone else sees it. Until sign-in arrives, you choose who you are working
+            as with “Working as”.
+          </>
+        ) : (
+          <>
+            <span className="font-medium text-slate-900">You’re working as one person while the simulation runs everyone else.</span> Colleagues keep releasing their work and new items keep arriving.
+            Your own basket waits for you: nothing in it moves until you act. Switch person any time with “Working as”.
+          </>
+        )}
       </p>
       <button type="button" aria-label="Dismiss" onClick={() => useWorkspace.getState().dismissIntro()} className="rounded p-0.5 text-slate-400 hover:bg-white hover:text-slate-700">
         <X size={14} />

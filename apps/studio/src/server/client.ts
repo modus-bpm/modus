@@ -1,8 +1,9 @@
-// The Studio's client for a Modus server: detection, the Monitor's read endpoints and the live stream.
+// The Studio's client for a Modus server: detection, the Monitor's read endpoints, the Workspace's
+// reads and commands, and the live stream.
 // Browser-only APIs (fetch, ReadableStream, TextDecoder): the same file runs in Vitest on Node.
 // Identity is the prototype's `x-user-id` header until OIDC lands.
 
-import type { Design, ExplorerRow, FeedEntry, Id, ServiceDef, SimState, SimView, WorkingOn } from '@modus-bpm/core'
+import type { AssistantReply, Design, ExplorerRow, FeedEntry, Id, Result, SearchResult, ServiceDef, SimObject, SimState, SimView, WorkingOn } from '@modus-bpm/core'
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -120,6 +121,86 @@ export function getItems(appId: Id, f: ItemFilters, page: { limit: number; curso
   if (f.q) q.set('q', f.q)
   if (page.cursor) q.set('cursor', page.cursor)
   return api<ItemsPage>(`${appPath(appId)}/monitor/items?${q}`, o)
+}
+
+// ---------- The Workspace ----------
+
+/** How much work each person has open, and whether they are working now. */
+export type Loads = Record<Id, { open: number; working: boolean }>
+
+/** One person's share of an application's state, as they may see it (core's `workspaceSlice`). */
+export interface WorkspacePayload {
+  clock: number
+  items: SimObject[]
+  /** Finished requests of theirs the server left out (it sends the newest). */
+  olderRequests: number
+  loads: Loads
+}
+
+/** Items that changed, as the person may see them now; `gone` have left their Workspace. */
+export interface WorkspaceChanges {
+  clock: number
+  items: SimObject[]
+  gone: Id[]
+  loads: Loads
+}
+
+export const getWorkspace = (appId: Id, o: ApiOptions) => api<WorkspacePayload>(`${appPath(appId)}/workspace`, o)
+
+/** `ids` changed (from the stream); `pin` are items opened from a search, kept while they may be read. */
+export function getWorkspaceItems(appId: Id, ids: Id[], pin: Id[], o: ApiOptions) {
+  const q = new URLSearchParams()
+  if (ids.length) q.set('ids', ids.join(','))
+  if (pin.length) q.set('pin', pin.join(','))
+  return api<WorkspaceChanges>(`${appPath(appId)}/workspace/items?${q}`, o)
+}
+
+export type SearchSort = 'relevance' | 'newest' | 'due' | 'priority'
+
+/** The engine's search over everything the person may read on the server, each hit with its item. */
+export function searchWorkspace(appId: Id, query: string, opts: { sort?: SearchSort; limit: number }, o: ApiOptions) {
+  const q = new URLSearchParams({ q: query, limit: String(opts.limit) })
+  if (opts.sort) q.set('sort', opts.sort)
+  return api<SearchResult>(`${appPath(appId)}/workspace/search?${q}`, o)
+}
+
+/** A POST with a JSON body, as `o.user`. */
+function post(path: string, body: unknown, o: ApiOptions): Promise<Response> {
+  return (o.fetch ?? fetch)(path, {
+    method: 'POST',
+    signal: o.signal,
+    headers: { accept: 'application/json', 'content-type': 'application/json', 'x-user-id': o.user },
+    body: JSON.stringify(body ?? {}),
+  })
+}
+
+/** Ask Modus on the server: the built-in assistant's reply over everything the person may read. */
+export async function askWorkspace(appId: Id, question: string, o: ApiOptions): Promise<AssistantReply> {
+  const res = await post(`${appPath(appId)}/workspace/ask`, { question }, o)
+  if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`.trim())
+  return (await res.json()) as AssistantReply
+}
+
+/** One action of the Workspace as a request: a path under the application and its body. */
+export interface CommandRequest {
+  path: string
+  body?: unknown
+}
+
+/**
+ * Run a command. The engine's answer comes back as it is, a refusal included (the server answers those
+ * 403, 404 or 409 with `{ ok: false, error }`): only a caller the server doesn't know, a bad request or
+ * a failing server throws.
+ */
+export async function command<T>(appId: Id, req: CommandRequest, o: ApiOptions): Promise<Result<T>> {
+  const res = await post(`${appPath(appId)}${req.path}`, req.body, o)
+  let body: { ok?: unknown; value?: unknown; error?: unknown } | undefined
+  try {
+    body = (await res.json()) as typeof body
+  } catch {}
+  if (res.ok && body?.ok === true) return { ok: true, value: body.value as T }
+  if ([403, 404, 409].includes(res.status) && typeof body?.error === 'string') return { ok: false, error: body.error }
+  throw new ApiError(res.status, typeof body?.error === 'string' ? body.error : `${res.status} ${res.statusText}`.trim())
 }
 
 // ---------- The live stream ----------

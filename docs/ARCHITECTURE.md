@@ -313,12 +313,13 @@ rewritten as one full line now and then.
 | Discovery | `GET /api`, `GET /api/health`, `GET /api/ready`, `GET /api/apps`, `GET /api/apps/:app/overview` |
 | Process mining | `GET /api/apps/:app/export/ocel` (OCEL 2.0 JSON of the event log) |
 | Items | `POST /api/apps/:app/items`, `GET /api/apps/:app/items/:id` (field-security filtered) |
-| My work | `GET …/my/basket`, `…/my/queues`, `…/my/distribution`, `…/my/requests`, `POST …/my/next` |
+| My work | `GET …/my/basket`, `…/my/queues`, `…/my/distribution`, `…/my/requests`, `POST …/my/next`, `POST …/my/distribution/:step/evenly` |
+| Workspace | `GET …/workspace` (one person's share of the state, as they may see it), `…/workspace/items?ids=&pin=`, `…/workspace/search?q=`, `POST …/workspace/ask` |
 | Work items | `POST …/work/:id/claim · start · save · release · return · delegate · distribute` |
 | Administration | `POST …/admin/work/:id/assign · move · retry` (administrators and supervisors of that work) |
 | Search and assistant | `GET …/search?q=`, `POST …/assistant` (Claude with tools when configured; built-in otherwise) |
-| Supervision | `GET …/my/supervision`, `POST …/supervise/:id/assign · return · release · retry`, `POST …/supervise/steps/:step/redistribute` |
-| Expedite | `POST …/items/:id/expedite {on, reason}` (checked against the process's policy) |
+| Supervision | `GET …/my/supervision`, `POST …/supervise/:id/assign · return · release · retry`, `POST …/supervise/steps/:step/redistribute`, `POST …/supervise/items/:id/priority` |
+| Expedite and priority | `POST …/items/:id/expedite {on, reason}` (checked against the process's policy), `POST …/items/:id/priority {priority}` (the requester, or whoever is working it) |
 | Workers | `POST /api/jobs/poll`, `POST /api/jobs/:id/complete`, `POST /api/jobs/:id/fail` |
 | Live | `GET /api/apps/:app/stream` (Server-Sent Events, below; any named user) |
 | Design | `GET /api/design` (the published design; services without connection details) |
@@ -345,6 +346,52 @@ including what-if. Until OIDC, the Studio sends `x-user-id` as an administrator 
 one picked from the design). Like every route, this trusts the self-asserted `x-user-id`; don't
 expose a server publicly before OIDC. The Monitor is read-only on the server for now. The standalone build
 (Pages, `pnpm dev`) has no server and is unchanged.
+
+### The Studio on a server: the Workspace (M3)
+
+Served by a Modus server with Live chosen, the Workspace works the server's real work. Every page
+reads what the server sent and every action is a request to the API; nothing is simulated behind
+it. The same **Live / Simulation** switch sits in the Workspace's sidebar, and Simulation is the
+in-browser simulation as before.
+
+The pages are the ones the simulation uses, unchanged. They need an engine state to run the read
+models over (`basketOf`, `queuesFor`, `distributionFor`, `requestsBy`, `supervisionFor`), so the
+server sends each person their share of the state rather than ready-made lists:
+
+- **`GET …/workspace`** returns the items in the caller's Workspace (core's `workspaceSlice`):
+  active items with work in their basket, in a queue they fetch from, at a step they hand work
+  out for or at a people step they supervise, and the requests they made (finished ones newest
+  first, up to 200). A test runs every person of every sample application through the read
+  models over the slice and over the whole state and expects the same lists.
+- **Field security is applied on the server** (core's `workspaceItem`). An item's data is built
+  from its type's fields, leaving out those hidden from the caller, and history lines that show a
+  hidden field read their redacted text. Someone who meets an item only in a worklist and may not
+  read it otherwise gets a row's worth: number, title, priority, due date and where its work is.
+  No other data, no history, no expedite reason. Workload counts (`loads`, for the delegate, hand
+  out and reassign pickers) cover only the caller's teams and the groups they hand out to or
+  supervise.
+- **Keeping it current.** The Studio follows `…/stream`. A `change` event names the items that
+  changed; the Studio asks `…/workspace/items?ids=` for just those, as the caller may see them
+  now, and the answer says which have left their Workspace (`gone`). `items: null`, a dropped
+  stream or a tab that was hidden leads to one full reload. Refetches are throttled to one a
+  second.
+- **Acting.** The Workspace's actions are one list of commands
+  (`apps/studio/src/features/workspace/commands.ts`), each with two forms: the engine operation,
+  run on the simulation, and the request for the route that runs the same operation on the
+  server. After a command the Studio reloads the caller's Workspace before it reports the result,
+  so the item they just took is there to open. Refusals (403, 404, 409) come back as the engine's
+  own message and show as a warning.
+- **Search and Ask Modus** go to the server (`…/workspace/search`, `…/workspace/ask`), which
+  searches everything the caller may read, not only their Workspace. Hits carry their items, and
+  the Studio keeps them (the newest 200) so a hit can be opened; `pin=` on `…/workspace/items`
+  keeps those current for as long as the caller may read them.
+
+Until OIDC the Workspace sends `x-user-id` as the person chosen with "Working as", from the
+server's design. Known limits, left for when a deployment shows they matter: every connected
+Workspace asks about every changed item (the stream isn't filtered per person); a command's
+reload may be answered by another replica that hasn't heard of it yet, in which case the stream
+corrects it a moment later; an administrator's Workspace holds every active item, since they
+supervise everything; attachments still hold only the file's name and size.
 
 ## Request sequences
 
@@ -549,7 +596,7 @@ customers who need hard separation.
 | --- | --- | --- |
 | **M1** | Kernel hardening | Split the engine's command handlers from the simulation drivers further (`decide/evolve` over typed events); property tests and a "one million simulated items, zero stuck tokens" fuzz run; versioned JSON Schemas for designs. *Partly done: live mode, tokens, split/join, subflows, OCEL export, separation of duties, line items, search, assistant, supervisors, expedite, workflow versions and migration. The rest waits for a first real deployment ([order of work](ROADMAP.md#next)).* |
 | **M2** | Server on Postgres | Kysely migrations; events + projections + outbox + timers in one transaction per command, so several servers can share a database; object types, objects, lists, attachments; OIDC login; single image + Compose. *Storage done: a PostgreSQL adapter (Kysely, versioned migrations in code, run at startup) stores the design, each application's state (JSON) and the event log (`UNIQUE (app_id, item_id, seq)`); every command commits state, audit entries, item and work-item projections, outbox rows and the clock in one transaction under the application's row lock; several replicas share one database (LISTEN/NOTIFY, one clock per application by advisory lock); a shared storage contract suite runs against memory and Postgres; Docker Compose runs Modus on Postgres by default. Locking is per application; per item after M1. The outbox is written, and sent to signed webhooks with retries by every server. Next: OIDC, and attachments when a deployment needs files; then object types, objects and lists ([order of work](ROADMAP.md#next)).* |
-| **M3** | Work service and Workspace on the server | Worklists and all distribution modes with SKIP LOCKED claims; delegation, out of office, SLA timers with business calendars; the studio's Workspace and Monitor wired to the API and the live stream. *Monitor done: Live / Simulation on a served Studio, administrator reads over the API and the stream. Next: the Workspace, then publishing designs from the Studio to the server.* |
+| **M3** | Work service and Workspace on the server | Worklists and all distribution modes with SKIP LOCKED claims; delegation, out of office, SLA timers with business calendars; the studio's Workspace and Monitor wired to the API and the live stream. *Monitor and Workspace done: Live / Simulation on a served Studio; the Monitor reads the administrator routes and the stream, and the Workspace works each person's share of the state through the API. Next: publishing designs from the Studio to the server.* |
 | **M4** | Automation | Email from Modus; REST/OpenAPI and MCP connectors; worker SDKs (TypeScript, Python, .NET, Java) from OpenAPI; retries, incidents, tracing. *Done ahead of it: the outbox sender (signed webhooks with retries).* |
 | **M5** | Scale, ingest, analytics | Stream ingest and triage; OCEL/XES export; simulation calibrated from the log; Helm chart; load tests (target 100 signals/s sustained, 1,000 concurrent Workspace users). |
 | **M6** | Hardening, second database, v1.0 | SQL Server adapter certified by the contract suite; SCIM/SAML; multi-tenancy; backup/upgrade runbooks; SBOM, signing, air-gap bundle; external security review. Oracle in v1.1. |

@@ -131,7 +131,7 @@ export function MyWorkPage({ me, app, ctx, users, groups, sim, tick, data }: Pro
             subtitle={open ? undefined : 'Everything assigned to you. Use ↑ ↓ or j k to move and Enter to open.'}
             actions={
               queues.length > 0 && (
-                <Button variant="primary" size="sm" icon={<Play size={13} />} onClick={() => getNext(me.id)} title="Pull the most urgent item from your queues">
+                <Button variant="primary" size="sm" icon={<Play size={13} />} onClick={() => void getNext()} title="Pull the most urgent item from your queues">
                   Get next
                 </Button>
               )

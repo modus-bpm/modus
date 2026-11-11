@@ -3,7 +3,7 @@
 // save, release, delegate, distribute). Each returns a Result so the UI — and
 // later the API — can explain a refusal instead of failing silently.
 
-import { blockedBy, blockedFields, type FieldVerdict } from '../model/security'
+import { blockedBy, blockedFields, fieldAccessMap, type FieldVerdict } from '../model/security'
 import { normalizeData } from '../model/tables'
 import type { ExpeditePolicy, FieldAccess, FieldDef, Id, Priority, WfNode } from '../model/types'
 import {
@@ -484,6 +484,15 @@ export function createRefusals(ctx: Ctx, workflowId: Id, userId: Id, data: Recor
   return blockedFields({ type, wf, userId, groups: ctx.groups, admin: hasRole(idx, userId, 'admin'), creating: true }, data).filter((b) => !b.field.total)
 }
 
+/** What this person may do with each field of a new item (drives the create form). Empty for an unknown workflow. */
+export function createAccess(ctx: Ctx, workflowId: Id, userId: Id): Record<Id, FieldAccess> {
+  const idx = buildIndex(ctx)
+  const wf = idx.wf.get(workflowId)
+  const type = idx.type.get(wf?.objectTypeId ?? '')
+  if (!wf || !type) return {}
+  return fieldAccessMap({ type, wf, userId, groups: ctx.groups, admin: hasRole(idx, userId, 'admin'), creating: true })
+}
+
 /** Raise or lower the priority of an item you are working or created. */
 export function workSetPriority(sim: SimState, ctx: Ctx, objectId: Id, userId: Id, priority: Priority): Result {
   const obj = sim.objects[objectId]
@@ -548,7 +557,8 @@ export function superviseSetPriority(sim: SimState, ctx: Ctx, objectId: Id, prio
   return adminSetPriority(sim, ctx, objectId, priority, userName(idx, byUserId))
 }
 
-function supervisesItem(idx: Index, obj: SimObject, userId: Id): boolean {
+/** Does this person supervise the item: its process, or any of the work it has now? */
+export function supervisesItem(idx: Index, obj: SimObject, userId: Id): boolean {
   return supervisesProcess(indexFor(idx, obj), obj.workflowId, userId) || obj.tokens.some((t) => canSuperviseToken(idx, obj, t, userId))
 }
 
