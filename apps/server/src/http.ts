@@ -21,6 +21,15 @@ import {
   adminRetry,
   ask,
   basketOf,
+  ensureVersions,
+  hasDraftChanges,
+  migrateItems,
+  pinInFlight,
+  previewPublish,
+  publishedVersion,
+  publishWorkflow,
+  runnable,
+  versionItems,
   buildIndex,
   canCreate,
   createRefusals,
@@ -80,9 +89,10 @@ import {
   workspaceSlice,
 } from '@modus-bpm/core'
 import { answer, type ModelAssistant } from './assistant'
+import { DesignRefused, designUse, parseDesign, takeDesign } from './designs'
 import { canRead, designDto, findItem, hitDto, itemDto, workItemDto } from './dto'
 import { liveChanges } from './live'
-import { NotFound, type Runtime, StorageUnavailable } from './runtime'
+import { DesignConflict, NotFound, type Runtime, StorageUnavailable } from './runtime'
 import type { Sender } from './sender'
 
 export interface ServerOptions {
@@ -162,6 +172,9 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof NotFound) return reply.code(404).send({ ok: false, error: err.message })
     if (err instanceof Unauthorized) return reply.code(401).send({ ok: false, error: err.message })
+    if (err instanceof DesignRefused) return reply.code(err.status).send({ ok: false, error: err.message })
+    // The revision now stored, so the Studio can load it and carry its changes over.
+    if (err instanceof DesignConflict) return reply.code(409).send({ ok: false, error: err.message, revision: err.revision })
     if (err instanceof StorageUnavailable) {
       reply.log.warn({ err }, err.message)
       return reply.code(503).header('retry-after', '5').send({ ok: false, error: err.message })
@@ -185,11 +198,12 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   // One view per committed state, shared by every live stream, the overview and the Monitor. A committed
   // state never changes (commands run on a copy), so its view doesn't either; without this each open
   // stream computed its own after every change.
-  const views = new WeakMap<SimState, SimView>()
+  // A view also depends on the design: one computed under an older design is computed again.
+  const views = new WeakMap<SimState, { app: Ctx['app']; view: SimView }>()
   const viewOf = (sim: SimState, ctx: Ctx) => {
     let v = views.get(sim)
-    if (!v) views.set(sim, (v = computeView(sim, ctx)))
-    return v
+    if (!v || v.app !== ctx.app) views.set(sim, (v = { app: ctx.app, view: computeView(sim, ctx) }))
+    return v.view
   }
 
   // Probes run every few seconds; log them only when something is wrong.
@@ -225,8 +239,126 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
    * TODO: once OIDC lands, review who may read it and whether people's roles should go out to everyone.
    */
   app.get('/api/design', async (req) => {
-    void who(req) // any named user; 401 otherwise
-    return designDto(rt.design)
+    const user = who(req) // any named user; 401 otherwise
+    return designFor(user)
+  })
+
+  // ----- Designing on the server: save the design, publish a workflow's draft, move items between versions -----
+  // See docs/plans/2026-11-10-publish-to-server-design.md. A workflow's map is its draft and runs nothing until
+  // published; the rest of the design is live once saved, so designs.ts refuses a save that would strand work.
+
+  const roleOf = (user: Id) => rt.design.users.find((u) => u.id === user)?.roles ?? []
+  const mayDesign = (user: Id) => roleOf(user).includes('admin') || roleOf(user).includes('designer')
+  const designersOnly = 'Only a designer or an administrator can change the design.'
+
+  /** The design as this person gets it, with its revision. Drafts are for designers: everyone else gets each workflow as published. */
+  const designFor = (user: Id) => {
+    const design = mayDesign(user) ? rt.design : { ...rt.design, apps: rt.design.apps.map((a) => ({ ...a, workflows: a.workflows.map((w) => runnable(w)) })) }
+    return { ...designDto(design), revision: rt.designRevision }
+  }
+
+  /** The application's clock, or 0 for one this server doesn't hold yet. */
+  const clockOf = (appId: Id) => {
+    try {
+      return rt.clockNow(appId)
+    } catch {
+      return 0
+    }
+  }
+
+  const saveBody = z.object({ revision: z.number().int().min(0), design: z.unknown() })
+  /** Save the design. A workflow's map is saved as its draft; everything else takes effect at once. */
+  app.put('/api/design', { bodyLimit: 32 * 1024 * 1024 }, async (req, reply) => {
+    const user = who(req)
+    if (!mayDesign(user)) return send(reply, refuse(403, designersOnly))
+    const body = saveBody.parse(req.body)
+    const sent = parseDesign(body.design)
+    await rt.changeDesign(body.revision, (have) => {
+      const states = have.apps.flatMap((a) => (rt.design.apps.some((x) => x.id === a.id) ? [{ appId: a.id, sim: rt.state(a.id) }] : []))
+      return takeDesign(have, sent, { admin: roleOf(user).includes('admin') }, designUse(states), Math.max(0, ...have.apps.map((a) => clockOf(a.id))))
+    })
+    return { ok: true, value: designFor(user) }
+  })
+
+  const wfParams = z.object({ app: z.string(), wf: z.string() })
+  const stepMap = z.record(z.string().max(200), z.string().max(200)).default({})
+  const workflowOf = (appId: Id, wfId: Id) => rt.ctx(appId).app.workflows.find((w) => w.id === wfId)
+
+  const publishBody = z.object({ revision: z.number().int().min(0), note: z.string().max(1000).default(''), who: z.enum(['new', 'all']).default('new'), stepMap })
+  /**
+   * Publish a workflow's saved draft as its next version. `new`: new items start on it and items in
+   * flight finish where they are. `all` (administrators): the items in flight move onto it too; work
+   * at a step the version removed goes where `stepMap` says, or the item stays and the answer says why.
+   */
+  app.post('/api/apps/:app/workflows/:wf/publish', async (req, reply) => {
+    const { app: appId, wf: wfId } = wfParams.parse(req.params)
+    const user = who(req)
+    const b = publishBody.parse(req.body)
+    if (!mayDesign(user)) return send(reply, refuse(403, 'Only a designer or an administrator can publish.'))
+    if (b.who === 'all' && !roleOf(user).includes('admin')) return send(reply, refuse(403, 'Only an administrator can move items in flight onto a new version.'))
+    if (!workflowOf(appId, wfId)) return send(reply, refuse(404, 'No such workflow.'))
+    if (b.revision !== rt.designRevision) throw new DesignConflict(rt.designRevision)
+    const name = nameOf(rt.ctx(appId), user)
+    // In this order a server that stops partway leaves a state someone could have chosen: items pinned to the
+    // versions they run, then the version published for new items, then the items in flight moved.
+    await rt.run(appId, (sim, ctx) => pinInFlight(sim, ctx))
+    let version = 0
+    const revision = await rt.changeDesign(b.revision, (have) => {
+      const a = have.apps.find((x) => x.id === appId)
+      const wf = a?.workflows.find((w) => w.id === wfId)
+      if (!a || !wf) throw new DesignRefused(409, 'That workflow no longer exists.')
+      if (!hasDraftChanges(wf)) throw new DesignRefused(409, `The draft of ${wf.name} matches version ${publishedVersion(wf)}. Change the map and save it first.`)
+      const next = publishWorkflow(wf, { at: clockOf(appId), note: b.note, by: name })
+      version = next.published!
+      return { ...have, apps: have.apps.map((x) => (x.id === appId ? { ...x, workflows: x.workflows.map((w) => (w.id === wfId ? next : w)) } : x)) }
+    })
+    if (b.who === 'new') return { ok: true, value: { revision, version } }
+    const moved = await rt.run(appId, (sim, ctx) => migrateItems(sim, ctx, wfId, version, { stepMap: b.stepMap, actor: name }))
+    // Published either way: a migration the engine refused is reported beside the version, not instead of it.
+    return { ok: true, value: { revision, version, ...(moved.ok ? { migration: moved.value } : { migrationError: moved.error }) } }
+  })
+
+  /**
+   * The items in flight that run a workflow, reduced to which version each runs and where its work is:
+   * what the Studio's history, publish dialog and step mapping count. No item data.
+   */
+  app.get('/api/apps/:app/workflows/:wf/items', async (req, reply) => {
+    const { app: appId, wf: wfId } = wfParams.parse(req.params)
+    const user = who(req)
+    if (!mayDesign(user) && !roleOf(user).includes('auditor')) return send(reply, refuse(403, 'Only a designer, an administrator or an auditor can see which versions items run.'))
+    if (!workflowOf(appId, wfId)) return send(reply, refuse(404, 'No such workflow.'))
+    return rt.read(appId, (sim) => ({ clock: rt.clockNow(appId), items: versionItems(sim, wfId) }))
+  })
+
+  const migrateBody = z.object({ toVersion: z.number().int().min(1), objectIds: z.array(z.string().max(200)).max(100_000).optional(), stepMap })
+  /** Move items (all on other versions, or just `objectIds`) to a version of the workflow. */
+  app.post('/api/apps/:app/workflows/:wf/migrate', async (req, reply) => {
+    const { app: appId, wf: wfId } = wfParams.parse(req.params)
+    const user = who(req)
+    const b = migrateBody.parse(req.body)
+    if (!roleOf(user).includes('admin')) return send(reply, refuse(403, 'Only an administrator can move items between versions.'))
+    if (!workflowOf(appId, wfId)) return send(reply, refuse(404, 'No such workflow.'))
+    return send(reply, await rt.run(appId, (sim, ctx) => migrateItems(sim, ctx, wfId, b.toVersion, { objectIds: b.objectIds, stepMap: b.stepMap, actor: nameOf(ctx, user) })))
+  })
+
+  const forecastBody = z.object({ who: z.enum(['new', 'all']).default('new'), stepMap, hours: z.number().min(1).max(48).default(8) })
+  /**
+   * Try the draft before publishing: a copy of the live state run forward twice with simulated people and
+   * arrivals, as it is and with the draft published the way the dialog says. Nothing is written.
+   */
+  app.post('/api/apps/:app/workflows/:wf/forecast', async (req, reply) => {
+    const { app: appId, wf: wfId } = wfParams.parse(req.params)
+    const user = who(req)
+    const b = forecastBody.parse(req.body ?? {})
+    if (!mayDesign(user)) return send(reply, refuse(403, 'Only a designer or an administrator can try a draft.'))
+    if (!workflowOf(appId, wfId)) return send(reply, refuse(404, 'No such workflow.'))
+    const preview = await rt.read(appId, (sim, live) => {
+      // As the Simulation would run it: the design's people and arrival rates, not the server's real ones.
+      const design = ensureVersions(rt.design, sim.clock)
+      const ctx: Ctx = { app: design.apps.find((a) => a.id === appId) ?? live.app, users: live.users, groups: live.groups, services: live.services }
+      return previewPublish({ ...sim, arrivals: true }, ctx, wfId, { who: b.who, stepMap: b.stepMap, hours: b.hours })
+    })
+    return preview ? { ok: true, value: preview } : send(reply, refuse(404, 'That workflow has nothing published to compare with.'))
   })
 
   app.get('/api/apps', async () =>
@@ -821,8 +953,14 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
       last = now
       live.change(c.clock, c.itemIds)
     })
-    streams.set(reply, { ping, unsubscribe })
+    // The design changed (saved, published, or reloaded from another server): the page reloads it.
+    const unsubscribeDesign = rt.subscribeDesign((revision) => {
+      if (reply.raw.writableEnded || reply.raw.destroyed || reply.raw.writableNeedDrain) return
+      reply.raw.write(`event: design\ndata: ${JSON.stringify({ revision })}\n\n`)
+    })
+    streams.set(reply, { ping, unsubscribe: () => (unsubscribe(), unsubscribeDesign()) })
     req.raw.on('close', () => {
+      unsubscribeDesign()
       unsubscribe()
       clearInterval(ping)
       streams.delete(reply)

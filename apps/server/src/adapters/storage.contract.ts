@@ -3,11 +3,11 @@
 
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type AuditEntry, changedItems, changesBetween, completeJob, copyState, createObject, type Ctx, type Design, newSim, type OutboxMessage, pollJobs, projectItem, type SimState, withChanges, withoutItems, workNext } from '@modus-bpm/core'
+import { type AuditEntry, changedItems, changesBetween, completeJob, copyState, createObject, type Ctx, type Design, newSim, type OutboxMessage, pollJobs, projectItem, publishWorkflow, runnable, type SimState, withChanges, withoutItems, workNext } from '@modus-bpm/core'
 import { seedDesign } from '@modus-bpm/core/model/seed'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Delivery, LoggedEvent, Storage, Write } from '../ports'
-import { Runtime } from '../runtime'
+import { DesignConflict, Runtime } from '../runtime'
 import { Sender } from '../sender'
 
 export interface ContractTarget {
@@ -544,6 +544,61 @@ export function storageContract(name: string, target: ContractTarget) {
     })
 
     describe('two replicas', () => {
+      /** Publish w_invoice's map, with its first step renamed, as the next version. */
+      const publishRenamed = (rt: Runtime, known: number, label: string) =>
+        rt.changeDesign(known, (d) => ({
+          ...d,
+          apps: d.apps.map((a) =>
+            a.id !== 'app_invoice' ? a : { ...a, workflows: a.workflows.map((w) => (w.id !== 'w_invoice' ? w : publishWorkflow({ ...w, nodes: w.nodes.map((n) => (n.id === 'n_capture' ? ({ ...n, data: { ...n.data, label } } as typeof n) : n)) }, { note: label }))) },
+          ),
+        }))
+      const captureLabel = (rt: Runtime, version?: number) => runnable(rt.ctx('app_invoice').app.workflows.find((w) => w.id === 'w_invoice')!, version).nodes.find((n) => n.id === 'n_capture')!.data.label
+
+      it('run a version one of them published, without a restart: before the notice arrives, and from the notice alone', async () => {
+        const a = await Runtime.create({ storage: await create() })
+        const b = await Runtime.create({ storage: await peer() })
+        expect(b.designRevision).toBe(1)
+        // The sample's workflows have no versions yet: the write gives each its version 1 first, so this is version 2.
+        const second = await publishRenamed(a, 1, 'Capture, version two')
+        expect(second).toBe(2)
+        // At once, on the other server: its next command runs under the design storage holds now.
+        const made = await b.run('app_invoice', (sim, ctx) => createObject(sim, ctx, 'w_invoice', { f_invno: 'V-2' }, 'u_maya')!)
+        expect(made.versions).toEqual({ w_invoice: 2 })
+        expect(b.designRevision).toBe(2)
+        expect(captureLabel(b)).toBe('Capture, version two')
+        expect(captureLabel(b, 1)).not.toBe('Capture, version two')
+
+        // With no command at all: the notice is enough, and subscribers hear the revision.
+        const heard: number[] = []
+        b.subscribeDesign((r) => void heard.push(r))
+        const third = await publishRenamed(a, 2, 'Capture, version three')
+        await vi.waitFor(() => expect(b.designRevision).toBe(third))
+        expect(heard).toEqual([3])
+        expect(captureLabel(b)).toBe('Capture, version three')
+        // The item made under version 2 still runs it, on both.
+        for (const rt of [a, b]) await vi.waitFor(() => expect(rt.state('app_invoice').objects[made.id]?.versions).toEqual({ w_invoice: 2 }))
+
+        // A write made from a revision that is no longer the stored one changes nothing, wherever it is made.
+        await expect(publishRenamed(b, 2, 'Too late')).rejects.toBeInstanceOf(DesignConflict)
+        expect((await (await reopen()).designs.current())?.revision).toBe(3)
+        await a.stop()
+        await b.stop()
+      })
+
+      it('start on the stored design, not the sample, and write the sample only once', async () => {
+        const s = await create()
+        const a = await Runtime.create({ storage: s })
+        await publishRenamed(a, 1, 'Ours now')
+        await a.stop()
+        // A restart, and a second server starting on the same store: both run what was stored.
+        for (const storage of [await reopen(), await peer()]) {
+          const rt = await Runtime.create({ storage })
+          expect(rt.designRevision).toBe(2)
+          expect(captureLabel(rt)).toBe('Ours now')
+          await rt.stop()
+        }
+      })
+
       it('lose no update across 50 interleaved commands, with unique numbers and gapless logs', async () => {
         const a = await Runtime.create({ storage: await create() })
         const b = await Runtime.create({ storage: await peer() })
