@@ -3,7 +3,9 @@ import { draftChanges, latestVersion, missingSteps, publishedVersion, versionUsa
 import type { App, Id, Workflow } from '@modus-bpm/core/model/types'
 import { plural } from '@modus-bpm/core/model/util'
 import { Badge, Button, cx, Field, Input, Modal } from '../../components/ui'
-import { ctxFor, useSimState } from '../../store/sim'
+import { useDesign } from '../../store/design'
+import { ctxFor } from '../../store/sim'
+import { useServerDesign, useVersionSim } from '../design/server'
 import { type Audience, publishDraft } from './actions'
 import { ChangeList } from './ChangeList'
 import { DraftPreview } from './DraftPreview'
@@ -11,8 +13,12 @@ import { StepMapping } from './StepMapping'
 
 /** Publish a workflow's draft as its next version, and choose who runs it. */
 export function PublishDialog({ app, wf, onClose }: { app: App; wf: Workflow; onClose: () => void }) {
-  const sim = useSimState()
+  const sim = useVersionSim(app.id, wf.id)
   const ctx = ctxFor(app.id)
+  // On a server, moving the items in flight is an administrator's to do.
+  const onServer = useDesign((s) => s.source === 'server')
+  const admin = useServerDesign((s) => s.admin)
+  const mayMove = !onServer || admin
   const live = publishedVersion(wf) ?? 0
   const next = latestVersion(wf) + 1
   const diff = useMemo(() => draftChanges(wf), [wf])
@@ -25,14 +31,19 @@ export function PublishDialog({ app, wf, onClose }: { app: App; wf: Workflow; on
   // Access is the stricter of an item's version and the live one, so these reach items in flight whatever is chosen.
   const access = !!diff && (diff.settings.some((x) => x === 'Field security' || x === 'Process supervisors') || diff.steps.changed.some((x) => /supervisors|field access/.test(x.detail ?? '')))
 
-  const choices: Array<{ value: Audience; title: string; hint: string; recommended?: boolean }> = [
+  const choices: Array<{ value: Audience; title: string; hint: string; recommended?: boolean; disabled?: boolean }> = [
     { value: 'new', title: 'New items only', hint: 'Items in flight finish on the version they started.', recommended: true },
     {
       value: 'all',
       title: 'New items and items in flight',
-      hint: inFlight ? `Move the ${plural(inFlight, 'item')} in flight onto version ${next} now.` : `No items are in flight, so this is the same as new items only.`,
+      hint: !mayMove
+        ? 'Only an administrator can move items in flight. Publish for new items, and ask one to move the rest in History.'
+        : inFlight
+          ? `Move the ${plural(inFlight, 'item')} in flight onto version ${next} now.`
+          : `No items are in flight, so this is the same as new items only.`,
+      disabled: !mayMove,
     },
-    { value: 'draft', title: 'Nobody yet', hint: `Keep it as a draft; new items keep using version ${live}.` },
+    { value: 'draft', title: 'Nobody yet', hint: onServer ? `Save it on the server as a draft; new items keep using version ${live}.` : `Keep it as a draft; new items keep using version ${live}.` },
   ]
 
   const confirm = () => {
@@ -53,7 +64,7 @@ export function PublishDialog({ app, wf, onClose }: { app: App; wf: Workflow; on
             Cancel
           </Button>
           <Button variant="primary" disabled={who !== 'draft' && changes === 0} onClick={confirm}>
-            {who === 'draft' ? 'Keep as draft' : `Publish version ${next}`}
+            {who === 'draft' ? (onServer ? 'Save as draft' : 'Keep as draft') : `Publish version ${next}`}
           </Button>
         </>
       }
@@ -88,9 +99,10 @@ export function PublishDialog({ app, wf, onClose }: { app: App; wf: Workflow; on
                   type="button"
                   role="radio"
                   aria-checked={active}
+                  disabled={c.disabled}
                   onClick={() => setWho(c.value)}
                   className={cx(
-                    'flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                    'flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
                     active ? 'border-brand-400 bg-brand-50/60 ring-2 ring-brand-500/15' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50',
                   )}
                 >

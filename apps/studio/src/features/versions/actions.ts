@@ -4,9 +4,11 @@
 import { type Migration, migrateItems, pinInFlight, publishedVersion, publishWorkflow, restoreDraft } from '@modus-bpm/core'
 import type { Id, Workflow } from '@modus-bpm/core/model/types'
 import { plural } from '@modus-bpm/core/model/util'
+import { designStore } from '../../server/design'
 import { useDesign } from '../../store/design'
 import { useSim } from '../../store/sim'
 import { useUi } from '../../store/ui'
+import { designingOnServer, saveToServer, versionsChanged } from '../design/server'
 
 /** Who runs a newly published version. */
 export type Audience = 'new' | 'all' | 'draft'
@@ -44,6 +46,7 @@ export function publishDraft(appId: Id, workflowId: Id, opts: { who: Audience; n
   const ui = useUi.getState()
   if (!wf) return
   const live = publishedVersion(wf)
+  if (designingOnServer()) return void publishOnServer(appId, wf, opts)
   if (opts.who === 'draft') return ui.toast(`Kept as a draft. New items still start on version ${live ?? 1}.`)
   const sim = useSim.getState()
   // Items that started before this workflow had versions keep running what they run now.
@@ -58,8 +61,35 @@ export function publishDraft(appId: Id, workflowId: Id, opts: { who: Audience; n
   report(r.value, version, lead)
 }
 
+/** The same on a server: save what is unsaved, publish the saved draft there, and report what the server did. */
+async function publishOnServer(appId: Id, wf: Workflow, opts: { who: Audience; note?: string; stepMap?: Record<Id, Id> }) {
+  const ui = useUi.getState()
+  const live = publishedVersion(wf)
+  if (!(await saveToServer(true))) return
+  if (opts.who === 'draft') return ui.toast(`Saved as a draft on the server. New items still start on version ${live ?? 1}.`, 'success')
+  const r = await designStore.getState().publish(appId, wf.id, { who: opts.who, note: opts.note, stepMap: opts.stepMap })
+  if (!r.ok) return ui.toast(r.error, 'warn')
+  useDesign.getState().setServerDesign(r.design)
+  versionsChanged()
+  const { version, migration, migrationError } = r.published
+  const lead = `Version ${version} of ${wf.name} is live on the server. `
+  if (opts.who === 'new') return ui.toast(`${lead}New items start on it; items in flight finish on the version they started.`, 'success')
+  if (migration) return report(migration, version, lead)
+  ui.toast(`${lead}The items in flight weren’t moved: ${migrationError ?? 'the server didn’t say why'}`, 'warn')
+}
+
 /** Move items (all on other versions, or just `objectIds`) to a version of the workflow. */
-export function moveItems(workflowId: Id, toVersion: number, opts: { objectIds?: Id[]; stepMap?: Record<Id, Id> } = {}): Migration | undefined {
+export async function moveItems(workflowId: Id, toVersion: number, opts: { objectIds?: Id[]; stepMap?: Record<Id, Id> } = {}): Promise<Migration | undefined> {
+  if (designingOnServer()) {
+    const moved = await designStore.getState().migrate(useUi.getState().appId, workflowId, { toVersion, ...opts })
+    if (!moved.ok) {
+      useUi.getState().toast(moved.error, 'warn')
+      return undefined
+    }
+    versionsChanged()
+    report(moved.value, toVersion)
+    return moved.value
+  }
   const r = useSim.getState().act((s, c) => migrateItems(s, c, workflowId, toVersion, opts))
   if (!r.ok) {
     useUi.getState().toast(r.error, 'warn')
@@ -74,5 +104,5 @@ export function restoreAsDraft(appId: Id, workflowId: Id, version: number) {
   const wf = workflowOf(appId, workflowId)
   if (!wf) return
   replaceWorkflow(appId, restoreDraft(wf, version))
-  useUi.getState().toast(`The draft of ${wf.name} now matches version ${version}. Publish it to make it live.`, 'success')
+  useUi.getState().toast(`The draft of ${wf.name} now matches version ${version}. ${designingOnServer() ? 'Save it, then publish' : 'Publish it'} to make it live.`, 'success')
 }

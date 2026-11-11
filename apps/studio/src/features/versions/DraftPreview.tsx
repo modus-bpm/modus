@@ -4,8 +4,11 @@ import { buildIndex, type Ctx, previewPublish, type PublishPreview, stepOf } fro
 import type { App, Id, Workflow } from '@modus-bpm/core/model/types'
 import { plural } from '@modus-bpm/core/model/util'
 import { Button, cx } from '../../components/ui'
+import { useDesign } from '../../store/design'
 import { ctxFor, useSim } from '../../store/sim'
+import { designStore } from '../../server/design'
 import { useUi } from '../../store/ui'
+import { designingOnServer, saveToServer } from '../design/server'
 import { KPIS, verdict } from '../scenarios/lab'
 
 const HOURS = [4, 8, 24] as const
@@ -30,6 +33,7 @@ const TONE: Record<Run['tone'], string> = {
  * it is, and with this version published the way the dialog says — and compare.
  */
 export function DraftPreview({ app, wf, who, stepMap, version }: { app: App; wf: Workflow; who: 'new' | 'all'; stepMap: Record<Id, Id>; version: number }) {
+  const onServer = useDesign((s) => s.source === 'server')
   const [hours, setHours] = useState<(typeof HOURS)[number]>(8)
   const [run, setRun] = useState<Run>()
   const [running, setRunning] = useState(false)
@@ -40,12 +44,19 @@ export function DraftPreview({ app, wf, who, stepMap, version }: { app: App; wf:
   const go = () => {
     setRunning(true)
     // The run is synchronous; yield first so "Running…" paints.
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
-        if (!useSim.getState().sims[app.id]) useSim.getState().refresh()
-        const sim = useSim.getState().sims[app.id]
         const ctx = ctxFor(app.id)
-        const preview = sim && ctx ? previewPublish(sim, ctx, wf.id, { who, stepMap, hours }) : undefined
+        let preview: PublishPreview | undefined
+        if (designingOnServer()) {
+          // The server runs its own live state forward, with the draft as saved there.
+          if (!(await saveToServer(true))) return
+          preview = await designStore.getState().forecast(app.id, wf.id, { who, stepMap, hours })
+        } else {
+          if (!useSim.getState().sims[app.id]) useSim.getState().refresh()
+          const sim = useSim.getState().sims[app.id]
+          preview = sim && ctx ? previewPublish(sim, ctx, wf.id, { who, stepMap, hours }) : undefined
+        }
         if (!preview || !ctx) return
         // Name steps as the draft does (a renamed step reads by its new name); steps it removed keep their old one.
         const drawn = (id?: Id) => !id || wf.nodes.some((n) => n.id === id)
@@ -65,7 +76,11 @@ export function DraftPreview({ app, wf, who, stepMap, version }: { app: App; wf:
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Try it first</h3>
-          <p className="text-xs text-slate-500">Run the live state forward with version {version} and without it, same random numbers on both sides.</p>
+          <p className="text-xs text-slate-500">
+            {onServer
+              ? `The server runs a copy of its live work forward with version ${version} and without it, with simulated people and arrivals.`
+              : `Run the live state forward with version ${version} and without it, same random numbers on both sides.`}
+          </p>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="flex rounded-md border border-slate-200 bg-white p-0.5" role="radiogroup" aria-label="How long to simulate">

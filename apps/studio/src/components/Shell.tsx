@@ -29,6 +29,7 @@ import { blankApp } from '@modus-bpm/core/model/seed'
 import type { Design } from '@modus-bpm/core/model/types'
 import { formatClock, formatDuration } from '@modus-bpm/core/model/util'
 import { useApp, useDesign } from '../store/design'
+import { discardUnsaved, saveToServer, unsavedParts, useServerDesign, useServerDesignMode, useUnsavedCount } from '../features/design/server'
 import { isLive } from '../features/monitor/source'
 import { useLive } from '../server/useLive'
 import { SPEEDS, useSim, useSimView } from '../store/sim'
@@ -50,6 +51,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const view = useUi((s) => s.view)
   const mode = useUi((s) => s.mode)
   const setView = useUi((s) => s.setView)
+  // Served by a Modus server in Live, the designer pages edit the server's design.
+  useServerDesignMode()
   return (
     <div className="flex h-full flex-col">
       <TopBar />
@@ -98,6 +101,7 @@ function TopBar() {
       <div className="mx-2 hidden h-6 w-px bg-slate-200 min-[1200px]:block" />
       <ModeSwitch />
       <AppSwitcher />
+      <ServerDesignSave />
       <div className="flex-1" />
       <a
         href={PRODUCT.repo}
@@ -112,6 +116,40 @@ function TopBar() {
       </a>
       <SimOrLive />
     </header>
+  )
+}
+
+/** In Live, on the designer pages: whose design this is, what is unsaved, and Save. */
+function ServerDesignSave() {
+  const live = useLive(isLive)
+  const inStudio = useUi((s) => s.mode === 'studio')
+  const onServer = useDesign((s) => s.source === 'server')
+  const status = useServerDesign((s) => s.status)
+  const error = useServerDesign((s) => s.error)
+  const saving = useServerDesign((s) => s.saving)
+  const unsaved = useUnsavedCount()
+  if (!live || !inStudio) return null
+  if (status === 'error') {
+    return (
+      <span className="truncate rounded-md bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700" title={error}>
+        The server’s design didn’t load: {error}
+      </span>
+    )
+  }
+  if (!onServer) return <span className="text-xs text-slate-400">Loading the server’s design…</span>
+  return (
+    <div className="flex items-center gap-2">
+      <span className="hidden rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-800 min-[1300px]:inline" title="You are editing the design this server runs. Workflow maps are saved as drafts; everything else takes effect when saved.">
+        Server design
+      </span>
+      {unsaved > 0 ? (
+        <Button size="sm" variant="primary" disabled={saving} onClick={() => void saveToServer()} title="Save to the server (Ctrl/⌘ S). Workflow maps are saved as drafts; other changes take effect at once.">
+          {saving ? 'Saving…' : `Save · ${unsaved} ${unsaved === 1 ? 'change' : 'changes'}`}
+        </Button>
+      ) : (
+        <span className="text-xs text-slate-400">Saved</span>
+      )}
+    </div>
   )
 }
 
@@ -406,6 +444,15 @@ function SettingsMenu() {
     setOpen(false)
   }
 
+  const onServer = useDesign((s) => s.source === 'server')
+
+  const discard = () => {
+    const n = unsavedParts().length
+    if (n && !window.confirm(`Discard your ${n} unsaved ${n === 1 ? 'change' : 'changes'} and show the design as the server holds it?`)) return
+    void discardUnsaved()
+    setOpen(false)
+  }
+
   const resetAll = () => {
     if (!window.confirm('Replace all applications, people and groups with the sample data? Your changes will be lost.')) return
     useSim.getState().pause()
@@ -435,10 +482,18 @@ function SettingsMenu() {
             Import design…
           </MenuItem>
           <div className="my-1 h-px bg-slate-100" />
-          <MenuItem icon={<RotateCcw size={15} />} onClick={resetAll} danger>
-            Restore sample data
-          </MenuItem>
-          <p className="px-2.5 pt-1.5 pb-1 text-[11px] leading-snug text-slate-400">Designs are saved in this browser automatically.</p>
+          {onServer ? (
+            <MenuItem icon={<RotateCcw size={15} />} onClick={discard} danger>
+              Discard unsaved changes
+            </MenuItem>
+          ) : (
+            <MenuItem icon={<RotateCcw size={15} />} onClick={resetAll} danger>
+              Restore sample data
+            </MenuItem>
+          )}
+          <p className="px-2.5 pt-1.5 pb-1 text-[11px] leading-snug text-slate-400">
+            {onServer ? 'This is the server’s design. Changes reach it when you press Save; an imported file is a change like any other.' : 'Designs are saved in this browser automatically.'}
+          </p>
           <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={(e) => e.target.files?.[0] && importDesign(e.target.files[0])} />
         </div>
       )}
