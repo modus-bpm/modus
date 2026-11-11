@@ -7,6 +7,7 @@
 import { createStore } from 'zustand/vanilla'
 import type { ExplorerRow, FeedEntry, Id } from '@modus-bpm/core'
 import { designStore } from './design'
+import { sessionStore, signedInAs } from './session'
 import {
   ApiError,
   detectServer,
@@ -39,7 +40,7 @@ export interface ExplorerState {
 }
 
 export interface LiveState {
-  /** A Modus server serves the Studio (set by `detect`). Nothing is ever requested while false. */
+  /** A Modus server serves the Studio and this browser may use it: signed in, where it signs people in (set by `detect`). Nothing is ever requested while false. */
   available: boolean
   mode: LiveMode
   /** Who the Studio acts as (`x-user-id`) until OIDC: by default the design's first administrator. */
@@ -87,6 +88,8 @@ export interface LiveDeps {
   silentMs?: number
   /** The server said its design is at this revision now. */
   onDesign?: (revision: number) => void
+  /** Is this browser signed in to the server (true where it signs nobody in)? Default: the Studio's session. */
+  signedIn?: () => Promise<boolean>
 }
 
 export interface Visibility {
@@ -120,6 +123,9 @@ function defaultStorage(): LiveDeps['storage'] {
 
 /** Keep someone the design knows (an explicit non-administrator choice shows the 403); else its first administrator. */
 function pickAdmin(design: ServerDesign, current: Id | undefined): Id | undefined {
+  // Signed in as someone: that is who the Studio is, administrator or not.
+  const me = signedInAs()
+  if (me) return me
   if (current && design.users.some((u) => u.id === current)) return current
   return design.users.find((u) => u.roles?.includes('admin'))?.id
 }
@@ -349,7 +355,7 @@ export function createLiveStore(deps: LiveDeps = {}) {
       status: 'idle',
 
       detect: async () => {
-        const available = await detectServer(f)
+        const available = (await detectServer(f)) && (await (deps.signedIn ?? (deps.fetch ? async () => true : async () => (await sessionStore.getState().load()).signedIn))())
         set({ available })
         return available
       },
@@ -365,6 +371,7 @@ export function createLiveStore(deps: LiveDeps = {}) {
       },
 
       setActingAdmin: (userId) => {
+        if (signedInAs()) return
         remember(userId)
         set({ actingAdmin: userId })
         const { appId, mode, available } = get()
@@ -455,3 +462,11 @@ export function createLiveStore(deps: LiveDeps = {}) {
 
 /** The Studio's one live store. */
 export const liveStore = createLiveStore({ onDesign: (revision) => designStore.getState().heard(revision) })
+
+// The sign-in ran out: stop asking the server, until this browser signs in again.
+sessionStore.subscribe((s, prev) => {
+  if (prev.signedIn && !s.signedIn && liveStore.getState().available) {
+    liveStore.getState().disconnect()
+    liveStore.setState({ available: false })
+  }
+})

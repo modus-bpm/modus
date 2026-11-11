@@ -5,6 +5,7 @@ import { Button, Card, cx, EmptyState, Segmented, Select } from '../../component
 import { formatClock, formatDuration } from '@modus-bpm/core/model/util'
 import { getOcel } from '../../server/client'
 import { liveStore, type LiveMode } from '../../server/live'
+import { useSession } from '../../server/useSession'
 import { useLive } from '../../server/useLive'
 import { useApp, useDesign } from '../../store/design'
 import { ctxFor, useSim, useSimState, useSimView } from '../../store/sim'
@@ -302,13 +303,15 @@ function ActingAdmin() {
   const design = useLive((s) => s.design)
   const acting = useLive((s) => s.actingAdmin)
   const admins = adminsOf(design)
-  if (!design) return null
+  const signedIn = useSession((s) => s.loaded && !s.choose)
+  // Signed in as yourself: the top bar says who.
+  if (!design || signedIn) return null
   const current = design.users.find((u) => u.id === acting)
   const options = current && !admins.includes(current) ? [current, ...admins] : admins
   return (
     <label
       className="flex items-center gap-1.5 text-[11px] text-slate-500"
-      title="The Monitor’s requests go to the server as this person (x-user-id) until sign-in exists. Only administrators can see the Monitor."
+      title="The Monitor’s requests go to the server as this person: this server doesn’t sign people in one by one. Only administrators can see the Monitor."
     >
       Acting as
       <Select value={acting ?? ''} onChange={(e) => liveStore.getState().setActingAdmin(e.target.value)} className="h-7 w-auto py-0 text-xs" aria-label="Acting administrator">

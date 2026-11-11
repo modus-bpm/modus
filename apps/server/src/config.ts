@@ -77,8 +77,10 @@ const env = z.object({
   MODUS_OIDC_CLIENT_ID: z.string().optional(),
   /** Unset for a public client (PKCE only). */
   MODUS_OIDC_CLIENT_SECRET: z.string().optional(),
-  /** The claim that names the person; matched against each person's sign-in name (People page), then their id. */
+  /** The claim that names the person; matched against each person's sign-in name (People page). */
   MODUS_OIDC_CLAIM: z.string().default('email'),
+  /** `true` takes an `email` claim the provider doesn't mark verified. Only for a provider whose addresses the organization assigns. */
+  MODUS_OIDC_TRUST_EMAIL: z.enum(['true', 'false']).default('false'),
   MODUS_OIDC_SCOPES: z.string().default('openid email profile'),
   /** Comma-separated claim values that become administrators at their first sign-in, when the design doesn't know them. */
   MODUS_OIDC_ADMINS: z.string().optional(),
@@ -182,7 +184,7 @@ export function loadConfig(
     if (missing.length) throw new ConfigError(`${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} required when MODUS_AUTH=oidc.`)
     const allowHttp = e.MODUS_OIDC_ALLOW_HTTP === 'true'
     const admins = (e.MODUS_OIDC_ADMINS ?? '').split(',').map((a) => a.trim()).filter(Boolean)
-    mode = { mode: 'oidc', issuer: httpUrl('MODUS_OIDC_ISSUER', e.MODUS_OIDC_ISSUER, allowHttp)!, clientId: e.MODUS_OIDC_CLIENT_ID!, clientSecret: e.MODUS_OIDC_CLIENT_SECRET, claim: e.MODUS_OIDC_CLAIM, scopes: e.MODUS_OIDC_SCOPES, admins, allowHttp }
+    mode = { mode: 'oidc', issuer: httpUrl('MODUS_OIDC_ISSUER', e.MODUS_OIDC_ISSUER, allowHttp)!, clientId: e.MODUS_OIDC_CLIENT_ID!, clientSecret: e.MODUS_OIDC_CLIENT_SECRET, claim: e.MODUS_OIDC_CLAIM, scopes: e.MODUS_OIDC_SCOPES, admins, allowHttp, trustEmail: e.MODUS_OIDC_TRUST_EMAIL === 'true' }
     if (!admins.length) warnings.push('MODUS_OIDC_ADMINS is empty: only people whose sign-in name is already in the design can sign in.')
   } else {
     mode = { mode: 'none' }

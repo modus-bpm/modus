@@ -69,10 +69,12 @@ describe('MODUS_AUTH=password', () => {
 
   it('keeps everything but the probes and the session behind the password', async () => {
     const user = rt.design.users[0]!.id
-    for (const url of ['/api', '/api/apps', '/api/design', '/api/apps/app_invoice/overview', '/api/no-such-route']) {
+    // The same route written other ways is the same route.
+    for (const url of ['/api', '/api/apps', '/api/design', '/api/apps/app_invoice/overview', '/api/no-such-route', '/%61pi/design', '/api/%64esign', '/api/design/', '/api/session/../design', '/api/auth/../design']) {
       const res = await api.inject({ url, headers: { 'x-user-id': user } })
-      expect([url, res.statusCode]).toEqual([url, 401])
-      expect(res.json()).toMatchObject({ ok: false, auth: 'password' })
+      // Refused, or no route at all: never the design.
+      expect([url, [401, 404].includes(res.statusCode)]).toEqual([url, true])
+      expect(res.body).not.toContain('"users"')
     }
     expect((await api.inject({ url: '/api/health' })).statusCode).toBe(200)
     expect((await api.inject({ url: '/api/session' })).json()).toEqual({ auth: 'password', signedIn: false, choose: true })
@@ -212,7 +214,7 @@ describe('MODUS_AUTH=oidc', () => {
     idp = await identityProvider()
     ;({ rt, api } = await serverWith(
       settings(
-        { mode: 'oidc', issuer: idp.issuer, clientId: 'modus', clientSecret: 'client-secret', claim: 'email', scopes: 'openid email profile', admins: ['Boss@Example.org'], allowHttp: true },
+        { mode: 'oidc', issuer: idp.issuer, clientId: 'modus', clientSecret: 'client-secret', claim: 'email', scopes: 'openid email profile', admins: ['Boss@Example.org'], allowHttp: true, trustEmail: false },
         { publicUrl: 'https://modus.example.org' },
       ),
     ))
@@ -262,34 +264,41 @@ describe('MODUS_AUTH=oidc', () => {
 
   it('makes someone named in MODUS_OIDC_ADMINS an administrator at their first sign-in, once', async () => {
     const before = rt.design.users.length
-    const first = await signIn({ email: 'boss@example.org', name: 'The Boss' })
+    const first = await signIn({ email: 'boss@example.org', email_verified: true, name: 'The Boss' })
     expect(first.back.statusCode).toBe(302)
     const boss = rt.design.users.find((u) => u.login === 'boss@example.org')!
     expect(boss).toMatchObject({ id: 'u_boss_example_org', name: 'The Boss', roles: ['admin'], available: true })
     expect((await api.inject({ url: '/api/admin/outbox', headers: { cookie: first.cookie! } })).statusCode).toBe(200)
-    await signIn({ email: 'boss@example.org' })
+    await signIn({ email: 'boss@example.org', email_verified: true })
     expect(rt.design.users).toHaveLength(before + 1)
   })
 
   it('reads the claim from the userinfo endpoint when the ID token leaves it out', async () => {
-    const { back } = await signIn({}, { userinfo: { email: 'boss@example.org' } })
+    const { back } = await signIn({}, { userinfo: { email: 'boss@example.org', email_verified: true } })
     expect(back.statusCode).toBe(302)
   })
 
   it('turns away someone the design doesn’t know, and an unverified address', async () => {
-    const stranger = await signIn({ email: 'stranger@example.org' })
+    const stranger = await signIn({ email: 'stranger@example.org', email_verified: true })
     expect(stranger.back.statusCode).toBe(403)
     expect(stranger.back.body).toContain('You signed in as stranger@example.org')
     expect(stranger.cookie).toBeUndefined()
-    const unverified = await signIn({ email: 'boss@example.org', email_verified: false })
-    expect(unverified.back.statusCode).toBe(403)
-    expect(unverified.cookie).toBeUndefined()
+    // Not verified, or not said to be: the address could be anyone's.
+    for (const claims of [{ email: 'boss@example.org', email_verified: false }, { email: 'boss@example.org' }]) {
+      const unverified = await signIn(claims)
+      expect(unverified.back.statusCode).toBe(403)
+      expect(unverified.back.body).toContain('hasn’t verified your e-mail address')
+      expect(unverified.cookie).toBeUndefined()
+    }
+    // A person's id is not a sign-in name.
+    const byId = await signIn({ email: rt.design.users[0]!.id, email_verified: true })
+    expect(byId.back.statusCode).toBe(403)
   })
 
   it('refuses an answer for another sign-in: wrong state, a used code, no flow cookie', async () => {
     const start = await api.inject({ url: '/api/auth/login' })
     const flow = cookieFrom(start, 'modus_oidc')!
-    const { code, state } = idp.approve(String(start.headers.location), { sub: 's', email: 'boss@example.org' })
+    const { code, state } = idp.approve(String(start.headers.location), { sub: 's', email: 'boss@example.org', email_verified: true })
     expect((await api.inject({ url: `/api/auth/callback?code=${code}&state=someone-elses`, headers: { cookie: flow } })).statusCode).toBe(400)
     expect((await api.inject({ url: `/api/auth/callback?code=${code}&state=${state}` })).statusCode).toBe(400)
     expect((await api.inject({ url: `/api/auth/callback?code=${code}&state=${state}`, headers: { cookie: flow } })).statusCode).toBe(302)
@@ -297,7 +306,7 @@ describe('MODUS_AUTH=oidc', () => {
   })
 
   it('ends the sign-in of someone removed from the design', async () => {
-    const { cookie } = await signIn({ email: 'boss@example.org' })
+    const { cookie } = await signIn({ email: 'boss@example.org', email_verified: true })
     expect((await api.inject({ url: '/api/design', headers: { cookie: cookie! } })).statusCode).toBe(200)
     await rt.changeDesign(undefined, (d) => ({ ...d, users: d.users.filter((u) => u.login !== 'boss@example.org') }))
     expect((await api.inject({ url: '/api/design', headers: { cookie: cookie! } })).statusCode).toBe(401)
@@ -309,7 +318,7 @@ describe('MODUS_AUTH=oidc', () => {
   })
 
   it('says so when the identity provider can’t be reached', async () => {
-    const down = buildServer(rt, { auth: settings({ mode: 'oidc', issuer: 'http://127.0.0.1:9', clientId: 'modus', claim: 'email', scopes: 'openid', admins: [], allowHttp: true }, { publicUrl: 'https://modus.example.org' }) })
+    const down = buildServer(rt, { auth: settings({ mode: 'oidc', issuer: 'http://127.0.0.1:9', clientId: 'modus', claim: 'email', scopes: 'openid', admins: [], allowHttp: true, trustEmail: false }, { publicUrl: 'https://modus.example.org' }) })
     const res = await down.inject({ url: '/api/auth/login' })
     expect(res.statusCode).toBe(502)
     expect(res.body).toContain('couldn’t reach the identity provider')
@@ -323,10 +332,11 @@ describe('people and sign-in names', () => {
     { id: 'ada@example.org', name: 'Impostor', title: '', color: '', speed: 1, available: true },
     { id: 'u_bo', name: 'Bo', title: '', color: '', speed: 1, available: true },
   ]
-  it('finds a person by sign-in name before id, whatever the case', () => {
-    expect(personFor(users, 'ada@example.org')?.id).toBe('u_ada')
-    expect(personFor(users, 'U_BO')?.id).toBe('u_bo')
+  it('finds a person by sign-in name, whatever the case, and never by id', () => {
+    expect(personFor(users, ' ada@example.org')?.id).toBe('u_ada')
+    expect(personFor(users, 'u_bo')).toBeUndefined()
     expect(personFor(users, 'nobody')).toBeUndefined()
+    expect(personFor([{ ...users[2]!, login: '' }], '')).toBeUndefined()
   })
   it('adds an administrator with an id nobody has', () => {
     const d = { apps: [], users: [...users, { ...users[2]!, id: 'u_bo_example_org' }], groups: [], services: [], templates: [] }

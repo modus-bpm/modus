@@ -29,8 +29,10 @@ export type AuthMode =
       clientId: string
       /** Unset for a public client (PKCE only). */
       clientSecret?: string
-      /** The claim that names the person: matched against a person's sign-in name, then their id. */
+      /** The claim that names the person: matched against each person's sign-in name. */
       claim: string
+      /** Take an `email` claim the provider doesn't mark as verified (for a provider whose addresses the organization assigns). */
+      trustEmail: boolean
       scopes: string
       /** Claim values that become administrators the first time they sign in, if the design doesn't know them. */
       admins: string[]
@@ -115,10 +117,10 @@ function cookie(req: FastifyRequest, name: string): string | undefined {
 
 const norm = (s: string) => s.trim().toLowerCase()
 
-/** The person a claim value names: by sign-in name first, then by id. */
+/** The person a claim value names: the one with that sign-in name, whatever the case. Sign-in names are unique (designs.ts). */
 export function personFor(users: User[], value: string): User | undefined {
   const v = norm(value)
-  return users.find((u) => u.login && norm(u.login) === v) ?? users.find((u) => norm(u.id) === v)
+  return v ? users.find((u) => u.login !== undefined && norm(u.login) === v) : undefined
 }
 
 const PALETTE = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0891b2']
@@ -153,8 +155,9 @@ export function localPath(wanted: string | undefined): string {
   return wanted
 }
 
-const PUBLIC = new Set(['/api/health', '/api/ready', '/api/session'])
-const isPublic = (path: string) => PUBLIC.has(path) || path.startsWith('/api/auth/')
+/** The routes anyone may call, as registered (never the address as sent: that can be written many ways). */
+const PUBLIC = new Set(['/api/health', '/api/ready', '/api/session', '/api/auth/login', '/api/auth/callback'])
+const underApi = (path: string) => path === '/api' || path.startsWith('/api/')
 
 /** Wrong passwords allowed per minute: from one address, and from everywhere. */
 const TRIES_EACH = 5
@@ -193,8 +196,9 @@ export function registerAuth(app: FastifyInstance, rt: Runtime, s: AuthSettings)
   app.decorateRequest('modusUser', undefined)
 
   app.addHook('onRequest', async (req, reply) => {
-    const path = req.url.split('?')[0]!
-    if (path !== '/api' && !path.startsWith('/api/')) return
+    // Go by the route this request matched. Only the Studio's files (and its pages, which match no route) are outside the API.
+    const route = req.routeOptions.url
+    if (!(route ? underApi(route) : underApi(req.url.split('?')[0]!))) return
 
     const bearer = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization ?? '')?.[1]
     if (bearer) {
@@ -207,7 +211,7 @@ export function registerAuth(app: FastifyInstance, rt: Runtime, s: AuthSettings)
       req.modusUser = headerUser(req)
       return
     }
-    if (isPublic(path)) return
+    if (route && PUBLIC.has(route)) return
 
     const signedIn = session(req)
     if (!signedIn) return reply.code(401).send({ ok: false, error: 'Sign in first.', auth: auth.mode })
@@ -318,7 +322,8 @@ export function registerAuth(app: FastifyInstance, rt: Runtime, s: AuthSettings)
 
     const value = claims[auth.claim]
     if (typeof value !== 'string' || !value.trim()) return page(reply, 403, 'You can’t sign in yet', `The identity provider didn’t say what your ${auth.claim} is, and that is how Modus knows people.`)
-    if (auth.claim === 'email' && claims.email_verified === false) return page(reply, 403, 'You can’t sign in yet', 'Your e-mail address isn’t verified with the identity provider.')
+    // An address the provider hasn't checked could be anyone's: it names nobody here.
+    if (auth.claim === 'email' && claims.email_verified !== true && !auth.trustEmail) return page(reply, 403, 'You can’t sign in yet', 'The identity provider hasn’t verified your e-mail address.')
 
     let person = personFor(rt.design.users, value)
     if (!person && auth.admins.some((a) => norm(a) === norm(value))) {

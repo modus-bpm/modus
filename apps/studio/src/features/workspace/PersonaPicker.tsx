@@ -8,7 +8,7 @@ import { useUi } from '../../store/ui'
 import { roleHints } from './personas'
 
 /** "Working as": pick the person whose basket, queues and requests you see. No sign-in in the prototype. */
-export function PersonaPicker({ me, people, suggested, ctx }: { me: User; people: User[]; suggested: Array<{ user: User; role: string }>; ctx: Ctx }) {
+export function PersonaPicker({ me, people, suggested, ctx, fixed }: { me: User; people: User[]; suggested: Array<{ user: User; role: string }>; ctx: Ctx; fixed?: boolean }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -23,6 +23,19 @@ export function PersonaPicker({ me, people, suggested, ctx }: { me: User; people
     setOpen(false)
     setQuery('')
   }
+
+  // Signed in to a server as yourself: there is nobody else to be.
+  if (fixed)
+    return (
+      <div className="flex w-full items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+        <Avatar name={me.name} color={me.color} size={30} />
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block text-[10px] font-medium tracking-wide text-slate-400 uppercase">Signed in as</span>
+          <span className="block truncate text-sm font-semibold text-slate-900">{me.name}</span>
+          <span className="block truncate text-[11px] text-slate-500">{me.title}</span>
+        </span>
+      </div>
+    )
 
   return (
     <div className="relative" ref={ref}>

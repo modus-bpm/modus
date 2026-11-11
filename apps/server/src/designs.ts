@@ -48,6 +48,9 @@ export function parseDesign(raw: unknown): Design {
   }
   twice('applications', d.apps.map((a) => a.id))
   twice('people', d.users.map((u) => u.id))
+  const logins = d.users.flatMap((u) => (typeof u.login === 'string' && u.login.trim() ? [u.login.trim().toLowerCase()] : []))
+  const shared = repeated(logins)
+  if (shared) throw new DesignRefused(400, `Two people share the sign-in name “${shared}”.`)
   twice('groups', d.groups.map((g) => g.id))
   twice('services', d.services.map((s) => s.id))
   for (const a of d.apps) {
@@ -152,6 +155,10 @@ export function takeDesign(have: Design, sent: Design, by: { admin: boolean }, u
     const before = roles(have)
     for (const [userId, now] of roles(sent)) if (!same(before.get(userId) ?? [], now)) throw new DesignRefused(403, 'Only an administrator can change people’s roles.')
     for (const [userId, was] of before) if (was.length && !sent.users.some((u) => u.id === userId)) throw new DesignRefused(403, 'Only an administrator can remove someone who has a role.')
+    // A sign-in name says who someone is on a server that signs people in: giving one out is giving out that person.
+    const logins = (d: Design) => new Map(d.users.map((u) => [u.id, u.login?.trim().toLowerCase() || undefined]))
+    const had = logins(have)
+    for (const [userId, now] of logins(sent)) if (had.get(userId) !== now) throw new DesignRefused(403, 'Only an administrator can change people’s sign-in names.')
   }
   if (!sent.users.some((u) => u.roles?.includes('admin'))) throw new DesignRefused(409, 'A design needs at least one administrator.')
 
