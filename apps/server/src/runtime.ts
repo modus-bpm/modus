@@ -9,9 +9,14 @@
 // application) and under the row lock across processes. Replicas hear each
 // other's commits through the storage's change notices, and one replica per
 // application, the holder of its clock lock, moves the clock.
+//
+// The design is storage's too. The sample is written only when storage has none (first
+// start); after that the stored design is the only source. Designers change it through
+// `changeDesign`, each write making the next revision; other servers hear the revision and
+// reload, and a command whose server holds an older design reloads it before it runs.
 
 import { randomUUID } from 'node:crypto'
-import { advance, buildIndex, changedItems, changesBetween, copyState, type Ctx, type Design, type Id, newSim, projectItem, type ProjectedItem, type SimState, withChanges } from '@modus-bpm/core'
+import { advance, buildIndex, changedItems, changesBetween, copyState, type Ctx, type Design, ensureVersions, type Id, newSim, projectItem, type ProjectedItem, type SimState, withChanges } from '@modus-bpm/core'
 import { seedDesign } from '@modus-bpm/core/model/seed'
 import { type ChangeNotice, type Deliveries, type Storage, StorageBusy } from './ports'
 
@@ -21,7 +26,7 @@ export interface RuntimeOptions {
   timeScale?: number
   /** How often the clock moves (timers, escalations, retries). */
   tickMs?: number
-  /** Start from the sample design when storage has none. */
+  /** Write the sample design when storage has none (first start). Off: start with an empty design. */
   seedIfEmpty?: boolean
   /**
    * Background work that failed: a clock tick or reloading another server's change (both retried), or a
@@ -38,6 +43,15 @@ export interface Change {
 }
 
 export class NotFound extends Error {}
+
+/** A design write made against a revision that is no longer the stored one. */
+export class DesignConflict extends Error {
+  constructor(readonly revision: number) {
+    super('Someone else changed the design since you loaded it.')
+  }
+}
+
+const emptyDesign = (): Design => ({ apps: [], users: [], groups: [], services: [], templates: [] })
 
 /** Storage can't take writes right now (the HTTP layer answers 503). */
 export class StorageUnavailable extends Error {}
@@ -58,9 +72,14 @@ const IDLE_TICK_MS = 30_000
 
 export class Runtime {
   design!: Design
+  /** The stored design's revision as this server holds it (0: nothing stored). */
+  designRevision = 0
   private readonly cache = new Map<Id, Cached>()
   private readonly queues = new Map<Id, Promise<unknown>>()
   private readonly listeners = new Set<(c: Change) => void>()
+  private readonly designListeners = new Set<(revision: number) => void>()
+  /** Design writes and reloads on this server, one at a time. */
+  private designQueue: Promise<unknown> = Promise.resolve()
   /** Who holds this runtime's clock locks (the memory adapter tells runtimes on one store apart by it). */
   private readonly owner = randomUUID()
   private timer?: ReturnType<typeof setInterval>
@@ -73,13 +92,25 @@ export class Runtime {
   static async create(options: RuntimeOptions): Promise<Runtime> {
     const rt = new Runtime({ timeScale: 1, tickMs: 1000, seedIfEmpty: true, onError: (err, during) => console.error(`Runtime ${during} failed:`, err), ...options })
     const { storage } = rt.opts
-    const stored = await storage.designs.load()
-    rt.design = stored ?? seedDesign()
-    if (!stored && rt.opts.seedIfEmpty) await storage.designs.save(rt.design)
+    const stored = await storage.designs.current()
+    if (stored) {
+      rt.design = stored.design
+      rt.designRevision = stored.revision
+    } else if (rt.opts.seedIfEmpty) {
+      // First start: the sample becomes the stored design. Another server starting at the same moment may
+      // have written it first; either way what storage holds is what runs.
+      await storage.designs.replace(seedDesign(), 0)
+      const now = (await storage.designs.current())!
+      rt.design = now.design
+      rt.designRevision = now.revision
+    } else {
+      rt.design = emptyDesign()
+    }
     // Listen before loading, so a commit another server makes meanwhile isn't missed.
     rt.unlisten = await storage.listen(
       (n) => void rt.heard(n),
       () => void rt.reloadAll(),
+      (revision) => void rt.heardDesign(revision),
     )
     try {
       for (const app of rt.design.apps) {
@@ -137,6 +168,7 @@ export class Runtime {
       await Promise.all(tail)
       if ([...this.queues.values()].every((q, i) => q === tail[i])) break
     }
+    await this.designQueue
     await this.unlisten?.()
     this.unlisten = undefined
     await this.opts.storage.releaseClocks(this.owner)
@@ -204,6 +236,79 @@ export class Runtime {
     return () => this.listeners.delete(listener)
   }
 
+  /** Hear the revision each time this server's design changes (its own writes and other servers'). */
+  subscribeDesign(listener: (revision: number) => void): () => void {
+    this.designListeners.add(listener)
+    return () => this.designListeners.delete(listener)
+  }
+
+  /**
+   * Change the design: `change` gets the stored design (every workflow versioned, so a draft never runs)
+   * and returns the next one. With `known`, only if that is still the stored revision; otherwise
+   * DesignConflict, and nothing changes. `change` may throw to refuse: nothing is written.
+   * Returns the new revision.
+   */
+  changeDesign(known: number | undefined, change: (design: Design) => Design): Promise<number> {
+    const run = this.designQueue.then(async () => {
+      const { storage } = this.opts
+      for (;;) {
+        const stored = await storage.designs.current()
+        const revision = stored?.revision ?? 0
+        if (known !== undefined && known !== revision) throw new DesignConflict(revision)
+        // A workflow with no versions runs its draft. Give each its version 1 (what it runs now) first.
+        const next = change(ensureVersions(stored?.design ?? emptyDesign(), this.clockOfDesign()))
+        const written = await storage.designs.replace(next, revision)
+        if (written === undefined) {
+          // Another server wrote between the read and the write.
+          if (known !== undefined) throw new DesignConflict(await storage.designs.revision())
+          continue
+        }
+        this.adoptDesign(next, written)
+        return written
+      }
+    })
+    this.designQueue = run.catch(() => undefined)
+    return run
+  }
+
+  /** A publish time for a workflow's first version when it has no application clock to take it from. */
+  private clockOfDesign(): number {
+    return Math.max(0, ...[...this.cache.values()].map((c) => c.sim.clock))
+  }
+
+  /** Take a newer design; listeners hear its revision. */
+  private adoptDesign(design: Design, revision: number): boolean {
+    if (revision <= this.designRevision) return false
+    this.design = design
+    this.designRevision = revision
+    // An application the design no longer has keeps its stored state; this server just stops holding it.
+    for (const appId of this.cache.keys()) if (!design.apps.some((a) => a.id === appId)) this.cache.delete(appId)
+    for (const l of this.designListeners) {
+      try {
+        l(revision)
+      } catch (err) {
+        this.opts.onError(err, 'subscriber')
+      }
+    }
+    return true
+  }
+
+  /** Load the stored design when it is newer than this server's. Never throws when `quiet`. */
+  private reloadDesign(quiet = true): Promise<void> {
+    const run = this.designQueue.then(async () => {
+      const stored = await this.opts.storage.designs.current()
+      if (stored) this.adoptDesign(stored.design, stored.revision)
+    })
+    this.designQueue = run.catch(() => undefined)
+    return quiet ? run.catch((err) => this.opts.onError(err, 'listen')) : run
+  }
+
+  /** Another server (or this one) wrote the design. */
+  private heardDesign(revision: number): Promise<void> {
+    if (this.stopping || revision <= this.designRevision) return Promise.resolve()
+    return this.reloadDesign()
+  }
+
   private cached(appId: Id): Cached {
     this.ctx(appId)
     let c = this.cache.get(appId)
@@ -234,7 +339,7 @@ export class Runtime {
 
   private command<T>(appId: Id, fn: (sim: SimState, ctx: Ctx) => T, tick = false): Promise<T> {
     return this.serial(appId, async () => {
-      const ctx = this.ctx(appId)
+      let ctx = this.ctx(appId)
       const cached = this.cached(appId)
       // A throw from our side of the transaction (the command, or projecting its result), as opposed to storage's.
       let failed: { err: unknown } | undefined
@@ -245,8 +350,13 @@ export class Runtime {
       let itemIds: Id[] = []
       let r: { value: T; version: number; committed: boolean }
       try {
-        r = await this.opts.storage.transact(appId, cached.version, (stored) => {
+        r = await this.opts.storage.transact(appId, cached.version, async (stored) => {
           try {
+            // Another server changed the design and we haven't heard yet: its items may run a version we lack.
+            if ((stored.designRevision ?? 0) > this.designRevision) {
+              await this.reloadDesign(false)
+              ctx = this.ctx(appId)
+            }
             // Another server committed since our version: what it changed, applied to the cached state.
             if (stored.changes) fresh = { version: stored.version, sim: withChanges(cached.sim, stored.changes), tickedAt: stored.tickedAt }
             const before = fresh?.sim ?? cached.sim
@@ -295,16 +405,20 @@ export class Runtime {
   }
 
   /** Another server (or this one) committed: reload unless the cache has that version already. */
-  private heard(n: ChangeNotice): Promise<void> {
-    if (this.stopping || !this.design.apps.some((a) => a.id === n.appId)) return Promise.resolve()
+  private async heard(n: ChangeNotice): Promise<void> {
+    if (this.stopping) return
+    // An application we don't know: the design that added it may not have reached us yet.
+    if (!this.design.apps.some((a) => a.id === n.appId)) await this.reloadDesign()
+    if (this.stopping || !this.design.apps.some((a) => a.id === n.appId)) return
     // Cheap check first: this process's own commits arrive here too.
-    if (n.version <= (this.cache.get(n.appId)?.version ?? 0)) return Promise.resolve()
+    if (n.version <= (this.cache.get(n.appId)?.version ?? 0)) return
     return this.reload(n.appId, n)
   }
 
   /** The connection to storage came back: anything may have been missed. */
   private async reloadAll(): Promise<void> {
     if (this.stopping) return
+    await this.reloadDesign()
     await Promise.all(this.design.apps.map((a) => this.reload(a.id)))
   }
 

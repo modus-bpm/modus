@@ -95,6 +95,57 @@ export function storageContract(name: string, target: ContractTarget) {
       expect((await (await reopen()).designs.load())?.apps[0]?.name).toBe('Renamed')
     })
 
+    it('numbers each design write, and refuses one made against an older revision', async () => {
+      const s = await create()
+      const named = (name: string): Design => ({ ...seedDesign(), apps: seedDesign().apps.map((a, i) => (i === 0 ? { ...a, name } : a)) })
+      expect(await s.designs.revision()).toBe(0)
+      expect(await s.designs.current()).toBeUndefined()
+      // Nothing stored: only a write that knows so goes in.
+      expect(await s.designs.replace(named('Stale'), 3)).toBeUndefined()
+      expect(await s.designs.load()).toBeUndefined()
+      expect(await s.designs.replace(named('First'), 0)).toBe(1)
+      expect(await s.designs.replace(named('Second'), 1)).toBe(2)
+      // Made against revision 1, which is no longer the stored one: refused, and nothing changes.
+      expect(await s.designs.replace(named('Late'), 1)).toBeUndefined()
+      expect(await s.designs.replace(named('Again first'), 0)).toBeUndefined()
+      expect(await s.designs.current()).toMatchObject({ revision: 2, design: { apps: [{ name: 'Second' }, {}, {}] } })
+      // An unconditional save is the next revision too.
+      expect(await s.designs.save(named('Third'))).toBe(3)
+      const again = await reopen()
+      expect(await again.designs.revision()).toBe(3)
+      expect((await again.designs.current())?.design.apps[0]?.name).toBe('Third')
+    })
+
+    it('lets one of two writers against the same revision through', async () => {
+      const s = await create()
+      await s.designs.save(seedDesign())
+      const results = await Promise.all([1, 2, 3, 4].map((n) => s.designs.replace({ ...seedDesign(), templates: [], apps: seedDesign().apps.slice(0, n % 3) }, 1)))
+      expect(results.filter((r) => r !== undefined)).toEqual([2])
+      expect(await s.designs.revision()).toBe(2)
+    })
+
+    it('tells listeners the revision of each design write, and transactions the revision they run under', async () => {
+      const s = await create()
+      const heard: number[] = []
+      const changes: unknown[] = []
+      const stop = await s.listen(
+        (n) => void changes.push(n),
+        undefined,
+        (revision) => void heard.push(revision),
+      )
+      await s.designs.save(seedDesign())
+      await s.designs.replace(seedDesign(), 1)
+      await s.designs.replace(seedDesign(), 1) // refused: no notice
+      await vi.waitFor(() => expect(heard).toEqual([1, 2]))
+      expect(changes).toEqual([])
+      const seen = await s.transact('app_invoice', 0, (stored) => ({ value: stored.designRevision }))
+      expect(seen.value).toBe(2)
+      await stop()
+      await s.designs.save(seedDesign())
+      await new Promise((r) => setTimeout(r, 50))
+      expect(heard).toEqual([1, 2])
+    })
+
     it('keeps each application’s state separately, replacing it on each commit', async () => {
       const s = await create()
       const a = newSim('app_a', 1)
@@ -156,7 +207,7 @@ export function storageContract(name: string, target: ContractTarget) {
       const ctx = ctxOf()
       const before = newSim('app_invoice', 1)
       const r = await s.transact('app_invoice', 0, (stored) => {
-        expect(stored).toEqual({ version: 0 })
+        expect(stored).toEqual({ version: 0, designRevision: 0 })
         const after = structuredClone(before)
         const o = createObject(after, ctx, 'w_invoice', { f_invno: 'T-1' }, 'u_maya')!
         return { value: o, write: writeFor(before, after, ctx, 1000) }
@@ -195,7 +246,7 @@ export function storageContract(name: string, target: ContractTarget) {
       const sim = newSim('app_a', 1)
       await s.transact('app_a', 0, () => ({ value: 0, write: { state: sim, entries: [], items: [], outbox: [], tickedAt: 5 } }))
       await s.transact('app_a', 1, (stored) => {
-        expect(stored).toEqual({ version: 1, tickedAt: 5 })
+        expect(stored).toEqual({ version: 1, tickedAt: 5, designRevision: 0 })
         return { value: 0 }
       })
       await s.transact('app_a', 0, (stored) => {
@@ -234,7 +285,7 @@ export function storageContract(name: string, target: ContractTarget) {
       expect(JSON.stringify(withChanges(v1, since1.changes!))).toBe(JSON.stringify(v3))
       // A transaction hands over the same.
       await s.transact('app_invoice', 1, (stored) => {
-        expect(stored).toEqual(since1)
+        expect(stored).toEqual({ ...since1, designRevision: 0 })
         return { value: 0 }
       })
       // After a restart: the whole state with its items in order, and the same changes.
