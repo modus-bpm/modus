@@ -177,7 +177,7 @@ worklists are never stale and nothing is lost between "routed" and "notified".
 
 | Store | Holds | Why |
 | --- | --- | --- |
-| `item_event` | Every engine event (the audit trail), hash-chained per item | History, replay, process mining (OCEL 2.0 / XES), simulation calibration. |
+| `item_event` | Every engine event (the audit trail); a per-item hash chain is planned, not built | History, replay, process mining (OCEL 2.0 / XES), simulation calibration. |
 | `object` (JSON `data`) | The item's fields, **including line items** | Dynamic types without runtime DDL; one read gets the whole record. |
 | `object_field_idx` | Typed copies of *searchable* fields (`v_text`, `v_num`, `v_date`, `v_ref`) | Fast filters and sorts with identical DDL on every database. |
 | `object_row_idx` | Typed copies of searchable *line-item columns*, one row per line | "Any line where Category is Software", sums by category, without unpacking JSON at query time. |
@@ -347,7 +347,7 @@ budget** (for example "at most 10% of open items") is planned so the fast lane s
 
 | Concern | Choice |
 | --- | --- |
-| Outbound calls | **Transactional outbox**: the engine writes a job row in the same transaction as the routing; the automation role claims it with a lease, calls the service, and reports the result as a command. Exactly-once side effects without a message broker. |
+| Outbound calls | **Transactional outbox**: the engine writes a job row in the same transaction as the routing; the automation role claims it with a lease, calls the service, and reports the result as a command. At-least-once delivery without a message broker: a receiver can see a message twice and should treat its id as an idempotency key. |
 | Connectors | REST/OpenAPI (operation picked from the spec), **MCP client** (TypeScript SDK v2; Streamable HTTP; OAuth), email (SMTP or provider API), AI agents. Outputs are validated against the operation's schema before they touch fields. |
 | Workers | HTTP long-poll "fetch and lock" (`/api/jobs/poll` → complete/fail), gRPC streaming later. Thin SDKs generated from OpenAPI for TypeScript, Python, .NET and Java. GPU pools and RPA bots are just workers. |
 | Mapping | JSONata for input/output mapping; decisions stay declarative (the rule model). User scripts, if ever allowed, run in a WebAssembly sandbox (QuickJS), never in the server process. |

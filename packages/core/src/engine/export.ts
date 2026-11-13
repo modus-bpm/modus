@@ -7,6 +7,7 @@ import { formatFieldValue } from '../model/format'
 import type { FieldType, Id } from '../model/types'
 import { simDate } from '../model/util'
 import { buildIndex, type Ctx, type SimState, stepOf } from './engine'
+import { canReadItem, hiddenFieldsOf } from './search'
 
 type OcelType = 'string' | 'float' | 'integer' | 'boolean' | 'time'
 
@@ -19,8 +20,12 @@ export interface OcelLog {
 
 const OCEL_TYPE: Partial<Record<FieldType, OcelType>> = { number: 'float', currency: 'float', boolean: 'boolean', date: 'time' }
 
-/** The application's event log in OCEL 2.0 JSON. Activities are "<step> · <what happened>". */
-export function exportOcel(sim: SimState, ctx: Ctx): OcelLog {
+/**
+ * The application's event log in OCEL 2.0 JSON. Activities are "<step> · <what happened>".
+ * With a `viewer`, it holds what that person may see: items they cannot read are left out,
+ * and so are the fields hidden from them (sensitive fields, workflow locks).
+ */
+export function exportOcel(sim: SimState, ctx: Ctx, viewer?: Id): OcelLog {
   const idx = buildIndex(ctx)
   const iso = (minute: number) => simDate(minute).toISOString()
   const objects: OcelLog['objects'] = []
@@ -31,13 +36,15 @@ export function exportOcel(sim: SimState, ctx: Ctx): OcelLog {
   for (const obj of Object.values(sim.objects)) {
     const type = idx.type.get(obj.typeId)
     if (!type) continue
+    if (viewer !== undefined && !canReadItem(ctx, obj, viewer)) continue
+    const hidden = viewer !== undefined ? hiddenFieldsOf(ctx, obj, viewer) : undefined
     const attributes: OcelLog['objects'][number]['attributes'] = [
       { name: 'status', time: iso(obj.completedAt ?? sim.clock), value: obj.status },
       { name: 'priority', time: iso(sim.clock), value: obj.priority },
     ]
     for (const f of type.fields) {
       const v = obj.data[f.id]
-      if (v === undefined || v === null || v === '' || f.type === 'attachment') continue
+      if (v === undefined || v === null || v === '' || f.type === 'attachment' || hidden?.has(f.id)) continue
       const value = OCEL_TYPE[f.type] === 'float' ? Number(v) : f.type === 'boolean' ? !!v : formatFieldValue(f, v, ctx.app.lists, ctx.users)
       attributes.push({ name: f.label, time: iso(obj.createdAt), value })
     }

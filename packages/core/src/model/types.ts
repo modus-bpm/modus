@@ -253,6 +253,12 @@ export interface ServiceDef {
   status: ServiceStatus
   operations: ServiceOperation[]
   owner?: string
+  /**
+   * Who may take and finish this service's jobs through the API: the machine accounts its
+   * workers sign in as. Administrators always may. Nobody else can, so a person with an
+   * ordinary account cannot answer for a service.
+   */
+  workers?: Id[]
 }
 
 // ---------- Workflow ----------

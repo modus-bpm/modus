@@ -108,7 +108,7 @@ export const inFlight = (sim: SimState, workflowId: Id) => activeObjects(sim).so
 
 // ---------- Taking a save ----------
 
-const SERVICE_SHOWN = ['name', 'kind', 'description', 'concurrency', 'status'] as const
+const SERVICE_SHOWN = ['name', 'kind', 'description', 'concurrency', 'status', 'workers'] as const
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 
 /** A service as saved: what the Studio shows comes from the save, its connection details stay the server's. */
@@ -159,6 +159,10 @@ export function takeDesign(have: Design, sent: Design, by: { admin: boolean }, u
     const logins = (d: Design) => new Map(d.users.map((u) => [u.id, u.login?.trim().toLowerCase() || undefined]))
     const had = logins(have)
     for (const [userId, now] of logins(sent)) if (had.get(userId) !== now) throw new DesignRefused(403, 'Only an administrator can change people’s sign-in names.')
+    // A service's workers answer for it: their outputs are written onto items and route them.
+    const workers = (d: Design) => new Map(d.services.map((s) => [s.id, [...(s.workers ?? [])].sort()]))
+    const answered = workers(have)
+    for (const [serviceId, now] of workers(sent)) if (!same(answered.get(serviceId) ?? [], now)) throw new DesignRefused(403, 'Only an administrator can change who may run a service’s jobs.')
   }
   if (!sent.users.some((u) => u.roles?.includes('admin'))) throw new DesignRefused(409, 'A design needs at least one administrator.')
 

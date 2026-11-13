@@ -57,8 +57,8 @@ async function invoiceAtClerk(invno: string, creator = 'u_maya'): Promise<{ item
     },
   })
   expect(created.statusCode).toBe(201)
-  const polled = (await api.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 'erp-test', max: 10 } })).json() as { jobs: Array<{ id: string }> }
-  for (const j of polled.jobs) await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, payload: { outputs: { matched: true } } })
+  const polled = (await api.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId: 'svc_erp', workerId: 'erp-test', max: 10 } })).json() as { jobs: Array<{ id: string }> }
+  for (const j of polled.jobs) await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, headers: { 'x-user-id': 'u_avery' }, payload: { outputs: { matched: true } } })
   const item = (await api.inject({ method: 'GET', url: `/api/apps/app_invoice/items/${created.json().value.id}`, headers: as('u_maya') })).json() as Item
   const at = item.branches.find((b) => b.stepId === 'n_clerk')!
   expect(at.assignee).toBeTruthy()
@@ -260,7 +260,7 @@ describe('worker polls', () => {
     const own = await Runtime.create({ storage })
     const server = buildServer(own)
     const transact = vi.spyOn(storage, 'transact')
-    const poll = async () => (await server.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 'erp-idle', max: 10 } })).json() as { jobs: Array<{ appId: string }> }
+    const poll = async () => (await server.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId: 'svc_erp', workerId: 'erp-idle', max: 10 } })).json() as { jobs: Array<{ appId: string }> }
 
     expect((await poll()).jobs).toEqual([])
     expect(transact).not.toHaveBeenCalled()
@@ -283,7 +283,7 @@ describe('worker polls', () => {
     try {
       const own = await Runtime.create({ storage: memoryStorage() })
       const server = buildServer(own)
-      const poll = async () => (await server.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 'erp-slow', max: 10, leaseSeconds: 5 } })).json() as { jobs: Array<{ id: string }> }
+      const poll = async () => (await server.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId: 'svc_erp', workerId: 'erp-slow', max: 10, leaseSeconds: 5 } })).json() as { jobs: Array<{ id: string }> }
       const created = await server.inject({ method: 'POST', url: '/api/apps/app_invoice/items', headers: as('u_maya'), payload: { workflowId: 'w_invoice', data: { f_invno: 'LEASE-1' } } })
       expect(created.statusCode).toBe(201)
       const [job] = (await poll()).jobs
@@ -303,7 +303,7 @@ describe('worker polls', () => {
     try {
       const own = await Runtime.create({ storage: memoryStorage(), timeScale: 60 })
       const server = buildServer(own)
-      const poll = async () => (await server.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 'erp-scaled', max: 10, leaseSeconds: 60 } })).json() as { jobs: Array<{ id: string }> }
+      const poll = async () => (await server.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId: 'svc_erp', workerId: 'erp-scaled', max: 10, leaseSeconds: 60 } })).json() as { jobs: Array<{ id: string }> }
       const created = await server.inject({ method: 'POST', url: '/api/apps/app_invoice/items', headers: as('u_maya'), payload: { workflowId: 'w_invoice', data: { f_invno: 'SCALE-1' } } })
       expect(created.statusCode).toBe(201)
       const [job] = (await poll()).jobs

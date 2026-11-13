@@ -611,8 +611,8 @@ export function storageContract(name: string, target: ContractTarget) {
         const invoiceOnB = async (invno: string) => {
           const made = await apiB.inject({ method: 'POST', url: '/api/apps/app_invoice/items', headers: as('u_maya'), payload: { workflowId: 'w_invoice', data: { f_invno: invno, f_vendor: 'l_vendors_0', f_lines: [{ id: 'row_1', c_desc: 'Desks', c_qty: 1, c_price: 100 }], f_dept: 'l_org_0', f_cc: 'l_org_1' } } })
           expect(made.statusCode).toBe(201)
-          const polled = (await apiB.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 't', max: 10 } })).json() as { jobs: Array<{ id: string }> }
-          for (const j of polled.jobs) await apiB.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, payload: { outputs: { matched: true } } })
+          const polled = (await apiB.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId: 'svc_erp', workerId: 't', max: 10 } })).json() as { jobs: Array<{ id: string }> }
+          for (const j of polled.jobs) await apiB.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, headers: { 'x-user-id': 'u_avery' }, payload: { outputs: { matched: true } } })
           return b.state('app_invoice').objects[(made.json() as { value: { id: string } }).value.id]!
         }
         const onB = (id: string) => b.state('app_invoice').objects[id]!

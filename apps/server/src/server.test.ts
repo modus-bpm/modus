@@ -24,10 +24,10 @@ afterAll(async () => {
 const as = (user: string) => ({ 'x-user-id': user })
 
 async function completeAll(serviceId: string, outputs: Record<string, unknown> = {}) {
-  const polled = await api.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId, workerId: `${serviceId}-worker`, max: 10 } })
+  const polled = await api.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId, workerId: `${serviceId}-worker`, max: 10 } })
   const { jobs } = polled.json() as { jobs: Array<{ id: string }> }
   for (const j of jobs) {
-    const done = await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, payload: { outputs } })
+    const done = await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, headers: { 'x-user-id': 'u_avery' }, payload: { outputs } })
     expect(done.statusCode).toBe(200)
   }
   return jobs.length

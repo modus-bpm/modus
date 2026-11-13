@@ -5,11 +5,17 @@
 //   pnpm --filter @modus-bpm/server dev                      # in one terminal
 //   SERVICE=svc_vision pnpm --filter @modus-bpm/server worker # in another
 //
+// The server asks who is calling: only an administrator, or an account the service lists
+// under "May run its jobs", can take its jobs. Give the worker a machine token for such an
+// account (MODUS_TOKEN, matching the server's MODUS_API_TOKENS). On a server with sign-in off
+// (MODUS_AUTH=none) it names itself instead (MODUS_USER, the sample administrator by default).
+//
 // Then create a camera event (see apps/server/README.md) and watch it move.
 
 const base = process.env.MODUS_URL ?? 'http://127.0.0.1:8787'
 const serviceId = process.env.SERVICE ?? 'svc_vision'
 const workerId = `${serviceId}-${process.pid}`
+const identity: Record<string, string> = process.env.MODUS_TOKEN ? { authorization: `Bearer ${process.env.MODUS_TOKEN}` } : { 'x-user-id': process.env.MODUS_USER ?? 'u_avery' }
 
 interface Job {
   id: string
@@ -29,7 +35,8 @@ async function handle(job: Job): Promise<Record<string, unknown>> {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const r = await fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const r = await fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...identity }, body: JSON.stringify(body) })
+  if (r.status === 401 || r.status === 403) throw new Error(`${r.status}: ${((await r.json()) as { error?: string }).error ?? 'refused'}`)
   return (await r.json()) as T
 }
 

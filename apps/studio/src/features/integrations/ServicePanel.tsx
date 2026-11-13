@@ -7,6 +7,7 @@ import { useDesign } from '../../store/design'
 import { useSimView } from '../../store/sim'
 import { useUi } from '../../store/ui'
 import { InlineInput } from '../org/InlineInput'
+import { AudiencePicker } from '../workflow/inspector/AudiencePicker'
 import { type Auth, AUTH, callTime, KIND_ORDER, KINDS, pct, STATUS, STATUS_ORDER } from './kinds'
 import { NumberInput } from './NumberInput'
 import { OperationModal } from './OperationModal'
@@ -198,6 +199,20 @@ export function ServicePanel({ serviceId, onClose }: { serviceId: Id; onClose: (
                 placeholder="What it does and who relies on it"
                 onChange={(e) => patch((s) => void (s.description = e.target.value || undefined))}
                 className="min-h-[56px]"
+              />
+            </Field>
+            <Field
+              label="May run its jobs"
+              hint="The accounts this service's workers sign in as. On a server, only they and administrators can take a job for this service or report its result."
+              className="col-span-2"
+            >
+              <AudiencePicker
+                value={svc.workers?.length ? { userIds: svc.workers } : undefined}
+                onChange={(a) => patch((s) => void (s.workers = a?.userIds?.length ? a.userIds : undefined))}
+                users={design.users}
+                groups={[]}
+                placeholder="Add a person…"
+                emptyText="Administrators only. Add the account your worker signs in as."
               />
             </Field>
           </div>
