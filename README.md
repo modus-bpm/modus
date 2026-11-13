@@ -11,6 +11,7 @@ the work.
   <a href="docs/DEMO.md">Demo script</a> ·
   <a href="docs/CONCEPTS.md">Concepts</a> ·
   <a href="docs/TEMPLATES.md">Templates</a> ·
+  <a href="docs/PLATFORM-OVERVIEW.md">Platform overview</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/TECH-STACK.md">Tech stack</a> ·
   <a href="docs/DEPLOYMENT.md">Deploy</a> ·
