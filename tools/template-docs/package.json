@@ -1,0 +1,23 @@
+{
+  "name": "@modus-bpm/template-docs",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Writes a page for each starter template (docs/templates) with a picture of its map taken from the Studio.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "pages": "tsx src/pages.ts",
+    "capture": "tsx src/capture.ts",
+    "all": "tsx src/pages.ts && tsx src/capture.ts"
+  },
+  "dependencies": {
+    "@modus-bpm/core": "workspace:*",
+    "playwright-core": "^1.56.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "~6.0.3"
+  }
+}
