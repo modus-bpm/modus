@@ -87,7 +87,7 @@ export function TemplatesView() {
     ui.setWorkflow(made.workflows[0]!.id)
     const people = made.workflows[0]!.nodes.filter((n) => n.type === 'user').length
     toast(
-      `Created the “${made.name}” application. Pick who does ${people === 1 ? 'its people step' : `each of its ${people} people steps`}, then press Run simulation to watch work move through it.`,
+      `Created the “${made.name}” application. Pick who does ${people === 1 ? 'its people step' : `each of its ${people} people steps`}, publish, then press Run simulation to watch work move through it.`,
       'success',
     )
   }
