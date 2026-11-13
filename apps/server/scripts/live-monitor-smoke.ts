@@ -218,8 +218,8 @@ try {
   check(requester.items.some((o) => o.id === id), `the requester's Workspace should hold ${id}`)
   step(`GET /api/apps/${APP}/workspace holds ${id} for its requester`)
 
-  const { jobs } = (await post('/api/jobs/poll', undefined, { serviceId: 'svc_erp', workerId: 'smoke', max: 10 })) as { jobs: Array<{ id: string }> }
-  for (const j of jobs) await post(`/api/jobs/${encodeURIComponent(j.id)}/complete`, undefined, { outputs: { matched: true } })
+  const { jobs } = (await post('/api/jobs/poll', ADMIN, { serviceId: 'svc_erp', workerId: 'smoke', max: 10 })) as { jobs: Array<{ id: string }> }
+  for (const j of jobs) await post(`/api/jobs/${encodeURIComponent(j.id)}/complete`, ADMIN, { outputs: { matched: true } })
   const matched = await getJson<Slice & { gone: string[] }>(`/api/apps/${APP}/workspace/items?ids=${id}`, 'u_maya')
   const work = matched.items.find((o) => o.id === id)?.tokens.find((t) => t.nodeId === 'n_clerk')
   check(work?.userId, `${id} should be with an AP clerk once its PO is matched`)

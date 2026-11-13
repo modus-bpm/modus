@@ -1792,6 +1792,17 @@ export function openJob(sim: SimState, t: Token, serviceId: Id, at = sim.clock):
   return t.state === 'auto' && !t.manual && t.serviceId === serviceId && (t.leaseUntil === undefined || t.leaseUntil <= at)
 }
 
+/** Whether this person may take and finish the service's jobs: an administrator, or someone the service lists as a worker. */
+export function canWorkService(org: { users: readonly User[]; services: readonly ServiceDef[] }, serviceId: Id, userId: Id): boolean {
+  return isAdmin(org.users, userId) || !!org.services.find((s) => s.id === serviceId)?.workers?.includes(userId)
+}
+
+/** The service an open job belongs to, by the job's (token's) id. Undefined when there is no such automated call in flight. */
+export function jobService(sim: SimState, jobId: Id): Id | undefined {
+  const tok = activeTokens(sim).find((t) => t.id === jobId)
+  return tok?.state === 'auto' && !tok.manual ? tok.serviceId : undefined
+}
+
 /** Claim up to `max` jobs for a service. A claimed job is leased to the worker until it completes, fails or the lease runs out. */
 export function pollJobs(sim: SimState, ctx: Ctx, serviceId: Id, workerId: string, max = 1, leaseMinutes = 5): Job[] {
   const idx = buildIndex(ctx)

@@ -121,7 +121,7 @@ export function hitDto(h: SearchHit, sim: SimState, ctx: Ctx, userId: Id) {
 export type HitDto = ReturnType<typeof hitDto>
 
 /** A service as people see it: what the diagram and the Monitor's services panel draw. No address, credentials or owner. */
-export type ServiceDto = Pick<ServiceDef, 'id' | 'name' | 'kind' | 'description' | 'concurrency' | 'status' | 'operations'>
+export type ServiceDto = Pick<ServiceDef, 'id' | 'name' | 'kind' | 'description' | 'concurrency' | 'status' | 'workers' | 'operations'>
 
 /** Copy only the listed keys that are present, so a field added to the design later stays on the server until named here. */
 function pick<T extends object, K extends keyof T>(from: T, keys: readonly K[]): Pick<T, K> {
@@ -130,7 +130,7 @@ function pick<T extends object, K extends keyof T>(from: T, keys: readonly K[]):
   return out
 }
 
-const SERVICE_KEYS = ['id', 'name', 'kind', 'description', 'concurrency', 'status'] as const
+const SERVICE_KEYS = ['id', 'name', 'kind', 'description', 'concurrency', 'status', 'workers'] as const
 const OPERATION_KEYS = ['id', 'name', 'description', 'avgMinutes', 'successRate'] as const
 const OUTPUT_KEYS = ['key', 'label', 'type', 'trueRate', 'min', 'max', 'options'] as const
 

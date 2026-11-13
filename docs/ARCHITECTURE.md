@@ -311,7 +311,7 @@ rewritten as one full line now and then.
 | Area | Endpoints |
 | --- | --- |
 | Discovery | `GET /api`, `GET /api/health`, `GET /api/ready`, `GET /api/apps`, `GET /api/apps/:app/overview` |
-| Process mining | `GET /api/apps/:app/export/ocel` (OCEL 2.0 JSON of the event log) |
+| Process mining | `GET /api/apps/:app/export/ocel` (OCEL 2.0 JSON of the event log; administrators and auditors, without the fields hidden from them) |
 | Items | `POST /api/apps/:app/items`, `GET /api/apps/:app/items/:id` (field-security filtered) |
 | My work | `GET …/my/basket`, `…/my/queues`, `…/my/distribution`, `…/my/requests`, `POST …/my/next`, `POST …/my/distribution/:step/evenly` |
 | Designing | `PUT /api/design` `{revision, design}` (save: workflow maps as drafts, the rest at once), `POST …/workflows/:wf/publish` `{revision, note, who, stepMap}`, `GET …/workflows/:wf/items` (items in flight by version and step), `POST …/workflows/:wf/migrate`, `POST …/workflows/:wf/forecast` |
@@ -321,7 +321,7 @@ rewritten as one full line now and then.
 | Search and assistant | `GET …/search?q=`, `POST …/assistant` (Claude with tools when configured; built-in otherwise) |
 | Supervision | `GET …/my/supervision`, `POST …/supervise/:id/assign · return · release · retry`, `POST …/supervise/steps/:step/redistribute`, `POST …/supervise/items/:id/priority` |
 | Expedite and priority | `POST …/items/:id/expedite {on, reason}` (checked against the process's policy), `POST …/items/:id/priority {priority}` (the requester, or whoever is working it) |
-| Workers | `POST /api/jobs/poll`, `POST /api/jobs/:id/complete`, `POST /api/jobs/:id/fail` |
+| Workers | `POST /api/jobs/poll`, `POST /api/jobs/:id/complete`, `POST /api/jobs/:id/fail` (the service's listed workers and administrators) |
 | Live | `GET /api/apps/:app/stream` (Server-Sent Events, below; any named user) |
 | Design | `GET /api/design` (the design with its `revision`, services without connection details; drafts only for designers and administrators) |
 | Monitor | `GET …/monitor`, `…/monitor/series`, `…/monitor/feed`, `…/monitor/items` (administrators) |
@@ -527,7 +527,9 @@ takes the hybrid that modern databases make cheap:
 - **Event log + projections, in one transaction.** Every command appends the item's new events
   (the audit trail) and updates current-state projections (item, tokens, work items) in the same
   transaction. Worklists are immediately consistent; history is complete; replay, process mining
-  and simulation calibration come from the same log. A per-item hash chain gives tamper evidence.
+  and simulation calibration come from the same log. A per-item hash chain for tamper evidence
+  is planned (`prev_hash` below); today the server only appends to the log, and nothing would show
+  an edit made directly in the database.
 - **Objects as JSON documents.** The item's data is one JSON column validated by its object type
   (which is versioned). **Line items live inside it** as arrays of rows with stable ids, so an item
   stays atomic (one version, one audit entry per change); searchable columns are copied to
@@ -539,7 +541,14 @@ takes the hybrid that modern databases make cheap:
   (`item_version`), so a published change never shifts the rules under work in flight unless
   an administrator moves it, and every past decision can be explained by the version it ran.
 - **Outbox, timers and job claims in tables**, claimed with `FOR UPDATE SKIP LOCKED` (Postgres,
-  Oracle) or `UPDLOCK, READPAST` (SQL Server). No extra infrastructure, exactly-once side effects.
+  Oracle) or `UPDLOCK, READPAST` (SQL Server). No extra infrastructure. Delivery is **at least
+  once**: a webhook receiver or a worker can see the same message twice, so receivers should treat
+  the message `id` as an idempotency key.
+
+The tables below are the target. What is built today is the smaller set described under
+[One transaction per command (M2)](#one-transaction-per-command-m2): the design as one document,
+the state and its item rows, the event log, the projections and the outbox. In particular there
+is no `tenant_id`, no `prev_hash` and no `timer` or `attachment` table yet.
 
 ```
 object_type(id, tenant_id, key, version, schema_json)
@@ -609,7 +618,14 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
   permissions (create/read/update/delete per group); who may act on a work item (holder,
   delegate, dispatcher, task or process supervisor, administrator); and field security (sensitive fields → workflow locks → step access). Reads are filtered (hidden fields
   never leave the server); writes are refused and audited.
-- **Audit**: append-only, hash-chained per item; administrator overrides are labeled as such.
+- **Audit**: every change to an item is recorded with who made it, and administrator overrides
+  are labeled as such. The server only appends to the log, but nothing yet proves the log was not
+  edited in the database: a per-item hash chain is planned. The design is stored as one document,
+  so changes to roles, sign-in names and a service's workers leave no history yet.
+- **The event log and the job routes**: the OCEL export is for administrators and auditors, and
+  leaves out the fields hidden from the person asking. A service's jobs can be taken and answered
+  only by the people the service lists as its workers (machine accounts, as a rule) and by
+  administrators; only an administrator can change that list.
 - **Secrets**: the service registry stores only a credential *reference*; the automation
   service resolves it from the secret store at call time.
 - **AI and tools**: tool and agent output is data validated against an output schema; routing
@@ -634,9 +650,11 @@ with their `work_item` rows and the `outbox` rows, in the same transaction. See 
 | SQL Server / Oracle shops | Same chart with `DB_DIALECT=mssql|oracle` against the customer's database; migrations shipped as SQL scripts DBAs can run. |
 | Air-gapped / government | No phone-home; SBOMs and signed images; offline bundle; NIST 800-53 control mapping. Self-hosted installs inherit the agency's authorization. |
 
-Multi-tenancy: `tenant_id` in every key and query from day one (enforced by the ports),
-Postgres row-level security as defense in depth for a hosted edition, database-per-tenant for
-customers who need hard separation.
+Multi-tenancy is not built: one deployment serves one organization, and `TENANT_MODE=multi`
+only logs a warning. Several organizations today means a deployment (or a PostgreSQL schema) each.
+The plan is `tenant_id` in every key and query, enforced by the ports, with Postgres row-level
+security as defense in depth for a hosted edition and database-per-tenant for customers who need
+hard separation.
 
 ## From prototype to production: milestones
 

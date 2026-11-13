@@ -6,13 +6,28 @@ browser studio (simulated); *Skeleton* means the server path exists in a first f
 
 ## Next
 
-The next work is what one organization needs to run its real work on a Modus server. In order:
+The next work is what one organization needs to run its real work on a Modus server for months,
+not days. An architecture review on November 13, 2026 set the order:
 
-1. **Running one deployment**: backups and restore, upgrades, and somewhere to keep attached
-   files (pulled forward from M6 and M2).
+1. **A command costs what it touches.** Today every command copies and compares every item the
+   application has ever had, and finished items stay in memory for good. Copy items only when they
+   change, keep an index of what is due so timers are not found by scanning, move finished items
+   out of the working state, and catch the clock up after downtime in small steps that commit one
+   by one.
+2. **State that survives upgrades, and jobs that cannot be answered twice.** Stamp stored state
+   with its version and refuse to start on a mismatch; check a job's completion against the
+   attempt it was leased for; accept an idempotency key on creates.
+3. **Running one deployment**: backups and restore, upgrades, somewhere to keep attached files,
+   a metrics endpoint, and refusing to serve strangers with sign-in off (pulled forward from M6
+   and M2).
 
 Done first:
 
+- **Who may take the event log out, and who may answer for a service.** The OCEL export is for
+  administrators and auditors and leaves out the fields hidden from them; a service's jobs can be
+  taken and finished only by its listed workers and administrators.
+- **A starter library of fifty templates** by department, and a new application from any of them
+  ([TEMPLATES.md](TEMPLATES.md)).
 - **Sign-in is a setting** (`MODUS_AUTH`): the `x-user-id` header for a laptop, one shared
   password for a demo, or OIDC (tested against Keycloak) where the server knows who each
   person is. Machines use tokens. See [DEPLOYMENT.md](DEPLOYMENT.md#sign-in).
@@ -26,8 +41,8 @@ And on a served Studio in Live:
   without a restart (see
   [ARCHITECTURE.md](ARCHITECTURE.md#the-studio-on-a-server-designing-m3)).
 
-Engine and scale work waits until a real deployment shows where the limits are: the rest of the
-M1 engine split, locking per item, and the M5 load targets.
+Still waiting until a real deployment shows the need: the rest of the M1 engine split, locking
+per item, several organizations on one deployment, and the M5 load targets.
 
 ## Model and design
 
@@ -122,6 +137,9 @@ M1 engine split, locking per item, and the M5 load targets.
 | OIDC against Entra ID, Okta and Login.gov (`private_key_jwt`); roles and groups from the provider's claims | Planned |
 | SAML sign-in, SCIM group sync | Planned (M6) |
 | Backup, restore and upgrade runbooks for a running deployment | Next |
+| Cost per command independent of how many items exist; finished items out of memory; a due-time index for timers | Next |
+| Version stamp on stored state; fenced job completion; idempotent creates | Next |
+| Audit log with a per-item hash chain; a log of design changes | Planned |
 | SQL Server adapter (certified) | Planned (M6) |
 | Oracle adapter (certified) | Planned (v1.1) |
 | One container image (server + studio), Docker Compose, Helm chart (several replicas on PostgreSQL), GHCR images | Done |

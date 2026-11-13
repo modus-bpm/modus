@@ -532,6 +532,11 @@ Workers and scripts send `Authorization: Bearer <token>`. `MODUS_API_TOKENS` lis
 acts as that person, in every mode. Give a machine its own person in the design, with only
 the roles it needs.
 
+A worker that takes jobs for a service needs more than a token: in the Studio, open the service
+under **Integrations** and add the worker's person to **May run its jobs**. Only the people
+listed there, and administrators, can poll that service's jobs or report a result, and only an
+administrator can change the list. A worker for one service cannot answer for another.
+
 ```bash
 MODUS_API_TOKENS=u_worker:$(openssl rand -hex 24)
 curl -H "Authorization: Bearer $TOKEN" https://modus.example.org/api/apps

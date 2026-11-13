@@ -41,8 +41,8 @@ async function invoiceAtClerk(invno: string) {
     payload: { workflowId: 'w_invoice', data: { f_invno: invno, f_vendor: 'l_vendors_0', f_lines: [{ id: 'row_1', c_desc: 'Toner', c_qty: 2, c_price: 50 }], f_dept: 'l_org_0', f_cc: 'l_org_1' } },
   })
   expect(created.statusCode).toBe(201)
-  const polled = (await api.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 'erp-test', max: 10 } })).json() as { jobs: Array<{ id: string }> }
-  for (const j of polled.jobs) await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, payload: { outputs: { matched: true } } })
+  const polled = (await api.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId: 'svc_erp', workerId: 'erp-test', max: 10 } })).json() as { jobs: Array<{ id: string }> }
+  for (const j of polled.jobs) await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, headers: { 'x-user-id': 'u_avery' }, payload: { outputs: { matched: true } } })
   const item = (await api.inject({ method: 'GET', url: `/api/apps/app_invoice/items/${created.json().value.id}`, headers: as('u_maya') })).json() as { id: string; number: string; branches: Array<{ workItemId: string; stepId: string; assignee?: string }> }
   const at = item.branches.find((b) => b.stepId === 'n_clerk')!
   expect(at.assignee).toBeTruthy()

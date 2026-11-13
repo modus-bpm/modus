@@ -96,10 +96,11 @@ curl -X POST localhost:8787/api/apps/app_invoice/items -H 'x-user-id: u_maya' \
   -H 'content-type: application/json' \
   -d '{"workflowId":"w_invoice","data":{"f_invno":"A-1","f_lines":[{"c_desc":"Toner","c_qty":4,"c_price":105}],"f_dept":"l_org_0","f_cc":"l_org_1"}}'
 
-# A worker for the ERP service picks up the job and completes it
-curl -X POST localhost:8787/api/jobs/poll -H 'content-type: application/json' \
+# A worker for the ERP service picks up the job and completes it. Only an administrator
+# (u_avery in the sample) or a person the service lists under "May run its jobs" may.
+curl -X POST localhost:8787/api/jobs/poll -H 'x-user-id: u_avery' -H 'content-type: application/json' \
   -d '{"serviceId":"svc_erp","workerId":"erp-1"}'
-curl -X POST 'localhost:8787/api/jobs/app_invoice:o1~1/complete' -H 'content-type: application/json' \
+curl -X POST 'localhost:8787/api/jobs/app_invoice:o1~1/complete' -H 'x-user-id: u_avery' -H 'content-type: application/json' \
   -d '{"outputs":{"matched":true}}'
 
 # Or run the example worker, which polls, works and completes jobs for one service

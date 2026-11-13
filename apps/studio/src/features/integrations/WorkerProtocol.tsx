@@ -4,7 +4,11 @@ import { Badge } from '../../components/ui'
 /** The long-poll worker protocol, shown so developers can see how a custom service plugs in. */
 export function WorkerProtocol({ topic = 'documents.extract', jobType = 'extract-invoice' }: { topic?: string; jobType?: string }) {
   const t = topic.replace(/^topic:\s*/i, '')
-  const code = `# 1. Ask for work. The call waits (up to 30 s) until a job arrives.
+  const code = `# Every call says who the worker is: a machine token for an account
+# listed under "May run its jobs" (or an administrator's).
+Authorization: Bearer <token>
+
+# 1. Ask for work. The call waits (up to 30 s) until a job arrives.
 POST /api/jobs/poll
 { "topic": "${t}", "workerId": "worker-07" }
 
@@ -27,7 +31,8 @@ POST /api/jobs/job_8f2c/fail
       </div>
       <div className="space-y-2 px-3 py-2.5">
         <p className="text-[11.5px] leading-snug text-slate-600">
-          A worker is any program that can make HTTP calls. It asks for a job on the topic, does the work, and reports the result. Run more workers to raise throughput, up to the pool size set here.
+          A worker is any program that can make HTTP calls. It signs in as an account this service lists, asks for a job on the topic, does the work, and reports the result. Run more workers to raise
+          throughput, up to the pool size set here.
         </p>
         <pre className="overflow-x-auto rounded-md bg-slate-900 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-slate-100">{code}</pre>
       </div>

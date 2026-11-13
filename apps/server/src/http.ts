@@ -36,6 +36,7 @@ import {
   canExpedite,
   canSuperviseToken,
   completeJob,
+  jobService,
   computeView,
   createObject,
   type Ctx,
@@ -47,6 +48,7 @@ import {
   type ExplorerKey,
   explorerRow,
   explorerSteps,
+  canWorkService,
   exportOcel,
   failJob,
   findToken,
@@ -450,7 +452,10 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   /** The event log as OCEL 2.0 JSON, for process-mining tools. */
   app.get('/api/apps/:app/export/ocel', async (req, reply) => {
     const { app: appId } = appParams.parse(req.params)
-    const log = await rt.read(appId, (sim, ctx) => exportOcel(sim, ctx))
+    const user = who(req)
+    // The whole log is for the people who may read every item. It still leaves out the fields hidden from them.
+    if (!roleOf(user).includes('admin') && !roleOf(user).includes('auditor')) return send(reply, refuse(403, 'Only an administrator or an auditor can export the event log.'))
+    const log = await rt.read(appId, (sim, ctx) => exportOcel(sim, ctx, user))
     return reply.header('content-disposition', `attachment; filename="${appId}-ocel2.json"`).send(log)
   })
 
@@ -861,8 +866,14 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   // Job ids are "<appId>:<workItemId>" because services are shared by every application.
 
   const pollBody = z.object({ serviceId: z.string(), workerId: z.string(), max: z.number().int().min(1).max(100).default(1), leaseSeconds: z.number().int().min(5).max(3600).default(300) })
-  app.post('/api/jobs/poll', async (req) => {
+  // A job's outputs are written onto the item and can route it, so only the service's own workers
+  // (the people it lists, machine accounts as a rule) and administrators may take or answer one.
+  const workersOnly = 'Only an administrator, or a person the service lists as one of its workers, can take or finish its jobs.'
+  const mayWork = (serviceId: Id, user: Id) => canWorkService(rt.design, serviceId, user)
+
+  app.post('/api/jobs/poll', async (req, reply) => {
     const b = pollBody.parse(req.body)
+    if (!mayWork(b.serviceId, who(req))) return send(reply, refuse(403, workersOnly))
     // Leases are on the application's clock; a worker means real seconds, whatever the time scale.
     const lease = (b.leaseSeconds / 60) * rt.timeScale
     const jobs = []
@@ -888,14 +899,26 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   app.post('/api/jobs/:jobId/complete', async (req, reply) => {
     const { appId, tokenId } = jobParams(req)
     const { outputs } = z.object({ outputs: z.record(z.string(), z.unknown()).default({}) }).parse(req.body ?? {})
-    const done = await rt.run(appId, (sim, ctx) => completeJob(sim, ctx, tokenId, outputs))
+    const user = who(req)
+    const done = await rt.run(appId, (sim, ctx) => {
+      const serviceId = jobService(sim, tokenId)
+      if (serviceId && !mayWork(serviceId, user)) return refuse(403, workersOnly)
+      return completeJob(sim, ctx, tokenId, outputs)
+    })
+    if (typeof done === 'object') return send(reply, done)
     return done ? reply.send({ ok: true }) : reply.code(410).send({ ok: false, error: 'That job is no longer open (finished, cancelled or taken over by a person).' })
   })
 
   app.post('/api/jobs/:jobId/fail', async (req, reply) => {
     const { appId, tokenId } = jobParams(req)
     const { error } = z.object({ error: z.string().default('failed') }).parse(req.body ?? {})
-    const done = await rt.run(appId, (sim, ctx) => failJob(sim, ctx, tokenId, error))
+    const user = who(req)
+    const done = await rt.run(appId, (sim, ctx) => {
+      const serviceId = jobService(sim, tokenId)
+      if (serviceId && !mayWork(serviceId, user)) return refuse(403, workersOnly)
+      return failJob(sim, ctx, tokenId, error)
+    })
+    if (typeof done === 'object') return send(reply, done)
     return done ? reply.send({ ok: true }) : reply.code(410).send({ ok: false, error: 'That job is no longer open.' })
   })
 

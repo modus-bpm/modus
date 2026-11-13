@@ -52,8 +52,8 @@ async function invoice(invno: string, creator: string, price: number, extra: Rec
     data: { f_invno: invno, f_vendor: 'l_vendors_0', f_lines: [{ id: 'row_1', c_desc: 'Desks', c_qty: 1, c_price: price }], f_dept: 'l_org_0', f_cc: 'l_org_1', ...extra },
   })
   expect(created.statusCode).toBe(201)
-  const polled = (await api.inject({ method: 'POST', url: '/api/jobs/poll', payload: { serviceId: 'svc_erp', workerId: 'erp-test', max: 10 } })).json() as { jobs: Array<{ id: string }> }
-  for (const j of polled.jobs) await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, payload: { outputs: { matched: true } } })
+  const polled = (await api.inject({ method: 'POST', url: '/api/jobs/poll', headers: { 'x-user-id': 'u_avery' }, payload: { serviceId: 'svc_erp', workerId: 'erp-test', max: 10 } })).json() as { jobs: Array<{ id: string }> }
+  for (const j of polled.jobs) await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(j.id)}/complete`, headers: { 'x-user-id': 'u_avery' }, payload: { outputs: { matched: true } } })
   const id = created.json().value.id as string
   return rt.state('app_invoice').objects[id]!
 }
