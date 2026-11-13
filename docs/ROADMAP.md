@@ -43,7 +43,8 @@ M1 engine split, locking per item, and the M5 load targets.
 | Parallel split (all / inclusive) and join (all / first / N-of-M, cancel the rest) | Prototype |
 | Subflows (call a reusable process; route on its named ending); blow a step out into a subflow | Prototype |
 | Timers | Prototype |
-| Templates: save a workflow, stamp it into any app with field mapping, starter library | Prototype |
+| Templates: save a workflow, stamp it into any app with field mapping | Prototype |
+| Starter library: fifty templates by department ([list](TEMPLATES.md)); start a new application from one | Prototype |
 | Event-stream, API, schedule and inbox start triggers (modeled; simulated arrivals) | Prototype (ingest planned M5) |
 | DMN decision tables bound to object fields | Planned |
 | Case handling: stages, milestones, ad-hoc tasks | Planned |

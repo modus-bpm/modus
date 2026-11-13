@@ -555,6 +555,8 @@ export interface Template {
   createdBy?: string
   createdAt?: string
   tags?: string[]
+  /** What one item of this work is called ("Invoice", "Work order"); names the object type when an application is started from the template. */
+  item?: { one: string; many: string }
 }
 
 // ---------- Application ----------

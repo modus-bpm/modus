@@ -10,6 +10,7 @@ the work.
   <a href="https://modus-bpm.github.io/modus/"><b>Try the live demo</b></a> ·
   <a href="docs/DEMO.md">Demo script</a> ·
   <a href="docs/CONCEPTS.md">Concepts</a> ·
+  <a href="docs/TEMPLATES.md">Templates</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/TECH-STACK.md">Tech stack</a> ·
   <a href="docs/DEPLOYMENT.md">Deploy</a> ·
@@ -40,8 +41,11 @@ they changed something.
 - A **visual workflow designer**: people steps, automated steps, decisions on field values and
   line items ("any line where Category is Software"), **parallel split / join** (all, first one
   wins, N of M), **subflows**, timers.
-- **Templates**: save any workflow, stamp it into another application with a field mapping, or
-  blow a single step out into its own subflow.
+- **Fifty starter templates** by department — invoice approval, new hire onboarding, access request,
+  work order, public records request, building permit review and [the rest](docs/TEMPLATES.md). Start a new
+  application from one, or add it to an application you have.
+- **Templates of your own**: save any workflow, stamp it into another application with a field
+  mapping, or blow a single step out into its own subflow.
 - **Drafts and versions**: change the map freely, then **publish** a new version for new items
   only, for items in flight too (choosing where work at removed steps goes), or for nobody yet.
   Every version is kept with a note, you can see which items run on which, and move them to the

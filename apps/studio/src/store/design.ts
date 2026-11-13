@@ -2,6 +2,7 @@ import { produce } from 'immer'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { seedDesign } from '@modus-bpm/core/model/seed'
+import { addStarterTemplates } from '@modus-bpm/core/model/seed-templates'
 import { upgradeDesign } from '@modus-bpm/core/model/upgrade'
 import { ensureVersions } from '@modus-bpm/core/model/versions'
 import type { App, Design, Id, ObjectType, ServiceDef, Template, Workflow } from '@modus-bpm/core/model/types'
@@ -108,8 +109,9 @@ export const useDesign = create<DesignStore>()(
       name: 'modus-design',
       // Bump when saved designs need something added once
       // (version 2: line items, roles, supervisors, expedite from the sample data;
-      // version 3: workflow versions, made from each saved map as it stands).
-      version: 3,
+      // version 3: workflow versions, made from each saved map as it stands;
+      // version 4: the starter library of fifty templates).
+      version: 4,
       // Only this browser's own design is kept here; the server's working copy lives in memory until saved.
       partialize: (s) => ({ design: s.source === 'server' ? (s.stash ?? s.design) : s.design }),
       migrate: (persisted, from) => {
@@ -117,6 +119,8 @@ export const useDesign = create<DesignStore>()(
         if (!p?.design) return p
         // The sample-data upgrade runs once, so things deleted after it stay deleted.
         const design = from < 2 ? upgradeDesign(withRegistries(p.design), seedDesign()) : withRegistries(p.design)
+        // Added once, so a template someone deleted afterwards stays deleted.
+        if (from < 4) design.templates = addStarterTemplates(design.templates)
         return { ...p, design: versioned(design) }
       },
       merge: (persisted, current) => {

@@ -1,5 +1,7 @@
 import { Copy, LayoutTemplate, Pencil, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { appFromTemplate } from '@modus-bpm/core/model/seed'
+import { TEMPLATE_CATEGORIES } from '@modus-bpm/core/model/seed-templates'
 import type { Id, Template } from '@modus-bpm/core/model/types'
 import { plural, uid } from '@modus-bpm/core/model/util'
 import { FIELD_ICONS } from '../../components/icons'
@@ -10,8 +12,9 @@ import { TemplateDetailsModal } from './TemplateDetailsModal'
 import { TemplatePreview } from './TemplatePreview'
 import { UseTemplateModal } from './UseTemplateModal'
 
-// The organization's library of reusable subflows: browse, preview, and stamp
-// one into the open application with its fields mapped onto an object type.
+// The organization's library of reusable workflows: find one by department, tag or
+// search, look at its steps, and stamp it into the open application with its fields
+// mapped onto an object type.
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -34,19 +37,29 @@ export function TemplatesView() {
   const app = useApp(useUi((s) => s.appId))
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)
+  const [dept, setDept] = useState<string | null>(null)
   const [using, setUsing] = useState<Id | null>(null)
   const [editing, setEditing] = useState<Id | null>(null)
 
   const tags = useMemo(() => {
     const n = new Map<string, number>()
     for (const t of templates) for (const g of t.tags ?? []) n.set(g, (n.get(g) ?? 0) + 1)
-    return [...n.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([g]) => g)
+    // With a large library every template has tags of its own; offer the ones several share.
+    const shared = [...n.entries()].filter(([, count]) => count >= (templates.length > 12 ? 3 : 1))
+    return shared.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([g]) => g)
   }, [templates])
-  const categories = useMemo(() => [...new Set(templates.map((t) => t.category))].sort(), [templates])
+  // The starter library's departments first, in their own order; an organization's own categories after them.
+  const categories = useMemo(() => {
+    const known: readonly string[] = TEMPLATE_CATEGORIES
+    const rank = (c: string) => (known.includes(c) ? known.indexOf(c) : known.length)
+    return [...new Set(templates.map((t) => t.category))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+  }, [templates])
 
   const q = query.trim().toLowerCase()
-  const shown = templates.filter((t) => (!tag || t.tags?.includes(tag)) && (!q || searchText(t).includes(q)))
+  const matching = templates.filter((t) => (!tag || t.tags?.includes(tag)) && (!q || searchText(t).includes(q)))
+  const shown = matching.filter((t) => !dept || t.category === dept)
   const byCategory = categories.map((c) => ({ category: c, list: shown.filter((t) => t.category === c) })).filter((g) => g.list.length)
+  const filtered = !!(q || tag || dept)
 
   const duplicate = (t: Template) => {
     const copy: Template = { ...structuredClone(t), id: uid('tpl'), name: `${t.name} (copy)`, builtIn: false, createdBy: undefined, createdAt: new Date().toISOString() }
@@ -56,6 +69,27 @@ export function TemplatesView() {
     })
     toast(`Duplicated as “${copy.name}”. Rename it and make it your own.`, 'success')
     setEditing(copy.id)
+  }
+
+  /** Start a new application from the template: its own object type, the template's fields and its workflow as the process. */
+  const startApp = (t: Template) => {
+    const { groups, users, apps } = useDesign.getState().design
+    const taken = (name: string) => apps.some((a) => a.name.trim().toLowerCase() === name.toLowerCase())
+    let name = t.name
+    for (let n = 2; taken(name); n++) name = `${t.name} ${n}`
+    const made = appFromTemplate(t, { groups, users }, name)
+    update((d) => {
+      d.apps.push(made)
+    })
+    const ui = useUi.getState()
+    ui.setApp(made.id)
+    ui.setView('workflow')
+    ui.setWorkflow(made.workflows[0]!.id)
+    const people = made.workflows[0]!.nodes.filter((n) => n.type === 'user').length
+    toast(
+      `Created the “${made.name}” application. Pick who does ${people === 1 ? 'its people step' : `each of its ${people} people steps`}, publish, then press Run simulation to watch work move through it.`,
+      'success',
+    )
   }
 
   const remove = (t: Template) => {
@@ -75,7 +109,9 @@ export function TemplatesView() {
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 bg-white px-6 py-3.5">
         <div className="min-w-0">
           <h1 className="text-base font-semibold text-slate-900">Templates</h1>
-          <p className="text-xs text-slate-500">Reusable workflows shared by every application. Use one to add proven steps to {app?.name ?? 'this application'} in a minute.</p>
+          <p className="text-xs text-slate-500">
+            {plural(templates.length, 'workflow')} shared by every application. Find the one closest to your process, look at its steps, and use it in {app?.name ?? 'this application'}.
+          </p>
         </div>
         <div className="flex-1" />
         <div className="relative w-64">
@@ -86,6 +122,23 @@ export function TemplatesView() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         <div className="mx-auto max-w-[1400px] space-y-5">
+          {categories.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by department">
+              <span className="mr-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Department</span>
+              <TagChip on={!dept} onClick={() => setDept(null)}>
+                {`All ${matching.length}`}
+              </TagChip>
+              {categories.map((c) => {
+                const n = matching.filter((t) => t.category === c).length
+                return (
+                  <TagChip key={c} on={dept === c} onClick={() => setDept(dept === c ? null : c)}>
+                    {`${c} ${n}`}
+                  </TagChip>
+                )
+              })}
+            </div>
+          )}
+
           {tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by tag">
               <span className="mr-1 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">Tags</span>
@@ -114,13 +167,14 @@ export function TemplatesView() {
           ) : byCategory.length === 0 ? (
             <Card>
               <EmptyState icon={<Search size={28} />} title="No template matches">
-                <p>Try another word{tag ? ' or clear the tag filter' : ''}.</p>
+                <p>Try another word{tag || dept ? ' or clear the filters' : ''}.</p>
                 <div className="mt-3">
                   <Button
                     size="sm"
                     onClick={() => {
                       setQuery('')
                       setTag(null)
+                      setDept(null)
                     }}
                   >
                     Clear filters
@@ -129,22 +183,36 @@ export function TemplatesView() {
               </EmptyState>
             </Card>
           ) : (
-            // One grid, ordered by category: each card names its category, so a small library doesn't read as a sparse list.
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {byCategory
-                .flatMap(({ list }) => list)
-                .map((t) => (
-                  <TemplateCard
-                    key={t.id}
-                    t={t}
-                    activeTag={tag}
-                    onTag={setTag}
-                    onUse={() => setUsing(t.id)}
-                    onDuplicate={() => duplicate(t)}
-                    onEdit={() => setEditing(t.id)}
-                    onDelete={() => remove(t)}
-                  />
-                ))}
+            // A section for each department, so someone looking for "their" process can skip to it.
+            <div className="space-y-7">
+              {filtered && (
+                <p className="text-xs text-slate-500" role="status">
+                  Showing {shown.length} of {plural(templates.length, 'template')}.
+                </p>
+              )}
+              {byCategory.map(({ category, list }) => (
+                <section key={category} aria-label={category}>
+                  <h2 className="mb-2.5 flex items-baseline gap-2 text-sm font-semibold text-slate-900">
+                    {category}
+                    <span className="text-xs font-normal text-slate-500">{list.length}</span>
+                  </h2>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {list.map((t) => (
+                      <TemplateCard
+                        key={t.id}
+                        t={t}
+                        activeTag={tag}
+                        onTag={setTag}
+                        onUse={() => setUsing(t.id)}
+                        onStart={() => startApp(t)}
+                        onDuplicate={() => duplicate(t)}
+                        onEdit={() => setEditing(t.id)}
+                        onDelete={() => remove(t)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </div>
@@ -177,6 +245,7 @@ function TemplateCard({
   activeTag,
   onTag,
   onUse,
+  onStart,
   onDuplicate,
   onEdit,
   onDelete,
@@ -185,6 +254,7 @@ function TemplateCard({
   activeTag: string | null
   onTag: (tag: string | null) => void
   onUse: () => void
+  onStart: () => void
   onDuplicate: () => void
   onEdit: () => void
   onDelete: () => void
@@ -193,6 +263,8 @@ function TemplateCard({
   const auto = t.nodes.filter((n) => n.type === 'auto').length
   const parallel = t.nodes.some((n) => n.type === 'split')
   const steps = t.nodes.filter((n) => n.type !== 'start' && n.type !== 'end').length
+  // Automated steps that call nothing yet: the organization points them at its own systems.
+  const toConnect = t.nodes.filter((n) => n.type === 'auto' && !n.data.serviceId).length
   return (
     <Card className="flex flex-col overflow-hidden">
       <div className="h-32 border-b border-slate-100 bg-slate-50/70">
@@ -204,10 +276,7 @@ function TemplateCard({
             <h3 className="min-w-0 flex-1 text-sm font-semibold text-slate-900">{t.name}</h3>
             {t.builtIn && <Badge tone="brand">Built-in</Badge>}
           </div>
-          <p className="text-[11px] text-slate-500">
-            {t.category}
-            {!t.builtIn && ` · ${provenance(t)}`}
-          </p>
+          {!t.builtIn && <p className="text-[11px] text-slate-500">{provenance(t)}</p>}
         </div>
         {t.description && <p className="line-clamp-3 text-xs leading-relaxed text-slate-600">{t.description}</p>}
         <p className="text-[11px] text-slate-500">
@@ -216,6 +285,14 @@ function TemplateCard({
           {auto > 0 && ` · ${auto} automated`}
           {parallel && ' · runs in parallel'}
         </p>
+        {people + toConnect > 0 && (
+          <p className="text-[11px] text-slate-500">
+            <span className="font-medium text-slate-700">You supply:</span>{' '}
+            {[people > 0 && `who does the ${people === 1 ? 'people step' : `${people} people steps`}`, toConnect > 0 && `your own system for ${plural(toConnect, 'automated step')}`]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        )}
         {t.fields.length > 0 && (
           <div>
             <div className="mb-1 text-[10.5px] font-semibold tracking-wide text-slate-400 uppercase">Brings {plural(t.fields.length, 'field')}</div>
@@ -251,6 +328,9 @@ function TemplateCard({
       <div className="flex items-center gap-1 border-t border-slate-100 px-3 py-2">
         <Button variant="primary" size="sm" onClick={onUse}>
           Use in this app
+        </Button>
+        <Button variant="secondary" size="sm" onClick={onStart} title={`Start a new application with its own ${t.item?.one.toLowerCase() ?? 'request'} type and this workflow`}>
+          New application
         </Button>
         <div className="flex-1" />
         <IconButton label="Duplicate" onClick={onDuplicate}>

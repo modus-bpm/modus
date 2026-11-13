@@ -2,7 +2,22 @@
 // template into an application (mapping its fields onto the target object type),
 // and blow a single step out into its own subflow.
 
-import { type Condition, type FieldDef, type Group, type Id, type ListDef, type NodeOf, type Template, type User, type WfEdge, type WfNode, type Workflow, AUTO_FAILURE, AUTO_SUCCESS, type App } from './types'
+import {
+  type Condition,
+  type FieldDef,
+  type Group,
+  type Id,
+  type ListDef,
+  type NodeOf,
+  type Template,
+  type User,
+  type WfEdge,
+  type WfNode,
+  type Workflow,
+  AUTO_FAILURE,
+  AUTO_SUCCESS,
+  type App,
+} from './types'
 import { uid } from './util'
 
 // ---------- Which fields does a workflow use? ----------
@@ -183,6 +198,10 @@ export function instantiateTemplate(
     }
     return n
   })
+  // Four-eyes rules name other steps of the template: point them at the new steps.
+  for (const n of nodes) {
+    if (n.type === 'user' && n.data.separateFrom) n.data.separateFrom = n.data.separateFrom.map((id) => nodeMap.get(id)).filter((id): id is Id => !!id)
+  }
   const edges: WfEdge[] = structuredClone(template.edges)
     .filter((e) => nodeMap.has(e.source) && nodeMap.has(e.target))
     .map((e) => ({
@@ -255,10 +274,13 @@ export function expandToSubflow(app: App, wf: Workflow, nodeId: Id, name?: strin
   const ends: WfNode[] = []
   const edges: WfEdge[] = [{ id: uid('e'), source: childStart, target: inner.id, sourceHandle: 'r', targetHandle: 'l', data: {} }]
   const keyFor = new Map<Id, string>()
-  const outcomes = node.type === 'user' ? node.data.outcomes.map((o) => ({ id: o.id, label: o.label })) : [
-    { id: AUTO_SUCCESS, label: 'Succeeded' },
-    { id: AUTO_FAILURE, label: 'Failed' },
-  ]
+  const outcomes =
+    node.type === 'user'
+      ? node.data.outcomes.map((o) => ({ id: o.id, label: o.label }))
+      : [
+          { id: AUTO_SUCCESS, label: 'Succeeded' },
+          { id: AUTO_FAILURE, label: 'Failed' },
+        ]
   outcomes.forEach((o, i) => {
     const endId = uid('n')
     const result = UNHAPPY.test(o.label) ? 'rejected' : 'completed'
