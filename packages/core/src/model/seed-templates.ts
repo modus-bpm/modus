@@ -1,9 +1,13 @@
 import { outcome } from './seed-helpers'
+import { financeTemplates } from './templates-finance'
+import { operationsTemplates } from './templates-operations'
+import { peopleAndItTemplates } from './templates-people-it'
 import type { Template, UserStepData, WfEdge } from './types'
 
-// Starter library of reusable subflows. Groups are left for the person using
-// the template to pick (their organization's groups), so each comes in with a
-// friendly "pick a group" check rather than someone else's org chart.
+// Starter library: fifty workflows named for the work they handle, grouped by department.
+// Groups are left for the person using the template to pick (their organization's groups),
+// so each comes in with a friendly "pick a group" check rather than someone else's org chart.
+// The first six are written out in full; the rest are built with template-builder.ts.
 
 const people = (label: string, extra: Partial<UserStepData> = {}): UserStepData => ({
   label,
@@ -19,15 +23,127 @@ const people = (label: string, extra: Partial<UserStepData> = {}): UserStepData 
 
 const edge = (id: string, source: string, target: string, data: WfEdge['data'] = {}, sourceHandle = 'r', targetHandle = 'l'): WfEdge => ({ id, source, target, sourceHandle, targetHandle, data })
 
+/** Departments, in the order the gallery lists them. */
+export const TEMPLATE_CATEGORIES = [
+  'Finance and AP',
+  'Purchasing and contracts',
+  'People and HR',
+  'IT and security',
+  'Facilities, fleet and safety',
+  'Government and public safety',
+  'Customers and operations',
+] as const
+
+/** What the first six were called before the library grew; a saved design still carrying one of these names gets the new one. */
+const EARLIER_NAMES: Record<string, string> = {
+  tpl_two_level: 'Two-level approval',
+  tpl_parallel_review: 'Parallel review',
+  tpl_onboarding: 'Employee onboarding',
+  tpl_ai_hitl: 'AI triage with human review',
+  tpl_three_way: 'Three-way match',
+  tpl_incident: 'Incident report',
+}
+
+/**
+ * Bring a saved template list up to the starter library: add the built-in templates it lacks,
+ * and give the first six their new names and departments unless someone renamed them.
+ * Templates an organization saved or changed are left as they are. Run once per saved design.
+ */
+export function addStarterTemplates(saved: Template[]): Template[] {
+  const seed = seedTemplates()
+  const out = saved.map((t) => {
+    const now = seed.find((x) => x.id === t.id)
+    if (!now || !t.builtIn || t.name !== EARLIER_NAMES[t.id]) return t
+    return { ...t, name: now.name, description: now.description, category: now.category, tags: now.tags }
+  })
+  for (const t of seed) if (!out.some((x) => x.id === t.id)) out.push(structuredClone(t))
+  return out
+}
+
+/** The gallery's order: the processes most people look for lead each department. */
+const ORDER = [
+  ...['inv', 'exp', 'trv', 'three_way', 'nvs', 'vbc', 'chk', 'ref', 'cap'],
+  ...['two_level', 'parallel_review', 'q3', 'sw', 'ren'],
+  ...['onboarding', 'off', 'pto', 'loa', 'req', 'trn', 'lic'],
+  ...['sd', 'acc', 'eqp', 'chg', 'mi', 'qar', 'sec'],
+  ...['wo', 'veh', 'pm', 'va', 'mp', 'nm', 'al'],
+  ...['prr', 'bp', 'bl', 'ce', 'sr', 'ev', 'ag', 'gr', 'incident'],
+  ...['cc', 'nc', 'disc', 'ca', 'sop', 'ai_hitl'],
+].map((k) => `tpl_${k}`)
+
+/** What one item of each template's work is called, for the application started from it. Plural adds an s unless given. */
+const ITEMS: Record<string, string | [one: string, many: string]> = {
+  inv: 'Invoice',
+  exp: 'Expense report',
+  trv: 'Trip',
+  three_way: 'Invoice',
+  nvs: 'Vendor',
+  vbc: 'Bank change',
+  chk: 'Check request',
+  ref: 'Refund',
+  cap: 'Capital request',
+  two_level: 'Purchase request',
+  parallel_review: 'Contract',
+  q3: 'Purchase',
+  sw: 'Software request',
+  ren: 'Contract',
+  onboarding: 'New hire',
+  off: 'Departure',
+  pto: 'Time-off request',
+  loa: ['Leave', 'Leaves of absence'],
+  req: 'Requisition',
+  trn: 'Training request',
+  lic: 'License',
+  sd: 'Ticket',
+  acc: 'Access request',
+  eqp: 'Equipment request',
+  chg: 'Change',
+  mi: 'Incident',
+  qar: 'Access review',
+  sec: 'Security incident',
+  wo: 'Work order',
+  veh: 'Repair',
+  pm: 'Maintenance job',
+  va: 'Accident report',
+  mp: 'Reservation',
+  nm: ['Near-miss', 'Near-misses'],
+  al: 'Alarm',
+  prr: 'Records request',
+  bp: 'Permit application',
+  bl: 'License application',
+  ce: 'Complaint',
+  sr: 'Service request',
+  ev: 'Event permit',
+  ag: 'Agenda item',
+  gr: 'Grant application',
+  incident: 'Incident',
+  cc: 'Complaint',
+  nc: 'Client',
+  disc: 'Discount request',
+  ca: 'Corrective action',
+  sop: 'Procedure change',
+  ai_hitl: 'Message',
+}
+
 export function seedTemplates(): Template[] {
+  const all = [...firstSix(), ...financeTemplates(), ...peopleAndItTemplates(), ...operationsTemplates()]
+  for (const t of all) {
+    const item = ITEMS[t.id.replace(/^tpl_/, '')]
+    if (item) t.item = typeof item === 'string' ? { one: item, many: `${item}s` } : { one: item[0], many: item[1] }
+  }
+  const rank = (t: Template) => (ORDER.includes(t.id) ? ORDER.indexOf(t.id) : ORDER.length)
+  return all.sort((a, b) => rank(a) - rank(b))
+}
+
+function firstSix(): Template[] {
   const created = '2026-09-30T12:00:00.000Z'
   return [
     {
       id: 'tpl_two_level',
-      name: 'Two-level approval',
-      description: 'A manager approves; anything over the limit also needs a director. Ends as Approved or Rejected.',
-      category: 'Approvals',
-      tags: ['approval', 'threshold'],
+      name: 'Purchase request',
+      description: 'A manager approves the request; anything over $10,000 also needs a director. Ends as Approved or Rejected.',
+      category: 'Purchasing and contracts',
+      tags: ['threshold', 'requisition', 'approval'],
       builtIn: true,
       createdAt: created,
       fields: [
@@ -56,7 +172,7 @@ export function seedTemplates(): Template[] {
           type: 'user',
           position: { x: 760, y: 0 },
           data: people('Director approval', {
-            distribution: 'direct',
+            distribution: 'load-balance',
             avgMinutes: 20,
             outcomes: [
               outcome('a_d_ok', 'Approve', 85, { actions: [{ id: 'a_set2', kind: 'setField', fieldId: 't2_approver', value: '{currentUser}' }] }),
@@ -80,9 +196,9 @@ export function seedTemplates(): Template[] {
     },
     {
       id: 'tpl_parallel_review',
-      name: 'Parallel review',
-      description: 'Legal and compliance review at the same time. Both must approve before final sign-off; a rejection from either stops the other.',
-      category: 'Reviews',
+      name: 'Contract review',
+      description: 'Legal and compliance review the contract at the same time. Both must approve before final sign-off; a rejection from either stops the other.',
+      category: 'Purchasing and contracts',
       tags: ['parallel', 'legal', 'compliance'],
       builtIn: true,
       createdAt: created,
@@ -100,7 +216,7 @@ export function seedTemplates(): Template[] {
           id: 'pr_sign',
           type: 'user',
           position: { x: 920, y: 146 },
-          data: people('Final sign-off', { distribution: 'direct', avgMinutes: 10, outcomes: [outcome('pr_s_ok', 'Sign off', 100)], fieldAccess: { pr_doc: 'read', pr_notes: 'read' } }),
+          data: people('Final sign-off', { distribution: 'load-balance', avgMinutes: 10, outcomes: [outcome('pr_s_ok', 'Sign off', 100)], fieldAccess: { pr_doc: 'read', pr_notes: 'read' } }),
         },
         { id: 'pr_ok', type: 'end', position: { x: 1280, y: 172 }, data: { label: 'Signed off', result: 'completed', outcome: 'Approved' } },
         { id: 'pr_no', type: 'end', position: { x: 780, y: 430 }, data: { label: 'Rejected', result: 'rejected', outcome: 'Rejected' } },
@@ -119,10 +235,10 @@ export function seedTemplates(): Template[] {
     },
     {
       id: 'tpl_onboarding',
-      name: 'Employee onboarding',
+      name: 'New hire onboarding',
       description: 'Accounts are created automatically while IT, Facilities and Payroll work in parallel; the hiring manager welcomes the new hire once everything is ready.',
-      category: 'People',
-      tags: ['parallel', 'HR', 'MCP'],
+      category: 'People and HR',
+      tags: ['parallel', 'onboarding', 'MCP'],
       builtIn: true,
       createdAt: created,
       fields: [
@@ -167,10 +283,10 @@ export function seedTemplates(): Template[] {
     },
     {
       id: 'tpl_ai_hitl',
-      name: 'AI triage with human review',
-      description: 'An AI agent classifies each item. Confident answers go straight through; the rest go to a person, whose corrections are recorded.',
-      category: 'AI',
-      tags: ['agent', 'human-in-the-loop'],
+      name: 'Shared inbox triage',
+      description: 'An AI agent classifies each message that arrives. Confident answers go straight through; the rest go to a person, whose corrections are recorded.',
+      category: 'Customers and operations',
+      tags: ['AI', 'human in the loop', 'email'],
       builtIn: true,
       createdAt: created,
       fields: [
@@ -223,9 +339,10 @@ export function seedTemplates(): Template[] {
     {
       id: 'tpl_three_way',
       name: 'Three-way match',
-      description: 'Fetch the purchase order and the goods receipt in parallel, then match them against the invoice. Mismatches go to a person.',
-      category: 'Finance',
-      tags: ['parallel', 'ERP', 'REST'],
+      description:
+        'Fetch the purchase order and the goods receipt in parallel, then match them against the invoice. Only mismatches go to a person. The two fetch steps call the sample ERP: point them at your own purchasing system.',
+      category: 'Finance and AP',
+      tags: ['parallel', 'accounts payable', 'ERP'],
       builtIn: true,
       createdAt: created,
       fields: [
@@ -240,13 +357,31 @@ export function seedTemplates(): Template[] {
           id: 'tw_po_get',
           type: 'auto',
           position: { x: 370, y: 70 },
-          data: { label: 'Fetch purchase order', avgMinutes: 1, actions: [], serviceId: 'svc_erp', operationId: 'op_erp_po', outputs: [{ key: 'found', fieldId: 'tw_found' }], retries: 1, onFailure: 'manual' },
+          data: {
+            label: 'Fetch purchase order',
+            avgMinutes: 1,
+            actions: [],
+            serviceId: 'svc_erp',
+            operationId: 'op_erp_po',
+            outputs: [{ key: 'found', fieldId: 'tw_found' }],
+            retries: 1,
+            onFailure: 'manual',
+          },
         },
         {
           id: 'tw_gr_get',
           type: 'auto',
           position: { x: 370, y: 320 },
-          data: { label: 'Fetch goods receipt', avgMinutes: 1, actions: [], serviceId: 'svc_erp', operationId: 'op_erp_receipt', outputs: [{ key: 'received', fieldId: 'tw_received' }], retries: 1, onFailure: 'manual' },
+          data: {
+            label: 'Fetch goods receipt',
+            avgMinutes: 1,
+            actions: [],
+            serviceId: 'svc_erp',
+            operationId: 'op_erp_receipt',
+            outputs: [{ key: 'received', fieldId: 'tw_received' }],
+            retries: 1,
+            onFailure: 'manual',
+          },
         },
         { id: 'tw_join', type: 'join', position: { x: 680, y: 190 }, data: { label: 'Both fetched', mode: 'all' } },
         { id: 'tw_dec', type: 'decision', position: { x: 840, y: 172 }, data: { label: 'Matched?' } },
@@ -255,7 +390,11 @@ export function seedTemplates(): Template[] {
           id: 'tw_fix',
           type: 'user',
           position: { x: 1060, y: 300 },
-          data: people('Resolve mismatch', { avgMinutes: 25, outcomes: [outcome('tw_f_ok', 'Resolved', 75), outcome('tw_f_no', 'Reject', 25, { requireComment: true })], fieldAccess: { tw_po: 'edit' } }),
+          data: people('Resolve mismatch', {
+            avgMinutes: 25,
+            outcomes: [outcome('tw_f_ok', 'Resolved', 75), outcome('tw_f_no', 'Reject', 25, { requireComment: true })],
+            fieldAccess: { tw_po: 'edit' },
+          }),
         },
         { id: 'tw_no', type: 'end', position: { x: 1420, y: 326 }, data: { label: 'Mismatch', result: 'rejected', outcome: 'Rejected' } },
       ],
@@ -292,7 +431,7 @@ export function seedTemplates(): Template[] {
       id: 'tpl_incident',
       name: 'Incident report',
       description: 'The person who handled the incident writes it up (retain familiar), a commander reviews, and it is filed to records automatically.',
-      category: 'Public safety',
+      category: 'Government and public safety',
       tags: ['retain familiar', 'records'],
       builtIn: true,
       createdAt: created,

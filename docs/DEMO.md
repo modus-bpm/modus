@@ -141,9 +141,11 @@ the Modus logo in the top bar returns to the front page.
 
 ## 9. Build with blocks
 
-1. **Templates**: a starter library (two-level approval, parallel review, employee onboarding,
-   AI triage with human review, three-way match, incident report). *Use in this app* maps the
-   template's fields onto your object type and adds it as a subflow.
+1. **Templates**: a starter library of fifty workflows by department ([the list](TEMPLATES.md)).
+   Filter to *Government and public safety*, or search for *vendor*. **New application** starts an
+   application from a template, with its own object type and the workflow as its process: pick a
+   group for each people step and press **Run simulation**. *Use in this app* maps the template's
+   fields onto an object type you already have and adds it as a subflow or a process.
 2. In a workflow: **From template…** on the palette, **Save as template** in the header, and
    **Blow out into a subflow** on any step.
 3. **Integrations**: the service registry — REST APIs, MCP servers, worker pools, AI agents —

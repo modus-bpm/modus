@@ -12,7 +12,7 @@ earlier-generation BPM tools will recognize most of these under older names.
 | **Registered service** | A system automated steps can call: REST/OpenAPI, an MCP server's tools, a worker pool that polls for jobs, an AI agent, email. Has a capacity, a status and typed outputs. | Device definition | Connector · job worker · digital worker |
 | **Worker pool** | Custom code registered under a topic; workers poll for jobs, then complete or fail them. Pool size limits throughput. | Device | External task pattern (fetch-and-lock) |
 | **Subflow** | A step that runs a whole reusable process on the same item and continues on the way it ended. | Subflow / sub-process | Call activity · reusable sub-process |
-| **Template** | A saved subflow (with the fields it uses) that can be stamped into any application. | — | Process template / marketplace asset |
+| **Template** | A saved workflow (with the fields it uses) that can be stamped into any application, or start a new one. Fifty come built in. | — | Process template / marketplace asset |
 | **Item** | One business object moving through a process (an invoice, a request, a camera event). | Object | Case / process instance |
 | **Line items** (table field) | Rows inside an item — an invoice's lines, a request's requested items — with typed columns, calculated columns (*Quantity × Unit Price*) and a **total** field that sums a column. | Multi-row / repeating group | Repeating section · child records · data object collection |
 | **Branch** (token) | One thread of an item. An item has one per active parallel branch. | — | Token |

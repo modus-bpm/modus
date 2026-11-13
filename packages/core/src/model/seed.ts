@@ -2,7 +2,8 @@ import { flatList, outcome, P, treeList } from './seed-helpers'
 import { socApp } from './seed-soc'
 import { seedServices } from './seed-services'
 import { seedTemplates } from './seed-templates'
-import type { App, Design, FieldDef, Group, ListDef, ObjectType, User, Workflow } from './types'
+import { instantiateTemplate } from './templates'
+import type { App, Design, FieldDef, Group, ListDef, ObjectType, Template, User, Workflow } from './types'
 import { uid } from './util'
 
 // ---------- Organization ----------
@@ -310,10 +311,7 @@ function invoiceApp(): App {
           slaHours: 24,
           escalateAfterHours: 16,
           escalation: { raisePriority: true, toDistributors: true, notifySupervisors: true },
-          outcomes: [
-            outcome('o_m_ok', 'Approve', 84, { actions: approveSetsApprover }),
-            outcome('o_m_no', 'Reject', 10, { requireComment: true }),
-          ],
+          outcomes: [outcome('o_m_ok', 'Approve', 84, { actions: approveSetsApprover }), outcome('o_m_no', 'Reject', 10, { requireComment: true })],
           fieldAccess: { ...allRead, f_gl: 'edit', f_desc: 'edit' },
         },
       },
@@ -664,10 +662,7 @@ function fleetApp(): App {
           distributeEveryMinutes: 60,
           avgMinutes: 25,
           slaHours: 24,
-          outcomes: [
-            outcome('v_o_ok', 'Approve', 82),
-            outcome('v_o_no', 'Deny', 18, { requireComment: true }),
-          ],
+          outcomes: [outcome('v_o_ok', 'Approve', 82), outcome('v_o_no', 'Deny', 18, { requireComment: true })],
           fieldAccess: { ...allRead, v_use: 'edit', v_cost: 'edit', v_just: 'edit' },
         },
       },
@@ -828,7 +823,12 @@ export function blankObjectType(name: string): ObjectType {
     pluralName: `${name}s`,
     icon: 'file',
     color: '#4f46e5',
-    numberPrefix: `${name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'OBJ'}-`,
+    numberPrefix: `${
+      name
+        .replace(/[^A-Za-z]/g, '')
+        .slice(0, 3)
+        .toUpperCase() || 'OBJ'
+    }-`,
     fields: [{ id: titleId, label: 'Title', type: 'text', required: true, width: 'full', summary: true }],
     titleFieldId: titleId,
     permissions: {},
@@ -850,6 +850,27 @@ export function blankWorkflow(name: string, objectTypeId: string): Workflow {
     ],
     edges: [],
   }
+}
+
+/**
+ * A new application made from a template: an object type named for the work, carrying the
+ * template's fields, and the template's workflow as the process new items start in.
+ */
+export function appFromTemplate(template: Template, org: { groups: Group[]; users: User[] }, name = template.name): App {
+  const item = template.item ?? { one: 'Request', many: 'Requests' }
+  const type = blankObjectType(item.one)
+  type.pluralName = item.many
+  const app: App = { id: uid('app'), name, description: template.description, color: '#4f46e5', objectTypes: [type], lists: [], workflows: [] }
+  const made = instantiateTemplate(app, template, { objectTypeId: type.id, name: template.name, binding: {}, groups: org.groups, users: org.users, kind: 'process' })
+  // The template's own summary text field names each item; without one, the blank type's Title stays.
+  const title = made.newFields.find((f) => f.type === 'text' && f.summary && !f.system)
+  if (title) {
+    type.fields = made.newFields
+    type.titleFieldId = title.id
+  } else type.fields.push(...made.newFields)
+  app.lists.push(...made.newLists)
+  app.workflows.push(made.workflow)
+  return app
 }
 
 export function blankApp(name: string): App {
