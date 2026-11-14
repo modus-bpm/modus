@@ -1,6 +1,7 @@
 import { CalendarClock, Clock, GitFork, Pencil, Workflow as WorkflowIcon, X, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { FormRenderer } from '../../components/FormRenderer'
+import { LiveFiles } from '../../server/LiveFiles'
 import { TypeIcon } from '../../components/icons'
 import { Badge, Button, cx, IconButton, Segmented } from '../../components/ui'
 import { adminUpdateData, describeToken, runnableApp, type SimObject, type Token } from '@modus-bpm/core'
@@ -297,7 +298,9 @@ function Details({ obj, app, users }: { obj: SimObject; app: App; users: User[] 
           </div>
         )}
       </div>
-      <FormRenderer type={type} lists={app.lists} users={users} values={editing ? draft : obj.data} onChange={editing ? setDraft : undefined} includeSystem />
+      <LiveFiles itemId={obj.id}>
+        <FormRenderer type={type} lists={app.lists} users={users} values={editing ? draft : obj.data} onChange={editing ? setDraft : undefined} includeSystem />
+      </LiveFiles>
     </div>
   )
 }

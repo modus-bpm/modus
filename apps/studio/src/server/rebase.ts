@@ -1,12 +1,12 @@
 // A design in parts, for two things: counting what a designer has changed and not yet saved, and
 // carrying those changes over to a design someone else saved meanwhile. A part is the unit a person
 // thinks of as one thing: a workflow, an object type, a list, an application's own settings, a
-// person, a group, a service, a template. Nothing is merged inside a part.
+// person, a group, a service, a template, the organization's look. Nothing is merged inside a part.
 
 import type { App, Design, Workflow } from '@modus-bpm/core/model/types'
 
 /** What kind of thing a part is, for saying what changed. */
-export type PartKind = 'application' | 'workflow' | 'object type' | 'list' | 'person' | 'group' | 'service' | 'template'
+export type PartKind = 'application' | 'workflow' | 'object type' | 'list' | 'person' | 'group' | 'service' | 'template' | 'look'
 
 export interface Part {
   key: string
@@ -14,7 +14,7 @@ export interface Part {
   name: string
 }
 
-type Loose = Pick<Design, 'apps' | 'users' | 'groups'> & { services: Array<{ id: string; name: string }>; templates: Array<{ id: string; name?: string }> }
+type Loose = Pick<Design, 'apps' | 'users' | 'groups'> & { services: Array<{ id: string; name: string }>; templates: Array<{ id: string; name?: string }>; theme?: Design['theme'] }
 
 /** A workflow without what the server owns: its versions and which one is published. */
 const drafted = (w: Workflow) => ({ ...w, versions: undefined, published: undefined })
@@ -40,6 +40,7 @@ function partsOf(d: Loose): Map<string, Held> {
   for (const g of d.groups) put(`group:${g.id}`, 'group', g.name, g)
   for (const s of d.services) put(`service:${s.id}`, 'service', s.name, s)
   for (const t of d.templates) put(`template:${t.id}`, 'template', t.name ?? t.id, t)
+  if (d.theme) put('look', 'look', 'Workspace', d.theme)
   return out
 }
 
@@ -139,6 +140,8 @@ export function carryOver<D extends Loose>(base: D, mine: D, theirs: D, keep: 'm
     groups: merged('group:', theirs.groups, mine.groups),
     services: merged('service:', theirs.services, mine.services),
     templates: merged('template:', theirs.templates, mine.templates),
+    // The look is one part: mine when I changed it (or removed it), theirs otherwise.
+    theme: take.has('look') ? mine.theme : theirs.theme,
   }
   return { design, conflicts }
 }

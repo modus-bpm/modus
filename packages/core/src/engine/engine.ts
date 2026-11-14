@@ -849,7 +849,10 @@ function storeOutput(idx: Index, obj: SimObject, fieldId: Id, value: unknown) {
   const type = idx.type.get(obj.typeId)
   const f = type?.fields.find((x) => x.id === fieldId)
   if (!f) return
-  if (f.type === 'boolean') obj.data[f.id] = value === true || /^(true|yes|1|ok)$/i.test(String(value))
+  // A file field takes a list of files (the server has checked whose they are) and nothing else.
+  if (f.type === 'attachment') {
+    if (Array.isArray(value)) obj.data[f.id] = value.length ? value : undefined
+  } else if (f.type === 'boolean') obj.data[f.id] = value === true || /^(true|yes|1|ok)$/i.test(String(value))
   else if (f.type === 'number' || f.type === 'currency') obj.data[f.id] = Number(value) || 0
   else if (f.type === 'choice') {
     const list = idx.ctx.app.lists.find((l) => l.id === f.listId)
@@ -871,7 +874,8 @@ function completeCall(sim: SimState, idx: Index, obj: SimObject, tok: Token, nod
     storeOutput(idx, obj, out.fieldId, v)
     stored.push(out.fieldId)
     const label = op.outputs.find((x) => x.key === out.key)?.label ?? out.key
-    shown.push(`${label} ${typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v)}`)
+    const files = Array.isArray(v) ? v.map((x) => (x && typeof x === 'object' && 'name' in x ? String(x.name) : 'a file')).join(', ') : undefined
+    shown.push(`${label} ${files ?? (typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v))}`)
   }
   const ok = `${svc.name} · ${op.name}: OK`
   audit(sim, obj, { kind: 'service', nodeId: node.id, tokenId: tok.id, fieldIds: stored.length ? stored : undefined, redacted: ok, text: `${ok}${shown.length ? ` (${shown.join(', ')})` : ''}` })

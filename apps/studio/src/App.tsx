@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { Shell } from './components/Shell'
+import { Themed } from './components/Themed'
 import { Toaster } from './components/Toaster'
+import { BrandingView } from './features/branding/BrandingView'
+import { useWorkspaceLook } from './features/branding/look'
 import { IntegrationsView } from './features/integrations/IntegrationsView'
 import { ListsView } from './features/lists/ListsView'
 import { MonitorView } from './features/monitor/MonitorView'
@@ -25,6 +28,7 @@ export function App() {
   const appId = useUi((s) => s.appId)
   const apps = useDesign((s) => s.design.apps)
   const route = useRoute()
+  const look = useWorkspaceLook()
 
   // The URL decides the mode when it names one (#/studio, #/workspace)…
   useEffect(() => {
@@ -50,8 +54,8 @@ export function App() {
   if (!route) return <LandingPage />
   if (!apps.some((a) => a.id === appId)) return null
 
-  return (
-    <Shell>
+  const content = (
+    <>
       {mode === 'workspace' ? (
         <WorkspaceView />
       ) : (
@@ -62,6 +66,7 @@ export function App() {
           {view === 'org' && <OrgView />}
           {view === 'integrations' && <IntegrationsView />}
           {view === 'templates' && <TemplatesView />}
+          {view === 'branding' && <BrandingView />}
           {view === 'monitor' && <MonitorView />}
           {view === 'scenarios' && <ScenariosView />}
         </>
@@ -70,6 +75,13 @@ export function App() {
       <VersionDialogs />
       <CreateObjectModal />
       <Toaster />
-    </Shell>
+    </>
+  )
+  // The Workspace, its top bar and everything opened from it are drawn in the organization's look. The Studio keeps the product's.
+  if (mode !== 'workspace') return <Shell>{content}</Shell>
+  return (
+    <Themed theme={look} className="contents">
+      <Shell>{content}</Shell>
+    </Themed>
   )
 }

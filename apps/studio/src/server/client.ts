@@ -4,6 +4,7 @@
 // Who the Studio acts as goes in the `x-user-id` header; a server that signs people in (oidc) goes by
 // its session cookie and ignores it. The browser sends the cookie by itself.
 
+import type { AttachmentValue } from '@modus-bpm/core/model/format'
 import type { AssistantReply, Design, ExplorerRow, FeedEntry, Id, Migration, PublishPreview, Result, SearchResult, ServiceDef, SimObject, SimState, SimView, WorkingOn } from '@modus-bpm/core'
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>
@@ -483,4 +484,30 @@ export function openStream(appId: Id, onEvent: (e: ChangeEvent) => void, onState
     ctl?.abort()
     reader?.cancel().catch(() => {})
   }
+}
+
+// ----- Uploaded files -----
+
+/** Upload a file; the answer is what goes in the item's data for it. Throws an ApiError with the server's reason. */
+export async function uploadFile(appId: Id, file: Blob & { name?: string }, o: ApiOptions): Promise<AttachmentValue> {
+  const query = new URLSearchParams({ name: file.name ?? 'file', kind: file.type || 'application/octet-stream' })
+  const res = await (o.fetch ?? fetch)(`${appPath(appId)}/files?${query}`, {
+    method: 'POST',
+    signal: o.signal,
+    headers: { accept: 'application/json', 'content-type': 'application/octet-stream', 'x-user-id': o.user },
+    body: file,
+  })
+  if (res.status === 401) unauthorized?.()
+  const body = (await res.json().catch(() => undefined)) as { ok?: boolean; value?: AttachmentValue; error?: string } | undefined
+  if (!res.ok || !body?.value) throw new ApiError(res.status, body?.error ?? `${res.status} ${res.statusText}`.trim())
+  return body.value
+}
+
+/**
+ * A stored file's bytes (a plain link can't send `x-user-id`): from the item it is on, or, before
+ * any item has it, from its uploader's own uploads. `inline` asks for a kind the browser can show.
+ */
+export async function getFile(appId: Id, fileId: Id, itemId: Id | undefined, inline: boolean, o: ApiOptions): Promise<Blob> {
+  const path = itemId ? `${appPath(appId)}/items/${encodeURIComponent(itemId)}/files/${encodeURIComponent(fileId)}` : `${appPath(appId)}/files/${encodeURIComponent(fileId)}`
+  return (await request(`${path}${inline ? '?inline=1' : ''}`, o)).blob()
 }

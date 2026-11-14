@@ -1,12 +1,13 @@
 import { FileStack, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { TypeIcon } from '../../components/icons'
-import { Button, cx, EmptyState, Field, IconButton, Input, Modal } from '../../components/ui'
+import { Button, cx, EmptyState, Field, IconButton, Input, Modal, Segmented } from '../../components/ui'
 import { blankObjectType } from '@modus-bpm/core/model/seed'
 import type { App, ObjectType } from '@modus-bpm/core/model/types'
 import { useApp, useDesign } from '../../store/design'
 import { useUi } from '../../store/ui'
 import { FieldList } from './FieldList'
+import { FormBuilder } from './FormBuilder'
 import { FormPreview } from './FormPreview'
 import { TypeHeader } from './TypeHeader'
 
@@ -17,6 +18,7 @@ export function TypesView() {
   const [selected, setSelected] = useState<{ typeId: string; fieldId: string } | null>(null)
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<ObjectType | null>(null)
+  const [tab, setTab] = useState<'fields' | 'form'>('fields')
 
   if (!app) return null
   const type = app.objectTypes.find((t) => t.id === typeId) ?? app.objectTypes[0]
@@ -88,7 +90,20 @@ export function TypesView() {
           <div className="min-w-0 flex-1 overflow-y-auto bg-canvas">
             <div className="mx-auto max-w-3xl space-y-4 p-5">
               <TypeHeader app={app} type={type} />
-              <FieldList app={app} type={type} selectedId={selectedFieldId} onSelect={selectField} />
+              <Segmented<'fields' | 'form'>
+                ariaLabel="What to edit"
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'fields', label: 'Fields', title: 'What the form holds: its fields and their rules' },
+                  { value: 'form', label: 'Form layout', title: 'Where each field goes: sections, widths, headings and instructions' },
+                ]}
+              />
+              {tab === 'fields' ? (
+                <FieldList app={app} type={type} selectedId={selectedFieldId} onSelect={selectField} />
+              ) : (
+                <FormBuilder app={app} type={type} selectedFieldId={selectedFieldId} onSelectField={selectField} />
+              )}
             </div>
           </div>
           <FormPreview key={type.id} app={app} type={type} selectedFieldId={selectedFieldId} onFieldClick={(id) => selectField(id)} />

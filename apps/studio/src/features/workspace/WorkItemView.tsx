@@ -1,6 +1,7 @@
 import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, CircleHelp, EyeOff, GitFork, Lock, MapPin, MessageSquare, Play, Save, Undo2, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { FormRenderer } from '../../components/FormRenderer'
+import { LiveFiles } from '../../server/LiveFiles'
 import { TypeIcon } from '../../components/icons'
 import { Avatar, Badge, Button, Card, cx, IconButton, Modal, Textarea } from '../../components/ui'
 import {
@@ -296,7 +297,9 @@ function ItemBody({ item, me, app, ctx, users, groups, sim, tick, position, onMo
               </div>
 
               <Card className="p-4">
-                <FormRenderer type={type} lists={app.lists} users={users} values={values} access={access} includeSystem errors={errors} onChange={onFormChange} />
+                <LiveFiles itemId={obj.id}>
+                  <FormRenderer type={type} lists={app.lists} users={users} values={values} access={access} includeSystem errors={errors} onChange={onFormChange} />
+                </LiveFiles>
               </Card>
 
               {restricted.length > 0 && (

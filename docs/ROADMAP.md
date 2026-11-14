@@ -17,12 +17,17 @@ not days. An architecture review on November 13, 2026 set the order:
 2. **State that survives upgrades, and jobs that cannot be answered twice.** Stamp stored state
    with its version and refuse to start on a mismatch; check a job's completion against the
    attempt it was leased for; accept an idempotency key on creates.
-3. **Running one deployment**: backups and restore, upgrades, somewhere to keep attached files,
+3. **Running one deployment**: backups and restore, upgrades,
    a metrics endpoint, and refusing to serve strangers with sign-in off (pulled forward from M6
    and M2).
 
 Done first:
 
+- **Attached files are real.** A file field uploads to the server, which keeps the bytes (in
+  PostgreSQL, or a directory with the memory store) and sends a file only to someone who may read
+  the field it is in. See [DEPLOYMENT.md](DEPLOYMENT.md#attachments).
+- **A forms builder and branding.** Lay out each object type's form in sections, and give the
+  Workspace your organization's name, logo, colours and style.
 - **Who may take the event log out, and who may answer for a service.** The OCEL export is for
   administrators and auditors and leaves out the fields hidden from them; a service's jobs can be
   taken and finished only by its listed workers and administrators.
@@ -49,6 +54,11 @@ per item, several organizations on one deployment, and the M5 load targets.
 | Capability | Status |
 | --- | --- |
 | Dynamic object types, generated forms, numbering, title and summary fields | Prototype |
+| Forms builder: sections, one to three columns, widths, per-form labels and guidance, headings, paragraphs, dividers, pictures; live preview | Prototype |
+| Branding: the Workspace's name, logo, colours, typeface, corners, room, field and label styles, side panel, own style rules; per organization and per application | Prototype |
+| File uploads stored on the server, with per-field limits on kind, number and size | Done |
+| Per-step form layouts; conditional sections (show when a field has a value) | Planned |
+| S3-compatible storage for large files; malware scanning hook; retention for removed files | Planned |
 | Line items (table fields): typed columns, calculated columns, totals, row limits; rules on rows (count, sum, any/every row) | Prototype |
 | Linked (cascading) lists | Prototype |
 | Visual workflow designer with live counts on every step | Prototype |

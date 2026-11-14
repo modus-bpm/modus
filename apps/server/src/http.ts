@@ -51,6 +51,7 @@ import {
   canWorkService,
   exportOcel,
   failJob,
+  fileRefs,
   findToken,
   hasRole,
   type Id,
@@ -93,6 +94,7 @@ import {
 import { answer, type ModelAssistant } from './assistant'
 import { DesignRefused, designUse, parseDesign, takeDesign } from './designs'
 import { canRead, designDto, findItem, hitDto, itemDto, workItemDto } from './dto'
+import { defaultFileSettings, type FileSettings, FilesRefused, heldNow, sendFile, storeUpload, takeFiles } from './files'
 import { liveChanges } from './live'
 import { DesignConflict, NotFound, type Runtime, StorageUnavailable } from './runtime'
 import type { Sender } from './sender'
@@ -109,6 +111,8 @@ export interface ServerOptions {
   streamPingMs?: number
   /** How callers are identified (MODUS_AUTH). Default: the `x-user-id` header. */
   auth?: AuthSettings
+  /** Uploaded files: the size limit and how long one waits for an item (ATTACHMENT_*). */
+  files?: FileSettings
   /** The item explorer's search text per application (given here so tests can watch it). */
   explorerCaches?: Map<Id, ExplorerCache>
 }
@@ -145,6 +149,13 @@ const itemParams = z.object({ app: z.string(), itemId: z.string() })
 
 // ---------- Studio (static files with SPA fallback) ----------
 
+/**
+ * The Studio's pages load pictures and fonts only from the server itself or from the page (logos and
+ * form pictures are kept in the design). So a style rule or a picture address that got past the
+ * checks still has nowhere outside to send anything.
+ */
+const STUDIO_CSP = "img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'"
+
 function serveStudio(app: FastifyInstance, dir: string) {
   const root = resolve(dir)
   if (!existsSync(join(root, 'index.html'))) throw new Error(`STATIC_DIR=${dir} has no index.html. Build the studio (pnpm --filter @modus-bpm/studio build) or unset STATIC_DIR.`)
@@ -155,6 +166,7 @@ function serveStudio(app: FastifyInstance, dir: string) {
       // Vite fingerprints everything under assets/; the HTML must always be revalidated.
       reply.header('cache-control', path.includes(`${sep}assets${sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache')
       reply.header('x-content-type-options', 'nosniff')
+      if (path.endsWith('.html')) reply.header('content-security-policy', STUDIO_CSP)
     },
   })
 }
@@ -168,6 +180,8 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     if (err instanceof NotFound) return reply.code(404).send({ ok: false, error: err.message })
     if (err instanceof Unauthorized) return reply.code(401).send({ ok: false, error: err.message })
     if (err instanceof DesignRefused) return reply.code(err.status).send({ ok: false, error: err.message })
+    if (err instanceof FilesRefused) return reply.code(400).send({ ok: false, error: err.message })
+    if ((err as { statusCode?: number }).statusCode === 413) return reply.code(413).send({ ok: false, error: `That is larger than the server takes (${fileSettings.maxMb} MB for a file).` })
     // The revision now stored, so the Studio can load it and carry its changes over.
     if (err instanceof DesignConflict) return reply.code(409).send({ ok: false, error: err.message, revision: err.revision })
     if (err instanceof StorageUnavailable) {
@@ -179,6 +193,7 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     return reply.code(500).send({ ok: false, error: 'Unexpected error' })
   })
 
+  const fileSettings = opts.files ?? defaultFileSettings
   const auth = opts.auth ?? openAuth()
   registerAuth(app, rt, auth)
 
@@ -188,7 +203,7 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const api = path === '/api' || path.startsWith('/api/')
     // Client-side routes get the studio; missing files (anything with an extension) and API paths get a 404.
     if (opts.staticDir && !api && (req.method === 'GET' || req.method === 'HEAD') && !/\.[a-z0-9]+$/i.test(path)) {
-      return reply.header('cache-control', 'no-cache').sendFile('index.html')
+      return reply.header('cache-control', 'no-cache').header('content-security-policy', STUDIO_CSP).sendFile('index.html')
     }
     return reply.code(404).send({ ok: false, error: `No route ${req.method} ${path}` })
   })
@@ -461,11 +476,106 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
 
   // ----- Items -----
 
+  // ----- Uploaded files -----
+
+  const objectTypeOf = (appId: Id, typeId: Id | undefined) => rt.ctx(appId).app.objectTypes.find((t) => t.id === typeId)
+
+  /** The files a save or release names, checked against the item the work belongs to. */
+  async function workFiles(appId: Id, workItemId: Id, user: Id, patch: Record<string, unknown>) {
+    const held = await rt.read(appId, (sim) => {
+      const obj = findToken(sim, workItemId)?.obj
+      return obj ? { itemId: obj.id, typeId: obj.typeId, data: obj.data } : undefined
+    })
+    const type = held && objectTypeOf(appId, held.typeId)
+    if (!held || !type) return { data: patch, ids: [] as Id[], itemId: undefined }
+    return { ...(await takeFiles(rt.files, fileSettings, appId, user, type, patch, held)), itemId: held.itemId }
+  }
+
+  /**
+   * The files a job's outputs name. An output stored on a file field must name files its worker
+   * uploaded (or ones already there); on any other field a value is never read as a file.
+   */
+  async function jobFiles(appId: Id, tokenId: Id, user: Id, outputs: Record<string, unknown>) {
+    const held = await rt.read(appId, (sim, ctx) => {
+      const found = findToken(sim, tokenId)
+      // The step as drawn and as every published version has it: an output any of them stores on a file field is checked.
+      const mapped = !found
+        ? []
+        : ctx.app.workflows
+            .flatMap((w) => [...w.nodes, ...(w.versions ?? []).flatMap((v) => v.snapshot.nodes)])
+            .flatMap((n) => (n.id === found.tok.nodeId && n.type === 'auto' ? (n.data.outputs ?? []) : []))
+      return found ? { itemId: found.obj.id, typeId: found.obj.typeId, data: found.obj.data, mapped } : undefined
+    })
+    const type = held && objectTypeOf(appId, held.typeId)
+    if (!held || !type) return { outputs, ids: [] as Id[], itemId: undefined }
+    const fileFields = new Set(type.fields.filter((f) => f.type === 'attachment').map((f) => f.id))
+    const toFiles = held.mapped.filter((m) => fileFields.has(m.fieldId) && m.key in outputs)
+    if (!toFiles.length) return { outputs, ids: [] as Id[], itemId: held.itemId }
+    const taken = await takeFiles(rt.files, fileSettings, appId, user, type, Object.fromEntries(toFiles.map((m) => [m.fieldId, outputs[m.key]])), held)
+    return { outputs: { ...outputs, ...Object.fromEntries(toFiles.map((m) => [m.key, taken.data[m.fieldId]])) }, ids: taken.ids, itemId: held.itemId }
+  }
+
+  /** After a commit: the item now has those of the files its data holds (a locked field's files are not among them). */
+  async function keepFiles(appId: Id, itemId: Id, ids: Id[]) {
+    if (!ids.length) return
+    const now = await rt.read(appId, (sim) => {
+      const obj = sim.objects[itemId]
+      const type = obj && objectTypeOf(appId, obj.typeId)
+      return obj && type ? heldNow(type, obj.data, ids) : []
+    })
+    await rt.files.attach(appId, now, itemId)
+  }
+
+  // An upload is the file's bytes as the body (`application/octet-stream`), its name and kind in the query.
+  app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, (_req, body, done) => done(null, body))
+  const uploadQuery = z.object({ name: z.string().max(500).optional(), kind: z.string().max(200).optional() })
+  app.post('/api/apps/:app/files', { bodyLimit: fileSettings.maxMb * 1024 * 1024 }, async (req, reply) => {
+    const { app: appId } = appParams.parse(req.params)
+    const user = who(req)
+    const ctx = rt.ctx(appId)
+    if (!ctx.users.some((u) => u.id === user)) return send(reply, refuse(403, 'Only people in the design can upload files.'))
+    const q = uploadQuery.parse(req.query)
+    if (!Buffer.isBuffer(req.body)) return reply.code(415).send({ ok: false, error: 'Send the file’s bytes as application/octet-stream, with its name and kind in the query.' })
+    if (!req.body.byteLength) return reply.code(400).send({ ok: false, error: 'That file is empty.' })
+    return reply.code(201).send({ ok: true, value: await storeUpload(rt.files, appId, user, { name: q.name, kind: q.kind, bytes: req.body }) })
+  })
+
+  const inlineQuery = z.object({ inline: z.string().optional() })
+  const noFile = { ok: false, error: 'No such file.' }
+  // A file on an item: for whoever may read the field it is in, as the item stands now.
+  app.get('/api/apps/:app/items/:itemId/files/:fileId', async (req, reply) => {
+    const { app: appId, itemId, fileId } = z.object({ app: z.string(), itemId: z.string(), fileId: z.string() }).parse(req.params)
+    const user = who(req)
+    const visible = await rt.read(appId, (sim, ctx) => {
+      const obj = findItem(sim, itemId)
+      if (!obj || !canRead(sim, ctx, obj, user)) return undefined
+      const type = objectTypeOf(appId, obj.typeId)
+      // The data as this person sees it: a hidden field's files are not in it.
+      return type && fileRefs(type, itemDto(obj, ctx, user, sim).data).some((r) => r.file.id === fileId) ? obj.id : undefined
+    })
+    const found = visible ? await rt.files.read(appId, fileId) : undefined
+    if (!found || found.file.itemId !== visible) return reply.code(404).send(noFile)
+    return sendFile(reply, found.file, found.bytes, inlineQuery.parse(req.query).inline === '1')
+  })
+  // A file its uploader has not put on an item yet (the form is still open).
+  app.get('/api/apps/:app/files/:fileId', async (req, reply) => {
+    const { app: appId, fileId } = z.object({ app: z.string(), fileId: z.string() }).parse(req.params)
+    const user = who(req)
+    rt.ctx(appId)
+    const found = await rt.files.read(appId, fileId)
+    if (!found || found.file.itemId || found.file.uploadedBy !== user) return reply.code(404).send(noFile)
+    return sendFile(reply, found.file, found.bytes, inlineQuery.parse(req.query).inline === '1')
+  })
+
   const createBody = z.object({ workflowId: z.string(), data: z.record(z.string(), z.unknown()).default({}) })
   app.post('/api/apps/:app/items', async (req, reply) => {
     const { app: appId } = appParams.parse(req.params)
     const user = who(req)
     const body = createBody.parse(req.body)
+    // Files the new item names: checked, and described from storage, before the command runs.
+    const type = objectTypeOf(appId, rt.ctx(appId).app.workflows.find((w) => w.id === body.workflowId)?.objectTypeId)
+    const taken = type ? await takeFiles(rt.files, fileSettings, appId, user, type, body.data) : { data: body.data, ids: [] }
+    body.data = taken.data
     // Decided inside the command, answered only once it has committed: a failed commit must reach the error handler (503).
     const r = await rt.run(appId, (sim, ctx) => {
       if (!canCreate(ctx, body.workflowId, user)) return refuse(403, 'You can’t create items in that workflow.')
@@ -476,6 +586,7 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
       return { created: itemDto(obj, ctx, user, sim) }
     })
     if ('refused' in r) return send(reply, r)
+    await keepFiles(appId, r.created.id, taken.ids)
     return reply.code(201).send({ ok: true, value: r.created })
   })
 
@@ -708,7 +819,10 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const { app: appId, workItemId } = workParams.parse(req.params)
     const user = who(req)
     const { patch } = patchBody.parse(req.body ?? {})
-    return send(reply, await rt.run(appId, (sim, ctx) => workSave(sim, ctx, workItemId, user, patch)))
+    const taken = await workFiles(appId, workItemId, user, patch)
+    const r = await rt.run(appId, (sim, ctx) => workSave(sim, ctx, workItemId, user, taken.data))
+    if (r.ok && taken.itemId) await keepFiles(appId, taken.itemId, taken.ids)
+    return send(reply, r)
   })
 
   const releaseBody = z.object({ outcomeId: z.string(), comment: z.string().default(''), patch: z.record(z.string(), z.unknown()).default({}) })
@@ -716,7 +830,10 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const { app: appId, workItemId } = workParams.parse(req.params)
     const user = who(req)
     const b = releaseBody.parse(req.body)
-    return send(reply, await rt.run(appId, (sim, ctx) => workRelease(sim, ctx, workItemId, user, b.outcomeId, b.comment, b.patch)))
+    const taken = await workFiles(appId, workItemId, user, b.patch)
+    const r = await rt.run(appId, (sim, ctx) => workRelease(sim, ctx, workItemId, user, b.outcomeId, b.comment, taken.data))
+    if (r.ok && taken.itemId) await keepFiles(appId, taken.itemId, taken.ids)
+    return send(reply, r)
   })
 
   app.post('/api/apps/:app/work/:workItemId/return', async (req, reply) => {
@@ -900,11 +1017,14 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const { appId, tokenId } = jobParams(req)
     const { outputs } = z.object({ outputs: z.record(z.string(), z.unknown()).default({}) }).parse(req.body ?? {})
     const user = who(req)
+    // A job's result may put files on the item (a generated letter): the same rules as a person's.
+    const taken = await jobFiles(appId, tokenId, user, outputs)
     const done = await rt.run(appId, (sim, ctx) => {
       const serviceId = jobService(sim, tokenId)
       if (serviceId && !mayWork(serviceId, user)) return refuse(403, workersOnly)
-      return completeJob(sim, ctx, tokenId, outputs)
+      return completeJob(sim, ctx, tokenId, taken.outputs)
     })
+    if (done === true && taken.itemId) await keepFiles(appId, taken.itemId, taken.ids)
     if (typeof done === 'object') return send(reply, done)
     return done ? reply.send({ ok: true }) : reply.code(410).send({ ok: false, error: 'That job is no longer open (finished, cancelled or taken over by a person).' })
   })

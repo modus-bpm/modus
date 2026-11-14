@@ -7,6 +7,7 @@
 import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { z } from 'zod'
+import type { FileSettings } from './files'
 import { type AuthMode, type AuthSettings, hashToken } from './auth'
 import { type Endpoint, loadEndpoints } from './webhooks'
 
@@ -58,6 +59,10 @@ const env = z.object({
   WEBHOOKS_KEEP_DAYS: z.coerce.number().int().min(1).max(365).default(7),
   /** Days to keep messages with a failed delivery, for the admin retry. */
   WEBHOOKS_KEEP_FAILED_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  /** The largest file an upload may be, in megabytes. A field can ask for less. */
+  ATTACHMENT_MAX_MB: z.coerce.number().int().min(1).max(1024).default(25),
+  /** Hours an uploaded file waits for an item to take it before it is deleted. */
+  ATTACHMENT_KEEP_UNUSED_HOURS: z.coerce.number().int().min(1).max(24 * 30).default(24),
   /**
    * How the server learns who is calling. `none`: the caller says, in the x-user-id header (a laptop or a closed network only).
    * `password`: one shared password lets a browser in, and people still choose who to work as (demos).
@@ -110,6 +115,8 @@ export interface Config {
   webhooks: Endpoint[]
   webhooksKeepDays: number
   webhooksKeepFailedDays: number
+  /** Uploaded files: the size limit and how long one waits for an item. */
+  files: FileSettings
 }
 
 export class ConfigError extends Error {}
@@ -223,6 +230,7 @@ export function loadConfig(
       webhooks,
       webhooksKeepDays: e.WEBHOOKS_KEEP_DAYS,
       webhooksKeepFailedDays: e.WEBHOOKS_KEEP_FAILED_DAYS,
+      files: { maxMb: e.ATTACHMENT_MAX_MB, keepUnusedHours: e.ATTACHMENT_KEEP_UNUSED_HOURS },
     },
     warnings,
   }

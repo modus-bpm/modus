@@ -66,6 +66,8 @@ also serves the studio.
 | **Application** | A bundle of object types, lists and workflows (e.g. Invoice Processing). |
 | **Object type** | A dynamically defined record: fields (text, number, currency, date, yes/no, choice, person, email, attachment, and **tables** of rows such as invoice line items), numbering, title, priority field, permissions per group, and *sensitive* fields visible only to some groups. Forms are generated from it. |
 | **Table field** | Multi-row data inside an item: typed columns, formula columns (`Quantity × Unit Price`), row limits, and **total fields** that sum a column. Calculated values are kept by the engine and are read-only everywhere. |
+| **Form layout** | Where an object type's fields go on its form: sections of one to three columns, fields at a chosen width with their own label and guidance, and headings, paragraphs, dividers and pictures between them. Without one, the form is every field in order. It only arranges: field security still decides who sees and changes what, and a field the layout leaves out is still shown at the end. |
+| **Look** | How the Workspace is drawn for the people working in it: a name and logo, four colours every other shade is mixed from, typeface, corners, room, how fields and labels are drawn, the side panel, and style rules of the organization's own. Set for the organization; an application can differ. |
 | **List** | Flat or linked (cascading) reference data: Model Year → Make → Model. |
 | **Workflow** | A graph of steps and paths for one object type. `process` workflows start when an item is created; `subflow` workflows run inside a subflow step. Has a target time (due dates), workflow-wide field locks, **process supervisors**, and an **expedite policy** (who may expedite, how much faster, whether a reason is required). |
 | **Step types** | Start (form, API, event stream, schedule, inbox) · User step · Automated step · Decision · Parallel split · Join · Subflow · Timer · End. |
@@ -322,6 +324,7 @@ rewritten as one full line now and then.
 | Search and assistant | `GET …/search?q=`, `POST …/assistant` (Claude with tools when configured; built-in otherwise) |
 | Supervision | `GET …/my/supervision`, `POST …/supervise/:id/assign · return · release · retry`, `POST …/supervise/steps/:step/redistribute`, `POST …/supervise/items/:id/priority` |
 | Expedite and priority | `POST …/items/:id/expedite {on, reason}` (checked against the process's policy), `POST …/items/:id/priority {priority}` (the requester, or whoever is working it) |
+| Files | `POST …/files?name=&kind=` (the bytes as `application/octet-stream`; answers what to put in the item's data), `GET …/items/:id/files/:fileId` (for whoever may read that field of that item), `GET …/files/:fileId` (its uploader, until an item has it) |
 | Workers | `POST /api/jobs/poll`, `POST /api/jobs/:id/complete`, `POST /api/jobs/:id/fail` (the service's listed workers and administrators) |
 | Live | `GET /api/apps/:app/stream` (Server-Sent Events, below; any named user) |
 | Design | `GET /api/design` (the design with its `revision`, services without connection details; drafts only for designers and administrators) |
@@ -393,7 +396,7 @@ sends `x-user-id` as the person chosen with "Working as", from the server's desi
 Workspace asks about every changed item (the stream isn't filtered per person); a command's
 reload may be answered by another replica that hasn't heard of it yet, in which case the stream
 corrects it a moment later; an administrator's Workspace holds every active item, since they
-supervise everything; attachments still hold only the file's name and size.
+supervise everything.
 
 ### The Studio on a server: designing (M3)
 
@@ -549,7 +552,8 @@ takes the hybrid that modern databases make cheap:
 The tables below are the target. What is built today is the smaller set described under
 [One transaction per command (M2)](#one-transaction-per-command-m2): the design as one document,
 the state and its item rows, the event log, the projections and the outbox. In particular there
-is no `tenant_id`, no `prev_hash` and no `timer` or `attachment` table yet.
+is no `tenant_id`, no `prev_hash` and no `timer` table yet. Uploaded files are kept in a `file` table,
+bytes included (a `storage_key` into object storage, as below, is the plan for large files).
 
 ```
 object_type(id, tenant_id, key, version, schema_json)
@@ -606,6 +610,8 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
 | Process mining | OCEL 2.0 export from the event log (`exportOcel`); XES (IEEE 1849-2023) next | OCEL **done**; XES planned |
 | Search | Query language in the core; Postgres FTS + `pg_trgm` + field/row indexes; optional `pgvector`, OpenSearch | In-engine **done**; database-backed planned (M3) |
 | Assistant | Built-in interpreter in the core; Claude with tool use on the server (Anthropic API, Bedrock, Vertex, or a local endpoint) | Built-in **done**; model path in the server |
+| Attachments | Files uploaded to the server, kept behind a `Files` storage port (PostgreSQL `bytea`, or a directory with the memory store); per-field limits on kind, number and size | **Done**; S3-compatible storage planned |
+| Forms and look | A form layout per object type (`formPlan` in the core) and a theme for the Workspace (`themeVars`, `cssProblem`), drawn by the same form renderer in the builder's preview and in the Workspace | **Done** |
 | Packaging | One OCI image (server + studio), Docker Compose with Postgres (optional NATS/Keycloak), Helm chart, GHCR images | **Done** |
 
 ## Security model
@@ -627,6 +633,17 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
   leaves out the fields hidden from the person asking. A service's jobs can be taken and answered
   only by the people the service lists as its workers (machine accounts, as a rule) and by
   administrators; only an administrator can change that list.
+- **Files**: an upload belongs to its uploader until a committed command puts it in an item's
+  data. A write (a person's, or a worker's job result) may name only files its caller uploaded or
+  ones the item already holds, and what the data says about a file comes from storage. A file is
+  sent only to someone who can read the field it is in, on that item, as it stands; always as a
+  download or a sandboxed view, never as a page of the server's origin.
+- **The look**: colours, logos and form pictures are data the core checks (hex colours, images
+  kept in the design as data URLs). Style rules of the organization's own are used exactly as
+  written or not at all: they are read as a browser reads them, refused if they could close the
+  Workspace's scope or load anything from elsewhere, and nested under the Workspace so they can't
+  restyle the Studio. On a server only an administrator can change them, and the served Studio's
+  content security policy allows pictures and fonts only from the server and the page itself.
 - **Secrets**: the service registry stores only a credential *reference*; the automation
   service resolves it from the secret store at call time.
 - **AI and tools**: tool and agent output is data validated against an output schema; routing

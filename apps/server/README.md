@@ -61,6 +61,7 @@ do it, `404` when the thing doesn't exist (or they can't see it), `409` when the
 | Discovery | `GET /api` (route list), `GET /api/apps`, `GET …/overview` |
 | Health | `GET /api/health` (liveness), `GET /api/ready` (readiness; `503` while shutting down or while the database is unreachable) |
 | Items | `POST …/items`, `GET …/items/:idOrNumber` (only what the caller may see), `POST …/items/:id/expedite` `{ on, reason }`, `POST …/items/:id/priority` `{ priority }` (the requester, or whoever is working it) |
+| Files | `POST …/files?name=&kind=` with the bytes as `application/octet-stream` → what to put in the item's data; `GET …/items/:id/files/:fileId` (whoever may read that field), `GET …/files/:fileId` (the uploader, until an item has it); `?inline=1` to show a picture, PDF or text |
 | Search | `GET …/search?q=&sort=relevance\|newest\|due\|priority&limit=` → `{ total, hits, facets }` |
 | Assistant | `POST …/assistant` `{ question, history?: [{ role, text }] }` → `{ text, query?, hits?, suggestions, source, notice? }` |
 | My work | `GET …/my/basket · queues · distribution · requests · supervision`, `POST …/my/next`, `POST …/my/distribution/:stepId/evenly` (a dispatcher hands out everything waiting at a step) |

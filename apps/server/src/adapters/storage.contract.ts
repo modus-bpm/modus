@@ -7,7 +7,7 @@ import { type AuditEntry, changedItems, changesBetween, completeJob, copyState, 
 import { seedDesign } from '@modus-bpm/core/model/seed'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildServer } from '../http'
-import type { Delivery, LoggedEvent, Storage, Write } from '../ports'
+import type { Delivery, LoggedEvent, Storage, Write, StoredFile } from '../ports'
 import { DesignConflict, Runtime } from '../runtime'
 import { Sender } from '../sender'
 
@@ -358,6 +358,47 @@ export function storageContract(name: string, target: ContractTarget) {
       expect(await s.tryClock('app_a', 'one')).toBe(true)
       await s.releaseClocks('one')
       expect(await s.tryClock('app_a', 'two')).toBe(true)
+    })
+
+    describe('uploaded files', () => {
+      const bytes = new TextEncoder().encode('%PDF-1.7 scanned')
+      const file = (id: string, extra: Partial<StoredFile> = {}): StoredFile => ({ id, appId: 'app_a', name: `${id}.pdf`, size: bytes.byteLength, kind: 'application/pdf', sha256: 'ab'.repeat(32), uploadedBy: 'u_maya', uploadedAt: 1_000_000, ...extra })
+
+      it('keeps a file’s bytes and what is known about it, per application', async () => {
+        const s = await create()
+        await s.files.put(file('f_1'), bytes)
+        await s.files.put(file('f_2', { appId: 'app_b' }), bytes)
+        const read = await s.files.read('app_a', 'f_1')
+        expect(read?.file).toEqual(file('f_1'))
+        expect(Buffer.from(read!.bytes).equals(Buffer.from(bytes))).toBe(true)
+        expect(await s.files.read('app_a', 'f_2')).toBeUndefined()
+        expect(await s.files.read('app_a', 'f_none')).toBeUndefined()
+        expect((await s.files.meta('app_a', ['f_2', 'f_1', 'f_none'])).map((f) => f.id)).toEqual(['f_1'])
+        expect(await s.files.meta('app_a', [])).toEqual([])
+      })
+
+      it('records the item that took a file, once', async () => {
+        const s = await create()
+        await s.files.put(file('f_1'), bytes)
+        await s.files.attach('app_a', ['f_1', 'f_none'], 'o_1')
+        await s.files.attach('app_a', ['f_1'], 'o_2')
+        await s.files.attach('app_b', ['f_1'], 'o_3')
+        expect((await s.files.meta('app_a', ['f_1']))[0]?.itemId).toBe('o_1')
+      })
+
+      it('prunes old files no item took, and keeps the rest across a restart', async () => {
+        const s = await create()
+        await s.files.put(file('f_old'), bytes)
+        await s.files.put(file('f_kept'), bytes)
+        await s.files.put(file('f_new', { uploadedAt: 2_000_000 }), bytes)
+        await s.files.attach('app_a', ['f_kept'], 'o_1')
+        expect(await s.files.prune(1_500_000)).toBe(1)
+        expect((await s.files.meta('app_a', ['f_old', 'f_kept', 'f_new'])).map((f) => f.id)).toEqual(['f_kept', 'f_new'])
+        const again = await reopen()
+        const read = await again.files.read('app_a', 'f_kept')
+        expect(read?.file.itemId).toBe('o_1')
+        expect(Buffer.from(read!.bytes).equals(Buffer.from(bytes))).toBe(true)
+      })
     })
 
     describe('outbox deliveries', () => {

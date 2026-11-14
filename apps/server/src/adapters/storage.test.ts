@@ -86,7 +86,7 @@ describe.skipIf(!url)('postgres', () => {
       await s.migrate()
       await s.migrate()
       const { rows } = await admin.query(`select name from ${own}.kysely_migration order by name`)
-      expect(rows.map((r) => r.name)).toEqual(['0001_storage', '0002_projections', '0003_outbox_delivery', '0004_state_json', '0005_item_state', '0006_design_revision'])
+      expect(rows.map((r) => r.name)).toEqual(['0001_storage', '0002_projections', '0003_outbox_delivery', '0004_state_json', '0005_item_state', '0006_design_revision', '0007_files'])
       await s.close()
     })
 

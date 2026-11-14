@@ -18,7 +18,7 @@ import { signedInAs } from './session'
 export type DesignStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 /** The server's design as the designer pages hold it: services carry no connection details there. */
-export const asDesign = (d: ServerDesign): Design => ({ apps: d.apps, users: d.users, groups: d.groups, templates: d.templates, services: d.services.map((s) => ({ endpoint: '', ...s })) })
+export const asDesign = (d: ServerDesign): Design => ({ apps: d.apps, users: d.users, groups: d.groups, templates: d.templates, services: d.services.map((s) => ({ endpoint: '', ...s })), ...(d.theme ? { theme: d.theme } : {}) })
 
 export type SaveResult =
   /** Stored. `design` is the design as the server holds it now: the working copy should become it. */

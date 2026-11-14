@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Check, FileText, Inbox, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { FormRenderer } from '../../components/FormRenderer'
+import { LiveFiles } from '../../server/LiveFiles'
 import { TypeIcon } from '../../components/icons'
 import { Badge, Button, Card, cx, EmptyState, IconButton, Segmented } from '../../components/ui'
 import { canExpedite, type Ctx, describeToken, itemReadVerdicts, type RequestSummary, runnableApp, type SimObject, type SimState, visibleHistory } from '@modus-bpm/core'
@@ -269,7 +270,9 @@ export function ItemReadView({
         <div className="mt-4">
           {tab === 'details' ? (
             <Card className="p-4">
-              <FormRenderer type={type} lists={app.lists} users={users} values={obj.data} access={access} includeSystem />
+              <LiveFiles itemId={obj.id}>
+                <FormRenderer type={type} lists={app.lists} users={users} values={obj.data} access={access} includeSystem />
+              </LiveFiles>
             </Card>
           ) : (
             <ObjectHistory obj={{ ...obj, history: visibleHistory(ctx, obj, me.id) }} app={app} />

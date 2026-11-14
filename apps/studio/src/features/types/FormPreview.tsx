@@ -1,6 +1,7 @@
 import { Check, Eraser, ExternalLink, Minus, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { FormRenderer } from '../../components/FormRenderer'
+import { Themed } from '../../components/Themed'
 import { DISTRIBUTION } from '../../components/icons'
 import { Button, Select } from '../../components/ui'
 import { generateData } from '@modus-bpm/core/engine/generate'
@@ -8,6 +9,7 @@ import { validateRequired } from '@modus-bpm/core/model/format'
 import type { App, ObjectType, TypePermission } from '@modus-bpm/core/model/types'
 import { useDesign } from '../../store/design'
 import { useUi } from '../../store/ui'
+import { useDesignLook } from '../branding/look'
 
 interface Props {
   app: App
@@ -21,6 +23,7 @@ export function FormPreview({ app, type, selectedFieldId, onFieldClick }: Props)
   const users = useDesign((s) => s.design.users)
   const groups = useDesign((s) => s.design.groups)
   const toast = useUi((s) => s.toast)
+  const look = useDesignLook(app.id)
   const [mode, setMode] = useState<string>('create')
   const [values, setValues] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string> | undefined>()
@@ -137,21 +140,24 @@ export function FormPreview({ app, type, selectedFieldId, onFieldClick }: Props)
           {type.fields.length === 0 ? (
             <p className="py-8 text-center text-xs text-slate-500">Add a field and it appears here instantly.</p>
           ) : (
-            <FormRenderer
-              type={type}
-              lists={app.lists}
-              users={users}
-              values={values}
-              onChange={(v) => {
-                setValues(v)
-                if (errors) setErrors(undefined)
-              }}
-              access={access}
-              includeSystem={!!step}
-              errors={errors}
-              highlightFieldId={selectedFieldId ?? undefined}
-              onFieldClick={onFieldClick}
-            />
+            // Drawn in the Workspace's look, so this is the form people get.
+            <Themed theme={look} className="rounded-lg bg-white p-3 ring-1 ring-slate-200">
+              <FormRenderer
+                type={type}
+                lists={app.lists}
+                users={users}
+                values={values}
+                onChange={(v) => {
+                  setValues(v)
+                  if (errors) setErrors(undefined)
+                }}
+                access={access}
+                includeSystem={!!step}
+                errors={errors}
+                highlightFieldId={selectedFieldId ?? undefined}
+                onFieldClick={onFieldClick}
+              />
+            </Themed>
           )}
           {type.fields.length > 0 && (
             <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">

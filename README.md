@@ -38,7 +38,12 @@ they changed something.
 **Design**
 
 - **Dynamic object types** with generated forms, **line items** (an invoice's lines with
-  calculated totals), and **linked lists** (Model Year → Make → Model).
+  calculated totals), **file uploads** stored on the server, and **linked lists** (Model Year →
+  Make → Model).
+- A **forms builder**: arrange each form in sections and columns, with your own labels, headings,
+  instructions and pictures, and see it as people will.
+- **Branding**: give the Workspace your organization's name, logo, colours, type and field style,
+  for everyone or per application, with your own style rules for the rest.
 - A **visual workflow designer**: people steps, automated steps, decisions on field values and
   line items ("any line where Category is Software"), **parallel split / join** (all, first one
   wins, N of M), **subflows**, timers.

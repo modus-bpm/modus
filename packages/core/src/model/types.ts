@@ -140,6 +140,11 @@ export interface FieldDef {
    * (an invoice's Amount = the sum of its lines' Line Total). Read-only in forms.
    */
   total?: { tableFieldId: Id; columnId: Id }
+  /** attachment: file name endings accepted, without the dot (`pdf`, `png`). Empty/undefined = any file. */
+  accept?: string[]
+  /** attachment: how many files the field holds at most, and how large each may be (megabytes). */
+  maxFiles?: number
+  maxMb?: number
   /**
    * Sensitive data: only members of these groups can see the field, anywhere.
    * Everyone else gets it hidden regardless of step settings. Empty/undefined = no restriction.
@@ -161,6 +166,82 @@ export interface ObjectType {
   /** A choice field whose value sets the work priority (labels containing low/high/urgent/critical). */
   priorityFieldId?: Id
   permissions: Record<Id, TypePermission>
+  /** How the form is laid out. Absent: every field in order, two to a row (see forms.ts). */
+  form?: FormLayout
+}
+
+// ---------- Form layout (what the forms builder edits) ----------
+
+/** A form as an administrator laid it out: sections, each a grid of fields, headings and text. */
+export interface FormLayout {
+  sections: FormSection[]
+}
+
+export interface FormSection {
+  id: Id
+  title?: string
+  /** A sentence or two under the title. */
+  description?: string
+  /** How many columns the section's grid has. */
+  columns: 1 | 2 | 3
+  items: FormItem[]
+  /** Starts closed; people open it when they need it. Never applies to a section with a required field. */
+  collapsed?: boolean
+}
+
+export type FormItem =
+  | {
+      id: Id
+      kind: 'field'
+      fieldId: Id
+      /** Columns it takes; more than the section has means the whole row. Tables always take the row. */
+      span?: 1 | 2 | 3
+      /** Shown on this form in place of the field's own label and guidance. */
+      label?: string
+      help?: string
+      placeholder?: string
+    }
+  | { id: Id; kind: 'heading'; text: string }
+  /** A paragraph: instructions, a notice, the small print. */
+  | { id: Id; kind: 'text'; text: string }
+  | { id: Id; kind: 'divider' }
+  /** A picture, held in the design as a data URL. */
+  | { id: Id; kind: 'image'; url: string; alt?: string; height?: number }
+
+// ---------- Look (what the people doing the work see) ----------
+
+export type ThemeFont = 'inter' | 'system' | 'serif' | 'rounded' | 'mono'
+
+/**
+ * The look of the Workspace: the screens people work and enter data in. Set for the organization
+ * (`Design.theme`), and an application may change any part of it (`App.theme`). See theme.ts.
+ */
+export interface Theme {
+  /** The name people see in place of the product's. */
+  name?: string
+  /** A logo, held in the design as a data URL. */
+  logo?: string
+  /** Buttons, links, the selected thing. A hex colour (`#4f46e5`). */
+  primary: string
+  /** The page behind everything. */
+  background: string
+  /** Cards, forms and fields. */
+  surface: string
+  /** Text. Greys and borders are mixed from it and the surface, so a dark surface with light text works. */
+  text: string
+  font: ThemeFont
+  /** Corners: of fields, buttons and cards. */
+  radius: 'square' | 'soft' | 'round' | 'pill'
+  /** How much room forms take. */
+  density: 'compact' | 'comfortable' | 'roomy'
+  /** How a field is drawn. */
+  fields: 'outlined' | 'filled' | 'underlined'
+  /** How a field's label is drawn. */
+  labels: 'plain' | 'bold' | 'caps'
+  /** The Workspace's side panel: light like the page, in the primary colour, or dark. */
+  header: 'light' | 'brand' | 'dark'
+  /** Style sheet rules of the organization's own, applied inside the Workspace only. */
+  css?: string
 }
 
 // ---------- Conditions (decisions on object metadata) ----------
@@ -572,6 +653,8 @@ export interface App {
   name: string
   description: string
   color: string
+  /** Where this application's look differs from the organization's. */
+  theme?: Partial<Theme>
   objectTypes: ObjectType[]
   lists: ListDef[]
   workflows: Workflow[]
@@ -585,4 +668,6 @@ export interface Design {
   services: ServiceDef[]
   /** Organization-wide library of reusable subflows. */
   templates: Template[]
+  /** The organization's look for the Workspace. Absent: the product's own. */
+  theme?: Theme
 }

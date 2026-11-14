@@ -161,6 +161,32 @@ export function FieldEditor({ app, type, field, onSelect }: Props) {
           </>
         )}
 
+        {field.type === 'attachment' && (
+          <>
+            <div className="col-span-2">
+              <Field label="File types" hint="File name endings, separated by commas (pdf, png, jpg). Leave empty to take any file.">
+                <Input
+                  value={(field.accept ?? []).join(', ')}
+                  placeholder="Any file"
+                  onChange={(e) =>
+                    update((f) => {
+                      const endings = e.target.value.split(/[\s,;]+/).map((x) => x.replace(/^\./, '').toLowerCase())
+                      // Keep a trailing blank while typing "pdf, "; it is dropped wherever the list is used.
+                      f.accept = endings.some(Boolean) ? endings.filter((x, i) => x || i === endings.length - 1) : undefined
+                    })
+                  }
+                />
+              </Field>
+            </div>
+            <Field label="Files at most" hint="Leave empty for any number.">
+              <Input type="number" min={1} value={field.maxFiles ?? ''} onChange={(e) => update((f) => void (f.maxFiles = e.target.value === '' ? undefined : Math.max(1, Math.round(Number(e.target.value)))))} />
+            </Field>
+            <Field label="Largest file (MB)" hint="The server has a limit of its own.">
+              <Input type="number" min={1} value={field.maxMb ?? ''} onChange={(e) => update((f) => void (f.maxMb = e.target.value === '' ? undefined : Math.max(1, Number(e.target.value))))} />
+            </Field>
+          </>
+        )}
+
         {(field.type === 'number' || field.type === 'currency') && (
           <div className="col-span-2">
             <Field

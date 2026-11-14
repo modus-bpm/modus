@@ -5,7 +5,7 @@ import type { Id } from '@modus-bpm/core/model/types'
 /** Studio is for designers and administrators; Workspace is what the people doing the work see. */
 export type Mode = 'studio' | 'workspace'
 
-export type View = 'workflow' | 'types' | 'lists' | 'org' | 'integrations' | 'templates' | 'monitor' | 'scenarios'
+export type View = 'workflow' | 'types' | 'lists' | 'org' | 'integrations' | 'templates' | 'branding' | 'monitor' | 'scenarios'
 
 export type Selection = { kind: 'node'; id: Id } | { kind: 'edge'; id: Id } | null
 

@@ -107,6 +107,14 @@ webhooks:
   keepDays: 7
   keepFailedDays: 30
 
+attachments:
+  # The largest file an upload may be, in megabytes (ATTACHMENT_MAX_MB). A field can ask for less.
+  # An ingress has a limit of its own: with ingress-nginx, raise it to match with the annotation
+  # nginx.ingress.kubernetes.io/proxy-body-size (for example "30m").
+  maxMb: 25
+  # Hours an uploaded file waits for an item to take it before it is deleted.
+  keepUnusedHours: 24
+
 persistence:
   # The memory store snapshots design, state and the event log to /data. Without a
   # volume, every restart starts again from the sample design.

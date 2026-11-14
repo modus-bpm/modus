@@ -204,7 +204,7 @@ function Workspace({ app, me, ctx, users, groups, people, suggested, source }: W
 
   return (
     <div className="relative flex h-full">
-      <aside className="flex w-[232px] shrink-0 flex-col border-r border-slate-200 bg-white">
+      <aside className="theme-side flex w-[232px] shrink-0 flex-col border-r border-slate-200 bg-white">
         <div className="space-y-2 p-3">
           <PersonaPicker me={me} people={people} suggested={suggested} ctx={ctx} fixed={signedInAsMe} />
           <button

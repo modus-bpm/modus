@@ -8,10 +8,10 @@
 // `transact` waits its turn behind the application's queue instead of raising
 // StorageBusy.
 
-import { appendFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { type Design, type Id, type OutboxMessage, type ProjectedItem, type SimObject, type SimState, withoutItems } from '@modus-bpm/core'
-import type { ChangeNotice, Deliveries, Delivery, DesignStore, EventLog, Loaded, LoggedEvent, Projections, StateStore, Storage, Stored, Work } from '../ports'
+import type { ChangeNotice, Deliveries, Delivery, DesignStore, EventLog, Files, Loaded, LoggedEvent, Projections, StateStore, Storage, Stored, StoredFile, Work } from '../ports'
 
 async function readJson<T>(path: string): Promise<T | undefined> {
   try {
@@ -465,9 +465,76 @@ export function memoryStorage(dataDir?: string, opts: { compactBytes?: number } 
     },
   }
 
+  // Uploaded files: in memory, or under `files/` in the data directory as `<id>` (the bytes) beside
+  // `<id>.json` (what is known about it). Ids are random and made by the server, never a path from a caller.
+  const fileDir = dataDir ? join(dataDir, 'files') : undefined
+  const kept = new Map<Id, { file: StoredFile; bytes?: Uint8Array }>()
+  // Opened on first use: a storage that never sees a file never touches the directory.
+  let opening: Promise<void> | undefined
+  const filesOpen = () =>
+    (opening ??= fileDir
+      ? ready
+          .then(() => mkdir(fileDir, { recursive: true }))
+          .then(async () => {
+            for (const name of await readdir(fileDir)) {
+              if (!name.endsWith('.json')) continue
+              const file = await readJson<StoredFile>(join(fileDir, name))
+              if (file?.id) kept.set(file.id, { file })
+            }
+          })
+      : Promise.resolve())
+  const files: Files = {
+    async put(file, bytes) {
+      await filesOpen()
+      if (fileDir) {
+        await writeFile(join(fileDir, file.id), bytes)
+        await writeAtomic(join(fileDir, `${file.id}.json`), JSON.stringify(file))
+      }
+      kept.set(file.id, { file: { ...file }, bytes: fileDir ? undefined : bytes.slice() })
+    },
+    async meta(appId, ids) {
+      await filesOpen()
+      return ids.flatMap((id) => {
+        const hit = kept.get(id)
+        return hit && hit.file.appId === appId ? [{ ...hit.file }] : []
+      })
+    },
+    async read(appId, id) {
+      await filesOpen()
+      const hit = kept.get(id)
+      if (!hit || hit.file.appId !== appId) return undefined
+      try {
+        return { file: { ...hit.file }, bytes: hit.bytes ?? (await readFile(join(fileDir!, id))) }
+      } catch {
+        return undefined
+      }
+    },
+    async attach(appId, ids, itemId) {
+      await filesOpen()
+      for (const id of ids) {
+        const hit = kept.get(id)
+        if (!hit || hit.file.appId !== appId || hit.file.itemId) continue
+        hit.file.itemId = itemId
+        if (fileDir) await writeAtomic(join(fileDir, `${id}.json`), JSON.stringify(hit.file))
+      }
+    },
+    async prune(before) {
+      await filesOpen()
+      let n = 0
+      for (const [id, { file }] of kept) {
+        if (file.itemId || file.uploadedAt >= before) continue
+        kept.delete(id)
+        if (fileDir) for (const name of [id, `${id}.json`]) await rm(join(fileDir, name), { force: true })
+        n++
+      }
+      return n
+    },
+  }
+
   return {
     name: 'memory',
     designs,
+    files,
     state,
     events: log,
     projections,

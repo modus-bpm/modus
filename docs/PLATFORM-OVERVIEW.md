@@ -238,6 +238,20 @@ with filters by application and kind. Settings, signature verification and retri
 
 A common pairing: a `job.ready` webhook wakes a worker, which then polls for the job.
 
+### Attach files
+
+Upload the bytes, then put what the server answers into a file field when you create or save an
+item:
+
+```bash
+curl -X POST "https://modus.example.org/api/apps/app_invoice/files?name=scan.pdf&kind=application/pdf" \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/octet-stream' --data-binary @scan.pdf
+# → {"ok":true,"value":{"id":"f_…","name":"scan.pdf","size":48213,"kind":"application/pdf","sha256":"…"}}
+```
+
+A worker can do the same and return the file in a job's outputs. Files come back from
+`GET …/items/:id/files/:fileId`, to anyone who may read that field of that item.
+
 ### Follow live changes (Server-Sent Events)
 
 ```bash
@@ -297,6 +311,8 @@ Everything else (configuration, TLS, backups, upgrades, air-gapped installs):
 | Outbound | Signed webhooks with retries | REST, MCP and email connectors (M4) |
 | Inbound events | The API | Stream ingest (M5) |
 | Assistant | Built-in interpreter; Claude with read-only tools when a key is set | |
+| Attachments | Files uploaded to and served by the server, kept in PostgreSQL | S3-compatible storage for large files |
+| Forms and look | A forms builder per object type; the Workspace branded per organization or application | Per-step layouts |
 | Tenancy | One organization per installation | Multi-tenancy (M6) |
 | Observability | JSON logs, live counts, OCEL 2.0 export | OpenTelemetry traces, Prometheus metrics |
 

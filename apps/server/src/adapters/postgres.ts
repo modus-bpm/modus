@@ -14,7 +14,7 @@ import { type App, type AuditEntry, buildIndex, type Ctx, type Design, type Id, 
 import { type Generated, Kysely, PostgresDialect, sql } from 'kysely'
 import { type Migration, Migrator } from 'kysely/migration'
 import pg from 'pg'
-import { type ChangeNotice, type Deliveries, type Delivery, type DesignStore, type EventLog, type Loaded, type LoggedEvent, type Projections, type StateStore, type Storage, StorageBusy, type Stored, type Work, type Write } from '../ports'
+import { type ChangeNotice, type Deliveries, type Delivery, type DesignStore, type EventLog, type Files, type Loaded, type LoggedEvent, type Projections, type StateStore, type Storage, StorageBusy, type Stored, type StoredFile, type Work, type Write } from '../ports'
 
 interface Tables {
   design: { id: number; doc: Design; revision: Generated<string>; updated_at: Generated<Date> }
@@ -71,6 +71,18 @@ interface Tables {
     sent_at: Date | null
     skipped: Generated<boolean>
     routed: Generated<boolean>
+  }
+  file: {
+    id: string
+    app_id: string
+    name: string
+    size: number
+    kind: string
+    sha256: string
+    uploaded_by: string
+    uploaded_at: Date
+    item_id: string | null
+    bytes: Buffer
   }
   outbox_delivery: {
     outbox_id: string
@@ -341,6 +353,30 @@ export const migrations: Record<string, Migration> = {
     },
     async down(db) {
       await sql`alter table design drop column revision`.execute(db)
+    },
+  },
+  '0007_files': {
+    async up(db) {
+      // Uploaded files, bytes included: nothing else to run or back up. item_id is set once a command that
+      // attached the file commits; a file no item took is pruned.
+      await db.schema
+        .createTable('file')
+        .addColumn('id', 'text', (c) => c.primaryKey())
+        .addColumn('app_id', 'text', (c) => c.notNull())
+        .addColumn('name', 'text', (c) => c.notNull())
+        .addColumn('size', 'bigint', (c) => c.notNull())
+        .addColumn('kind', 'text', (c) => c.notNull())
+        .addColumn('sha256', 'text', (c) => c.notNull())
+        .addColumn('uploaded_by', 'text', (c) => c.notNull())
+        .addColumn('uploaded_at', 'timestamptz', (c) => c.notNull())
+        .addColumn('item_id', 'text')
+        .addColumn('bytes', 'bytea', (c) => c.notNull())
+        .execute()
+      await sql`create index file_item on file (app_id, item_id)`.execute(db)
+      await sql`create index file_unattached on file (uploaded_at) where item_id is null`.execute(db)
+    },
+    async down(db) {
+      await db.schema.dropTable('file').execute()
     },
   },
 }
@@ -637,6 +673,45 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
 
   // Every time is passed in as a Date from epoch ms (exact in timestamptz), never now() in SQL: tests
   // control the clock, and record's fence compares the lease claim wrote for equality.
+  const FILE_COLUMNS = ['id', 'app_id', 'name', 'size', 'kind', 'sha256', 'uploaded_by', 'uploaded_at', 'item_id'] as const
+  const fileOf = (r: { id: string; app_id: string; name: string; size: number | string; kind: string; sha256: string; uploaded_by: string; uploaded_at: Date; item_id: string | null }): StoredFile => ({
+    id: r.id,
+    appId: r.app_id,
+    name: r.name,
+    size: Number(r.size),
+    kind: r.kind,
+    sha256: r.sha256,
+    uploadedBy: r.uploaded_by,
+    uploadedAt: r.uploaded_at.getTime(),
+    ...(r.item_id ? { itemId: r.item_id } : {}),
+  })
+  const files: Files = {
+    async put(file, bytes) {
+      await db
+        .insertInto('file')
+        .values({ id: file.id, app_id: file.appId, name: file.name, size: file.size, kind: file.kind, sha256: file.sha256, uploaded_by: file.uploadedBy, uploaded_at: new Date(file.uploadedAt), item_id: file.itemId ?? null, bytes: Buffer.from(bytes) })
+        .execute()
+    },
+    async meta(appId, ids) {
+      if (!ids.length) return []
+      const rows = await db.selectFrom('file').select(FILE_COLUMNS).where('app_id', '=', appId).where('id', 'in', ids).execute()
+      // In the order asked for.
+      return ids.flatMap((id) => rows.filter((r) => r.id === id).map(fileOf))
+    },
+    async read(appId, id) {
+      const r = await db.selectFrom('file').select([...FILE_COLUMNS, 'bytes']).where('app_id', '=', appId).where('id', '=', id).executeTakeFirst()
+      return r ? { file: fileOf(r), bytes: r.bytes } : undefined
+    },
+    async attach(appId, ids, itemId) {
+      if (!ids.length) return
+      await db.updateTable('file').set({ item_id: itemId }).where('app_id', '=', appId).where('id', 'in', ids).where('item_id', 'is', null).execute()
+    },
+    async prune(before) {
+      const r = await db.deleteFrom('file').where('item_id', 'is', null).where('uploaded_at', '<', new Date(before)).executeTakeFirst()
+      return Number(r.numDeletedRows)
+    },
+  }
+
   const deliveries: Deliveries = {
     fanOut(route, now, limit) {
       return db.transaction().execute(async (tx) => {
@@ -919,6 +994,7 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
   return {
     name: 'postgres',
     designs,
+    files,
     state,
     events,
     projections,

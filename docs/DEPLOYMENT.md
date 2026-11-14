@@ -28,6 +28,8 @@ today and what is planned.
 | Observability | JSON logs on stdout, live counts per step (`/overview`), OCEL 2.0 export | OpenTelemetry traces, Prometheus metrics |
 | Outbox | Every message is posted to configured webhook endpoints, signed, with retries, shared by all replicas ([Webhooks](#webhooks)) | Email from Modus, REST and MCP connectors (M4) |
 | Assistant | Claude through read-only tools when `ANTHROPIC_API_KEY` is set; the built-in interpreter otherwise | |
+| Attachments | Files are uploaded to the server and kept in PostgreSQL, or under `DATA_DIR/files` with the memory store ([Attachments](#attachments)) | S3-compatible storage for large files; virus scanning |
+| Forms and look | A form layout per object type and the Workspace's look are part of the design: saved, versioned by revision and sent to every replica like the rest of it | |
 
 > **The default trusts whoever calls.** With `MODUS_AUTH=none` anyone who can reach the API can
 > act as anyone, administrators included. That is for a laptop or a closed network. Before
@@ -440,6 +442,51 @@ is rendered.
 - Each server routes messages with its own endpoint list. During a rollout that adds an endpoint,
   messages that old pods fan out are not sent to the new endpoint.
 
+## Attachments
+
+A file field on a form takes real files. A file is uploaded to the server, which keeps its bytes
+and says in the item's data what the file is: its name, size, kind, SHA-256, and who uploaded it
+when.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `ATTACHMENT_MAX_MB` | `25` | The largest file an upload may be, in megabytes (1 to 1024). A field can ask for less. |
+| `ATTACHMENT_KEEP_UNUSED_HOURS` | `24` | Hours an uploaded file waits for an item to take it. A file from an abandoned form or a refused command is deleted after that. |
+
+**Where the bytes are.** With PostgreSQL, in the `file` table (`bytea`), so they are in the same
+backup as everything else and every replica reads the same files. With the memory store, under
+`DATA_DIR/files`: one file per upload, named by its id, beside a small `.json` that says what it
+is. Without `DATA_DIR` they live in memory and are gone at a restart.
+
+**Who can get a file.** Someone who can read the field it sits in, on that item, as the item stands
+now. Field security applies: a file in a field hidden from you is not sent to you. Before an item
+has taken a file, only its uploader can fetch it. A write may name only files its caller uploaded
+(or ones the item already holds), and what the item's data says about a file always comes from
+storage, never from the caller.
+
+**How a file is sent.** As a download (`Content-Disposition: attachment`,
+`X-Content-Type-Options: nosniff`, a sandboxing `Content-Security-Policy`), so nothing in an
+uploaded file can run as a page of your site. Pictures, PDFs and plain text can be shown in the
+browser when asked for (`?inline=1`); everything else is only ever saved.
+
+**In front of the server.** A proxy or ingress has a body-size limit of its own, often 1 MB. Raise
+it to match: with ingress-nginx, the annotation `nginx.ingress.kubernetes.io/proxy-body-size: 30m`;
+with nginx, `client_max_body_size 30m;`. With Helm, `attachments.maxMb` and
+`attachments.keepUnusedHours` set the two variables.
+
+**Per field.** In the Studio, a file field can limit the file types it takes (`pdf, png, jpg`), how
+many files, and how large each may be. The server enforces the same limits on every write.
+
+### Known limits
+
+- A file is read into memory whole while it is uploaded or sent, and PostgreSQL holds it in a row.
+  That suits documents and scans; it is the wrong place for video or files of hundreds of megabytes.
+  S3-compatible storage behind the same port is planned.
+- Files are not scanned for malware. Put a scanner in front of the upload route if you need one.
+- A file taken off an item stays stored (the item's history still names it) but can no longer be
+  fetched. Nothing deletes it yet.
+- Downloads are not written to the item's history.
+
 ## Sign-in
 
 `MODUS_AUTH` says how the server learns who is calling. Pick by who can reach it.
@@ -578,6 +625,8 @@ a message that names the variable.
 | `WEBHOOKS_ALLOW_HTTP` | `false` | `true` allows `http://` webhook URLs. |
 | `WEBHOOKS_KEEP_DAYS` | `7` | Days to keep outbox messages that went out, 1 to 365. |
 | `WEBHOOKS_KEEP_FAILED_DAYS` | `30` | Days to keep outbox messages with a failed delivery, 1 to 365. |
+| `ATTACHMENT_MAX_MB` | `25` | The largest uploaded file, in megabytes, 1 to 1024 ([Attachments](#attachments)). |
+| `ATTACHMENT_KEEP_UNUSED_HOURS` | `24` | Hours an uploaded file waits for an item before it is deleted, 1 to 720. |
 | `MODUS_AUTH` | `none` | How the server learns who is calling: `none`, `password` or `oidc`. See [Sign-in](#sign-in). With `none` on any interface but loopback the server warns at startup. |
 | `MODUS_AUTH_PASSWORD` | unset | The shared password for `MODUS_AUTH=password`, 8 or more characters. Secret: never logged. |
 | `MODUS_SESSION_SECRET` | a random one per start | Signs the sign-in cookies, 32 or more characters. Every replica needs the same one. Secret: never logged. |
@@ -632,9 +681,10 @@ docker compose exec -T postgres pg_restore -U modus -d modus --clean < modus-202
 ```
 
 Each command commits the state, its events, the projections and the outbox in one transaction,
-so a dump of a running database is consistent.
+so a dump of a running database is consistent. Uploaded files are in the same database (the `file`
+table), so the dump holds them too; expect it to be as large as what people have attached.
 
-**In memory:** back up the `/data` volume, which holds `design.json` (applications, workflows,
+**In memory:** back up the `/data` volume, which holds `files/` (uploaded files), `design.json` (applications, workflows,
 people), `state-<app>.jsonl` (every live item, work item and counter) and `events.jsonl` (the
 append-only audit trail). Each change appends one line to the application's state log: its
 version, clock time, counters and the items it changed. Once the log has grown past a full
