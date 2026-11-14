@@ -133,11 +133,17 @@ describe('the look', () => {
   })
 
   it('refuses rules that could load anything', () => {
-    expect(cssProblem('@import url(https://evil.example/x.css);')).toMatch(/@import/)
+    expect(cssProblem('@import url(https://evil.example/x.css);')).toBeDefined()
     expect(cssProblem('@import "https://evil.example/x.css";')).toMatch(/@import/)
     expect(cssProblem('a { background: url(https://evil.example/?q=1) }')).toMatch(/url\(\)/)
     expect(cssProblem('a { background: URL( "https://evil.example/x" ) }')).toMatch(/url\(\)/)
-    expect(cssProblem('a { background: url(data:image/png;base64,AAAA), url(//evil.example/x) }')).toMatch(/url\(\)/)
+    // An unquoted url() is read by a browser with rules of its own, where a comment is not a comment: none is allowed.
+    expect(cssProblem('a { background: url(data:image/png;base64,AAAA) }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: url(data:image/png;base64,AA/*) } } body { display: none } x { y: url(*/) }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: url("data:image/png;base64,AAAA" ), url(//evil.example/x) }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: url("data:image/png;base64,AA A") }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: url (https://evil.example/x) }')).toMatch(/url\(\)/)
+    expect(cssProblem('/* url(https://evil.example/x) */ a { color: red }')).toMatch(/url\(\)/)
     expect(cssProblem('a { background: url("data:text/html;base64,AAAA") }')).toMatch(/url\(\)/)
     expect(cssProblem('a { background: u\\72l(https://evil.example/x) }')).toMatch(/backslash/)
     expect(cssProblem('a { background: image-set("https://evil.example/x" 1x) }')).toMatch(/loads/)
@@ -151,5 +157,7 @@ describe('the look', () => {
     expect(themeProblems(undefined)).toEqual([])
     expect(themeProblems(DEFAULT_THEME)).toEqual([])
     expect(themeProblems({ primary: 'blue', radius: 'wavy', logo: 'https://example.com/logo.png' })).toHaveLength(3)
+    expect(themeProblems({ css: 'a { background: url(https://evil.example/x) }' })).toHaveLength(1)
+    expect(themeProblems({ css: '.form-label { color: red }' })).toEqual([])
   })
 })

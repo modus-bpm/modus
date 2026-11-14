@@ -237,10 +237,10 @@ export function FormBuilder({ app, type, selectedFieldId, onSelectField }: Props
                       )}
                     </button>
                     {item.kind === 'field' && field!.type !== 'table' && s.columns > 1 && (
-                      <Select className="h-7 w-[92px] text-xs" aria-label={`Width of ${field!.label}`} value={Math.min(item.span ?? 1, s.columns)} onChange={(e) => patchItem(item.id, (i) => i.kind === 'field' && (i.span = Number(e.target.value) as 1 | 2 | 3))}>
+                      <Select className="h-7 w-[104px] text-xs" aria-label={`Width of ${field!.label}`} value={Math.min(item.span ?? 1, s.columns)} onChange={(e) => patchItem(item.id, (i) => i.kind === 'field' && (i.span = Number(e.target.value) as 1 | 2 | 3))}>
                         {Array.from({ length: s.columns }, (_, n) => n + 1).map((n) => (
                           <option key={n} value={n}>
-                            {n === s.columns ? 'Full row' : n === 1 ? '1 column' : `${n} columns`}
+                            {n === s.columns ? 'Full row' : n === 1 ? '1 col' : `${n} cols`}
                           </option>
                         ))}
                       </Select>

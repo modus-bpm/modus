@@ -146,9 +146,13 @@ export function themeAttrs(theme: Theme): Record<string, string> {
 
 /** Functions that can load something, whatever they are given. `url()` is checked on its own. */
 const LOADS = /(?:^|[^a-z0-9_-])(?:-webkit-)?(?:image-set|image|cross-fade|src|element|paint)\s*\(/i
-/** The one `url()` allowed: a picture held in the rules themselves. */
-const URLS = /url\(/gi
-const OWN_PICTURE = /^url\(\s*['"]?data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]*['"]?\s*\)/i
+/**
+ * The one `url()` allowed: a picture held in the rules themselves, in double quotes, base64 and
+ * nothing else up to the closing bracket. Quoted, it is a string to a browser as it is here; an
+ * unquoted url() is read by rules of its own (no comments, no strings inside), so none is allowed.
+ */
+const URLS = /url\s*\(/gi
+const OWN_PICTURE = /^url\("data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]*"\)/
 
 /**
  * Why the organization's own style rules can't be used, or undefined when they can.
@@ -167,6 +171,8 @@ export function cssProblem(css: string | undefined): string | undefined {
   if (css.length > MAX_CSS_CHARS) return `The style rules are longer than ${MAX_CSS_CHARS.toLocaleString('en-US')} characters.`
   if (css.includes('\\')) return 'The style rules contain a backslash. Write characters as they are, without escapes.'
   if (/[<>]/.test(css.replace(/\s>\s/g, ' '))) return 'The style rules contain an angle bracket. (A child selector such as “a > b” needs a space on each side.)'
+  // Judged on the rules as written, comments and all, before anything is skipped: every url( must be the allowed form.
+  for (const m of css.matchAll(URLS)) if (!OWN_PICTURE.test(css.slice(m.index))) return 'The style rules load something with url(). Only a picture written into the rules themselves is allowed, as url("data:image/png;base64,…") in double quotes.'
   // One pass, as a browser tokenizes: comments and strings are skipped; what is left is the code.
   let code = ''
   let depth = 0
@@ -196,7 +202,7 @@ export function cssProblem(css: string | undefined): string | undefined {
   if (depth !== 0) return 'A brace in the style rules is left open.'
   if (/@(import|charset|namespace)/i.test(code)) return 'The style rules use @import, @charset or @namespace, which are not allowed.'
   if (LOADS.test(code) || /expression\s*\(|-moz-binding|behavior\s*:/i.test(code)) return 'The style rules use a function that loads from elsewhere, which is not allowed.'
-  for (const m of code.matchAll(URLS)) if (!OWN_PICTURE.test(code.slice(m.index))) return 'The style rules load something with url(). Only a picture written into the rules themselves (data:image/png;base64,…) is allowed.'
+
   return undefined
 }
 
@@ -216,7 +222,7 @@ export function themeProblems(theme: unknown): string[] {
   if (t.logo !== undefined && t.logo !== '' && (typeof t.logo !== 'string' || !IMAGE.test(t.logo))) out.push('The logo is not an image kept in the design.')
   if (typeof t.logo === 'string' && t.logo.length > MAX_IMAGE_BYTES * 1.4) out.push(`The logo is larger than ${Math.round(MAX_IMAGE_BYTES / 1000)} KB.`)
   if (t.css !== undefined && typeof t.css !== 'string') out.push('The style rules are not text.')
-  else if (t.css && t.css.length > MAX_CSS_CHARS) out.push(`The style rules are longer than ${MAX_CSS_CHARS.toLocaleString('en-US')} characters.`)
+  else if (t.css && cssProblem(t.css)) out.push(cssProblem(t.css)!)
   if (t.name !== undefined && (typeof t.name !== 'string' || t.name.length > 80)) out.push('The name is longer than 80 characters.')
   const choice = <K extends keyof Theme>(k: K, allowed: readonly string[]) => {
     if (t[k] !== undefined && !allowed.includes(t[k] as string)) out.push(`The look’s ${k} is not a choice Modus knows.`)
