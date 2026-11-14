@@ -143,4 +143,25 @@ describe('a file on an item', () => {
     expect(res.statusCode).toBe(400)
     expect(res.json().error).toMatch(/was not uploaded/)
   })
+
+  it('cannot be named by a worker’s job result unless the worker uploaded it', async () => {
+    // The ERP match stores its outputs on fields; point one at the document field for this test.
+    await rt.changeDesign(undefined, (d) => {
+      const design = structuredClone(d)
+      const steps = design.apps.find((a) => a.id === 'app_invoice')!.workflows.flatMap((w) => [...w.nodes, ...(w.versions ?? []).flatMap((v) => v.snapshot.nodes)])
+      for (const n of steps) if (n.type === 'auto' && n.data.serviceId === 'svc_erp') n.data.outputs = [...(n.data.outputs ?? []), { key: 'scan', fieldId: 'f_doc' }]
+      return design
+    })
+    const polled = await api.inject({ method: 'POST', url: '/api/jobs/poll', headers: as('u_avery'), payload: { serviceId: 'svc_erp', workerId: 'w1', max: 10 } })
+    const job = (polled.json().jobs as Array<{ id: string; itemId: string }>).find((j) => j.itemId === item.id)!
+    const other = (await upload('u_maya', 'someone-elses.pdf')).json().value as Uploaded
+    const stolen = await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(job.id)}/complete`, headers: as('u_avery'), payload: { outputs: { matched: true, scan: [{ id: other.id }] } } })
+    expect(stolen.statusCode).toBe(400)
+    const own = (await upload('u_avery', 'matched.pdf')).json().value as Uploaded
+    const done = await api.inject({ method: 'POST', url: `/api/jobs/${encodeURIComponent(job.id)}/complete`, headers: as('u_avery'), payload: { outputs: { matched: true, scan: [{ id: file.id }, { id: own.id }] } } })
+    expect(done.statusCode).toBe(200)
+    const after = (await api.inject({ url: `/api/apps/app_invoice/items/${item.id}`, headers: as('u_avery') })).json() as { data: { f_doc: Array<{ name: string }> } }
+    expect(after.data.f_doc.map((f) => f.name)).toEqual(['scan.pdf', 'matched.pdf'])
+    expect((await api.inject({ url: `/api/apps/app_invoice/items/${item.id}/files/${own.id}`, headers: as('u_avery') })).statusCode).toBe(200)
+  })
 })

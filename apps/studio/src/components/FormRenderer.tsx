@@ -5,7 +5,7 @@ import { dependentFields, optionsForField } from '@modus-bpm/core/model/lists'
 import { type AttachmentValue, formatBytes, formatFieldValue } from '@modus-bpm/core/model/format'
 import { isComputed, normalizeData } from '@modus-bpm/core/model/tables'
 import type { FieldAccess, FieldDef, ListDef, ObjectType, User } from '@modus-bpm/core/model/types'
-import { useFiles } from './files'
+import { isPicked, useFiles } from './files'
 import { TableField } from './TableField'
 import { cx, Input, Select, Textarea, Toggle } from './ui'
 
@@ -198,7 +198,7 @@ function FileRow({ file, onRemove }: { file: AttachmentValue; onRemove?: () => v
   const files = useFiles()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
-  const canOpen = !!(file.id || file.url)
+  const canOpen = !!file.id || isPicked(file.url)
   const open = async () => {
     setBusy(true)
     setError(undefined)

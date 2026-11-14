@@ -483,6 +483,30 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     return { ...(await takeFiles(rt.files, fileSettings, appId, user, type, patch, held)), itemId: held.itemId }
   }
 
+  /**
+   * The files a job's outputs name. An output stored on a file field must name files its worker
+   * uploaded (or ones already there); on any other field a value is never read as a file.
+   */
+  async function jobFiles(appId: Id, tokenId: Id, user: Id, outputs: Record<string, unknown>) {
+    const held = await rt.read(appId, (sim, ctx) => {
+      const found = findToken(sim, tokenId)
+      // The step as drawn and as every published version has it: an output any of them stores on a file field is checked.
+      const mapped = !found
+        ? []
+        : ctx.app.workflows
+            .flatMap((w) => [...w.nodes, ...(w.versions ?? []).flatMap((v) => v.snapshot.nodes)])
+            .flatMap((n) => (n.id === found.tok.nodeId && n.type === 'auto' ? (n.data.outputs ?? []) : []))
+      return found ? { itemId: found.obj.id, typeId: found.obj.typeId, data: found.obj.data, mapped } : undefined
+    })
+    const type = held && objectTypeOf(appId, held.typeId)
+    if (!held || !type) return { outputs, ids: [] as Id[], itemId: undefined }
+    const fileFields = new Set(type.fields.filter((f) => f.type === 'attachment').map((f) => f.id))
+    const toFiles = held.mapped.filter((m) => fileFields.has(m.fieldId) && m.key in outputs)
+    if (!toFiles.length) return { outputs, ids: [] as Id[], itemId: held.itemId }
+    const taken = await takeFiles(rt.files, fileSettings, appId, user, type, Object.fromEntries(toFiles.map((m) => [m.fieldId, outputs[m.key]])), held)
+    return { outputs: { ...outputs, ...Object.fromEntries(toFiles.map((m) => [m.key, taken.data[m.fieldId]])) }, ids: taken.ids, itemId: held.itemId }
+  }
+
   /** After a commit: the item now has those of the files its data holds (a locked field's files are not among them). */
   async function keepFiles(appId: Id, itemId: Id, ids: Id[]) {
     if (!ids.length) return
@@ -985,11 +1009,14 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const { appId, tokenId } = jobParams(req)
     const { outputs } = z.object({ outputs: z.record(z.string(), z.unknown()).default({}) }).parse(req.body ?? {})
     const user = who(req)
+    // A job's result may put files on the item (a generated letter): the same rules as a person's.
+    const taken = await jobFiles(appId, tokenId, user, outputs)
     const done = await rt.run(appId, (sim, ctx) => {
       const serviceId = jobService(sim, tokenId)
       if (serviceId && !mayWork(serviceId, user)) return refuse(403, workersOnly)
-      return completeJob(sim, ctx, tokenId, outputs)
+      return completeJob(sim, ctx, tokenId, taken.outputs)
     })
+    if (done === true && taken.itemId) await keepFiles(appId, taken.itemId, taken.ids)
     if (typeof done === 'object') return send(reply, done)
     return done ? reply.send({ ok: true }) : reply.code(410).send({ ok: false, error: 'That job is no longer open (finished, cancelled or taken over by a person).' })
   })

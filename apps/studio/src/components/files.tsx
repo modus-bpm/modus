@@ -35,11 +35,21 @@ export function showBlob(blob: Blob, file: AttachmentValue) {
 
 export const canShow = (file: AttachmentValue) => SHOWN.test(file.kind)
 
+/** An object URL this page made for a picked file, and nothing else (never `javascript:` or a site). */
+export function isPicked(url: string | undefined): url is string {
+  try {
+    return !!url && new URL(url).protocol === 'blob:'
+  } catch {
+    return false
+  }
+}
+
 const inPage: FilesApi = {
   stored: false,
   upload: async (file) => ({ name: file.name, size: file.size, kind: file.type, url: URL.createObjectURL(file) }),
   open: async (file) => {
-    if (!file.url) throw new Error('This is sample data: there is no file behind it.')
+    // Only a file picked in this page: a `url` that arrived in stored or imported data is never opened.
+    if (!isPicked(file.url)) throw new Error('This is sample data: there is no file behind it.')
     window.open(file.url, '_blank', 'noreferrer')
   },
 }
