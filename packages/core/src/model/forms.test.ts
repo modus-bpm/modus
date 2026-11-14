@@ -76,6 +76,70 @@ describe('a form with a layout', () => {
   })
 })
 
+describe('a designed form', () => {
+  const layout: FormLayout = {
+    style: { width: 'medium', labels: 'beside', spacing: 'airy' },
+    sections: [
+      {
+        id: 's1',
+        title: 'Who',
+        columns: 4,
+        style: { look: 'tinted', accent: '#0f766e', title: 'large', rule: true },
+        items: [
+          { id: 'i1', kind: 'field', fieldId: 'a', span: 3, emphasis: true },
+          { id: 'i2', kind: 'spacer', height: 9999, span: 1 },
+          { id: 'i3', kind: 'text', text: 'Mind this.', tone: 'warning', span: 2 },
+          { id: 'i4', kind: 'heading', text: 'Big', size: 'large' },
+          { id: 'i5', kind: 'image', url: 'data:image/png;base64,AAAA', align: 'center', span: 2 },
+        ],
+      },
+      { id: 's2', columns: 2, items: [{ id: 'i6', kind: 'heading', text: '' }, { id: 'i7', kind: 'image', url: '' }] },
+    ],
+  }
+  const t = type([f('a'), f('b')], layout)
+
+  it('carries every choice about how it looks, filled in and within bounds', () => {
+    const plan = formPlan(t)
+    expect(plan).toMatchObject({ width: 'medium', labels: 'beside', spacing: 'airy' })
+    const s = plan.sections[0]!
+    expect(s).toMatchObject({ columns: 4, look: 'tinted', accent: '#0f766e', titleSize: 'large', rule: true })
+    expect(s.items[0]).toMatchObject({ kind: 'field', span: 3, emphasis: true })
+    expect(s.items[1]).toMatchObject({ kind: 'spacer', height: 400, span: 1 })
+    expect(s.items[2]).toMatchObject({ kind: 'text', tone: 'warning', span: 2 })
+    // Without a width of its own, a heading takes the row.
+    expect(s.items[3]).toMatchObject({ kind: 'heading', size: 'large', span: 4 })
+    expect(s.items[4]).toMatchObject({ kind: 'image', align: 'center', span: 2 })
+    expect(formPlan(type([f('a')]))).toMatchObject({ width: 'full', labels: 'above', spacing: 'normal' })
+  })
+
+  it('falls back to the plain choice for a value it does not know, so nothing unknown is ever drawn', () => {
+    const odd = { style: { width: 'huge', labels: 7 }, sections: [{ id: 's', columns: 9, style: { look: 'neon', accent: 'red; background: url(x)', title: 'giant' }, items: [{ id: 'i', kind: 'field', fieldId: 'a', span: 40 }, { id: 't', kind: 'text', text: 'x', tone: 'shouty' }] }] }
+    const plan = formPlan(type([f('a')], odd as unknown as FormLayout))
+    expect(plan).toMatchObject({ width: 'full', labels: 'above' })
+    expect(plan.sections[0]).toMatchObject({ columns: 2, look: 'plain', accent: undefined, titleSize: 'medium' })
+    expect(plan.sections[0]!.items[0]).toMatchObject({ span: 2 })
+    expect(plan.sections[0]!.items[1]).toMatchObject({ tone: 'plain' })
+    expect(layoutProblems(odd)).toHaveLength(2)
+    expect(layoutProblems(layout)).toEqual([])
+  })
+
+  it('shows people only what is finished, and the designer everything', () => {
+    // People: the second section has no field, and its heading and picture are empty.
+    expect(formPlan(t).sections.map((s) => s.id)).toEqual(['s1', 'sec_rest'])
+    // The designer: every section and placeholder, and no “More” (it offers unplaced fields itself).
+    const design = formPlan(t, { design: true })
+    expect(design.sections.map((s) => s.id)).toEqual(['s1', 's2'])
+    expect(design.sections[1]!.items.map((i) => i.kind)).toEqual(['heading', 'image'])
+    expect(unplacedFields(t).map((x) => x.id)).toEqual(['b'])
+    // The designer shows fields a step would hide, and never starts a section closed.
+    const closed: FormLayout = { sections: [{ id: 's', columns: 1, collapsed: true, items: [{ id: 'i', kind: 'field', fieldId: 'a' }] }] }
+    const d = formPlan(type([f('a', { system: true })], closed), { design: true, access: { a: 'hidden' } })
+    expect(d.sections[0]).toMatchObject({ collapsed: false })
+    expect(d.sections[0]!.items).toHaveLength(1)
+    expect(d.hidden).toBe(0)
+  })
+})
+
 describe('the look', () => {
   it('is the organization’s with the application’s changes over it', () => {
     expect(themeFor(undefined)).toEqual(DEFAULT_THEME)

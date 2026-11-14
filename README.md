@@ -40,8 +40,8 @@ they changed something.
 - **Dynamic object types** with generated forms, **line items** (an invoice's lines with
   calculated totals), **file uploads** stored on the server, and **linked lists** (Model Year →
   Make → Model).
-- A **forms builder**: arrange each form in sections and columns, with your own labels, headings,
-  instructions and pictures, and see it as people will.
+- A **forms designer**: the form is the canvas. Drag fields onto it, pull an edge to resize,
+  style each section, add headings, callouts and pictures, and check it at tablet and phone width.
 - **Branding**: give the Workspace your organization's name, logo, colours, type and field style,
   for everyone or per application, with your own style rules for the rest.
 - A **visual workflow designer**: people steps, automated steps, decisions on field values and

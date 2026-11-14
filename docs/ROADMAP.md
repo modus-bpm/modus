@@ -26,8 +26,8 @@ Done first:
 - **Attached files are real.** A file field uploads to the server, which keeps the bytes (in
   PostgreSQL, or a directory with the memory store) and sends a file only to someone who may read
   the field it is in. See [DEPLOYMENT.md](DEPLOYMENT.md#attachments).
-- **A forms builder and branding.** Lay out each object type's form in sections, and give the
-  Workspace your organization's name, logo, colours and style.
+- **A forms designer and branding.** Design each object type's form on a canvas that is the form
+  itself, and give the Workspace your organization's name, logo, colours and style.
 - **Who may take the event log out, and who may answer for a service.** The OCEL export is for
   administrators and auditors and leaves out the fields hidden from them; a service's jobs can be
   taken and finished only by its listed workers and administrators.
@@ -54,7 +54,7 @@ per item, several organizations on one deployment, and the M5 load targets.
 | Capability | Status |
 | --- | --- |
 | Dynamic object types, generated forms, numbering, title and summary fields | Prototype |
-| Forms builder: sections, one to three columns, widths, per-form labels and guidance, headings, paragraphs, dividers, pictures; live preview | Prototype |
+| Forms designer: the form as the canvas, drag and drop, resize by pulling an edge, one to four columns, section looks and colours, labels above or beside, callouts, space, pictures; tablet and phone widths | Prototype |
 | Branding: the Workspace's name, logo, colours, typeface, corners, room, field and label styles, side panel, own style rules; per organization and per application | Prototype |
 | File uploads stored on the server, with per-field limits on kind, number and size | Done |
 | Per-step form layouts; conditional sections (show when a field has a value) | Planned |

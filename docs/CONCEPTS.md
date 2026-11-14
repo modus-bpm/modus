@@ -16,7 +16,7 @@ earlier-generation BPM tools will recognize most of these under older names.
 | **Item** | One business object moving through a process (an invoice, a request, a camera event). | Object | Case / process instance |
 | **Line items** (table field) | Rows inside an item — an invoice's lines, a request's requested items — with typed columns, calculated columns (*Quantity × Unit Price*) and a **total** field that sums a column. | Multi-row / repeating group | Repeating section · child records · data object collection |
 | **File upload** (attachment) | A field that takes files: a scan, a quote, a photo. On a server the file is stored there and anyone who may read the field can open it. A field can limit the kinds of file, how many, and how large. | Attachment | Document / attachment |
-| **Form layout** | Where a form's fields go: sections, columns, widths, and headings, instructions and pictures between them. Built per object type; without one the form lays itself out. | Form designer | Form definition · screen layout |
+| **Form design** | How a form looks, made in the forms designer: the form is the canvas. Drag fields and elements (headings, paragraphs, callouts, dividers, space, pictures) onto it, pull an edge to change a width, and style each section (card, tinted, outlined, its own colour) and the whole form (how wide, labels above or beside, spacing). Per object type; without one the form lays itself out. | Form designer | Form definition · screen layout |
 | **Look** (branding) | How the Workspace is drawn for the people who work in it: name, logo, colours, type, corners, how fields look, and style rules of your own. One for the organization; an application can differ. | Skin / theme | Theme · white-labelling |
 | **Branch** (token) | One thread of an item. An item has one per active parallel branch. | — | Token |
 | **Work item** | A branch waiting at a people step. | Work item | Work item / task |
@@ -71,7 +71,7 @@ earlier-generation BPM tools will recognize most of these under older names.
 | Decide who does the work and how it is handed out | Workflows › select a people step |
 | Add line items (a table) to a form, with totals | Object Types › add a field › Table |
 | Let people attach files, and limit what kind and how large | Object Types › add a field › File upload |
-| Arrange a form: sections, widths, headings, instructions | Object Types › **Form layout** |
+| Design a form: drag fields about, sections and their look, widths, headings, callouts | Object Types › **Form design** |
 | Brand the Workspace: logo, colours, type, how forms look | **Branding** |
 | Name supervisors; set who may expedite | Workflows › the process overview (process supervisors, expedite) · select a people step (task supervisors) |
 | Give someone the Administrator, Designer or Auditor role | People & Security › Roles |

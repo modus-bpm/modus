@@ -207,7 +207,7 @@ export function BrandingView() {
             <Choice label="Fields" value={shown.fields} onChange={(v) => set('fields', v)} options={[['outlined', 'Outlined'], ['filled', 'Filled'], ['underlined', 'Underlined']]} />
             <Choice label="Labels" value={shown.labels} onChange={(v) => set('labels', v)} options={[['plain', 'Plain'], ['bold', 'Bold'], ['caps', 'Small caps']]} />
             <p className="mt-2 text-[11px] text-slate-500">
-              Where each field goes on a form, its sections, headings and instructions are set per object type: <span className="font-medium text-slate-700">Object Types › Form layout</span>.
+              Where each field goes on a form, its sections, headings and instructions are set per object type: <span className="font-medium text-slate-700">Object Types › Form design</span>.
             </p>
           </Group>
 

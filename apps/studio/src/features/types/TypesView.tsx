@@ -1,13 +1,13 @@
 import { FileStack, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { TypeIcon } from '../../components/icons'
-import { Button, cx, EmptyState, Field, IconButton, Input, Modal, Segmented } from '../../components/ui'
+import { Button, cx, EmptyState, Field, IconButton, Input, Modal, Segmented, Select } from '../../components/ui'
 import { blankObjectType } from '@modus-bpm/core/model/seed'
 import type { App, ObjectType } from '@modus-bpm/core/model/types'
 import { useApp, useDesign } from '../../store/design'
 import { useUi } from '../../store/ui'
 import { FieldList } from './FieldList'
-import { FormBuilder } from './FormBuilder'
+import { FormDesigner } from './FormDesigner'
 import { FormPreview } from './FormPreview'
 import { TypeHeader } from './TypeHeader'
 
@@ -34,9 +34,32 @@ export function TypesView() {
     setDeleting(t)
   }
 
+  const tabs = (
+    <Segmented<'fields' | 'form'>
+      ariaLabel="What to edit"
+      value={tab}
+      onChange={setTab}
+      options={[
+        { value: 'fields', label: 'Fields', title: 'What the form holds: its fields and their rules' },
+        { value: 'form', label: 'Form design', title: 'How the form looks: where each field goes, sections, widths, styles' },
+      ]}
+    />
+  )
+  const typePicker =
+    app.objectTypes.length > 1 ? (
+      <Select className="h-8 w-auto max-w-[220px]" aria-label="Object type" value={type?.id ?? ''} onChange={(e) => useUi.getState().setType(e.target.value)}>
+        {app.objectTypes.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </Select>
+    ) : null
+
   return (
     <div className="flex h-full">
-      <aside className="flex w-[240px] shrink-0 flex-col border-r border-slate-200 bg-white">
+      {/* The designer takes the room: the list of types gives way to a picker in its bar. */}
+      <aside className={cx('w-[240px] shrink-0 flex-col border-r border-slate-200 bg-white', type && tab === 'form' ? 'hidden' : 'flex')}>
         <div className="flex items-center justify-between border-b border-slate-200 px-3.5 py-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Object Types</h2>
@@ -85,25 +108,29 @@ export function TypesView() {
         </div>
       </aside>
 
-      {type ? (
+      {type && tab === 'form' ? (
+        <FormDesigner
+          key={type.id}
+          app={app}
+          type={type}
+          tabs={
+            <>
+              {tabs}
+              {typePicker}
+            </>
+          }
+          onEditField={(fieldId) => {
+            selectField(fieldId)
+            setTab('fields')
+          }}
+        />
+      ) : type ? (
         <>
           <div className="min-w-0 flex-1 overflow-y-auto bg-canvas">
             <div className="mx-auto max-w-3xl space-y-4 p-5">
               <TypeHeader app={app} type={type} />
-              <Segmented<'fields' | 'form'>
-                ariaLabel="What to edit"
-                value={tab}
-                onChange={setTab}
-                options={[
-                  { value: 'fields', label: 'Fields', title: 'What the form holds: its fields and their rules' },
-                  { value: 'form', label: 'Form layout', title: 'Where each field goes: sections, widths, headings and instructions' },
-                ]}
-              />
-              {tab === 'fields' ? (
-                <FieldList app={app} type={type} selectedId={selectedFieldId} onSelect={selectField} />
-              ) : (
-                <FormBuilder app={app} type={type} selectedFieldId={selectedFieldId} onSelectField={selectField} />
-              )}
+              {tabs}
+              <FieldList app={app} type={type} selectedId={selectedFieldId} onSelect={selectField} />
             </div>
           </div>
           <FormPreview key={type.id} app={app} type={type} selectedFieldId={selectedFieldId} onFieldClick={(id) => selectField(id)} />
