@@ -140,6 +140,11 @@ export interface FieldDef {
    * (an invoice's Amount = the sum of its lines' Line Total). Read-only in forms.
    */
   total?: { tableFieldId: Id; columnId: Id }
+  /** attachment: file name endings accepted, without the dot (`pdf`, `png`). Empty/undefined = any file. */
+  accept?: string[]
+  /** attachment: how many files the field holds at most, and how large each may be (megabytes). */
+  maxFiles?: number
+  maxMb?: number
   /**
    * Sensitive data: only members of these groups can see the field, anywhere.
    * Everyone else gets it hidden regardless of step settings. Empty/undefined = no restriction.

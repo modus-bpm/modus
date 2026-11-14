@@ -172,10 +172,46 @@ export interface Deliveries {
   prune(now: number, keepMs: number, keepFailedMs: number): Promise<number>
 }
 
+/** A file someone uploaded: what the item's data says about it, plus where it belongs. */
+export interface StoredFile {
+  id: Id
+  appId: Id
+  name: string
+  size: number
+  /** Media type as uploaded. */
+  kind: string
+  /** Hex SHA-256 of the bytes. */
+  sha256: string
+  /** The person who uploaded it. */
+  uploadedBy: Id
+  /** When (epoch ms). */
+  uploadedAt: number
+  /** The item whose data points at it. Absent until a command that attached it commits. */
+  itemId?: Id
+}
+
+/**
+ * Where uploaded files are kept. A file is stored first, on its own; the item that takes it is
+ * recorded once the command that put it in the item's data has committed. A file no item took
+ * (the form was abandoned, the command was refused) is pruned. A file an item has is kept even
+ * after it is removed from the item's data: the item's history still names it.
+ */
+export interface Files {
+  put(file: StoredFile, bytes: Uint8Array): Promise<void>
+  /** What is known about these files of the application; unknown ids are left out. */
+  meta(appId: Id, ids: Id[]): Promise<StoredFile[]>
+  read(appId: Id, id: Id): Promise<{ file: StoredFile; bytes: Uint8Array } | undefined>
+  /** Record the item for those of these files that have none yet. */
+  attach(appId: Id, ids: Id[], itemId: Id): Promise<void>
+  /** Delete files uploaded before `before` (epoch ms) that no item took. Returns how many. */
+  prune(before: number): Promise<number>
+}
+
 export interface Storage {
   /** Short name for the startup log and the readiness probe. */
   name: string
   designs: DesignStore
+  files: Files
   state: StateStore
   events: EventLog
   projections: Projections

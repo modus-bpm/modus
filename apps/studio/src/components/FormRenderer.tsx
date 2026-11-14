@@ -1,9 +1,11 @@
-import { EyeOff, Lock, Paperclip, Sigma, Upload, X } from 'lucide-react'
-import { useRef } from 'react'
+import { Download, EyeOff, Lock, Paperclip, Sigma, Upload, X } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { acceptedEndings, fileProblem } from '@modus-bpm/core/model/attachments'
 import { dependentFields, optionsForField } from '@modus-bpm/core/model/lists'
 import { type AttachmentValue, formatBytes, formatFieldValue } from '@modus-bpm/core/model/format'
 import { isComputed, normalizeData } from '@modus-bpm/core/model/tables'
 import type { FieldAccess, FieldDef, ListDef, ObjectType, User } from '@modus-bpm/core/model/types'
+import { useFiles } from './files'
 import { TableField } from './TableField'
 import { cx, Input, Select, Textarea, Toggle } from './ui'
 
@@ -186,10 +188,58 @@ function FieldControl({
       )
     }
     case 'attachment':
-      return <AttachmentInput files={Array.isArray(v) ? (v as AttachmentValue[]) : []} onChange={onValue} />
+      return <AttachmentInput field={field} files={Array.isArray(v) ? (v as AttachmentValue[]) : []} onChange={onValue} />
     default:
       return <Input value={(v as string) ?? ''} onChange={(e) => onValue(e.target.value)} />
   }
+}
+
+function FileRow({ file, onRemove }: { file: AttachmentValue; onRemove?: () => void }) {
+  const files = useFiles()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string>()
+  const canOpen = !!(file.id || file.url)
+  const open = async () => {
+    setBusy(true)
+    setError(undefined)
+    try {
+      await files.open(file)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That file could not be opened.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <li className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm">
+      <div className="flex items-center gap-2">
+        <Paperclip size={13} className="shrink-0 text-slate-400" />
+        {canOpen ? (
+          <button type="button" onClick={() => void open()} disabled={busy} className="min-w-0 truncate text-left text-brand-700 hover:underline disabled:opacity-60" title={`Open ${file.name}`}>
+            {file.name}
+          </button>
+        ) : (
+          <span className="min-w-0 truncate text-slate-700">{file.name}</span>
+        )}
+        <span className="ml-auto shrink-0 text-[11px] text-slate-400">{busy ? 'Opening…' : formatBytes(file.size)}</span>
+        {canOpen && (
+          <button type="button" aria-label={`Download ${file.name}`} onClick={() => void open()} disabled={busy} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <Download size={13} />
+          </button>
+        )}
+        {onRemove && (
+          <button type="button" aria-label={`Remove ${file.name}`} className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" onClick={onRemove}>
+            <X size={13} />
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="mt-0.5 text-[11px] text-rose-600" role="alert">
+          {error}
+        </p>
+      )}
+    </li>
+  )
 }
 
 export function AttachmentList({ files }: { files: AttachmentValue[] }) {
@@ -197,59 +247,104 @@ export function AttachmentList({ files }: { files: AttachmentValue[] }) {
   return (
     <ul className="space-y-1">
       {files.map((f, i) => (
-        <li key={i} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm">
-          <Paperclip size={13} className="shrink-0 text-slate-400" />
-          {f.url ? (
-            <a href={f.url} target="_blank" rel="noreferrer" className="truncate text-brand-700 hover:underline">
-              {f.name}
-            </a>
-          ) : (
-            <span className="truncate text-slate-700">{f.name}</span>
-          )}
-          <span className="ml-auto shrink-0 text-[11px] text-slate-400">{formatBytes(f.size)}</span>
-        </li>
+        <FileRow key={f.id ?? i} file={f} />
       ))}
     </ul>
   )
 }
 
-function AttachmentInput({ files, onChange }: { files: AttachmentValue[]; onChange: (v: AttachmentValue[] | undefined) => void }) {
+function AttachmentInput({ field, files, onChange }: { field: FieldDef; files: AttachmentValue[]; onChange: (v: AttachmentValue[] | undefined) => void }) {
+  const store = useFiles()
   const ref = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(0)
+  const [problems, setProblems] = useState<string[]>([])
+  const [over, setOver] = useState(false)
+  const accept = acceptedEndings(field)
+  const room = field.maxFiles ? Math.max(0, field.maxFiles - files.length) : Infinity
+
+  const add = async (picked: File[]) => {
+    if (!picked.length) return
+    const said: string[] = []
+    const fits = picked.filter((f) => {
+      const p = fileProblem(field, f, store.maxMb)
+      if (p) said.push(p)
+      return !p
+    })
+    if (fits.length > room) said.push(`${field.label} takes at most ${field.maxFiles} file${field.maxFiles === 1 ? '' : 's'}.`)
+    const taking = fits.slice(0, room)
+    setProblems(said)
+    if (!taking.length) return
+    setUploading((n) => n + taking.length)
+    const kept: AttachmentValue[] = []
+    for (const f of taking) {
+      try {
+        kept.push(await store.upload(f))
+      } catch (e) {
+        said.push(`“${f.name}”: ${e instanceof Error ? e.message : 'the upload failed.'}`)
+      } finally {
+        setUploading((n) => n - 1)
+      }
+    }
+    setProblems([...said])
+    if (kept.length) onChange([...files, ...kept])
+  }
+
+  const limits = [accept.length && accept.map((e) => `.${e}`).join(', '), field.maxMb && `up to ${field.maxMb} MB each`, field.maxFiles && `${field.maxFiles} file${field.maxFiles === 1 ? '' : 's'} at most`].filter(Boolean).join(' · ')
+
   return (
     <div className="space-y-1.5">
-      {files.map((f, i) => (
-        <div key={i} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm">
-          <Paperclip size={13} className="shrink-0 text-slate-400" />
-          <span className="truncate text-slate-700">{f.name}</span>
-          <span className="ml-auto shrink-0 text-[11px] text-slate-400">{formatBytes(f.size)}</span>
-          <button
-            type="button"
-            aria-label={`Remove ${f.name}`}
-            className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            onClick={() => {
-              const next = files.filter((_, j) => j !== i)
-              onChange(next.length ? next : undefined)
-            }}
-          >
-            <X size={13} />
-          </button>
-        </div>
+      {files.length > 0 && (
+        <ul className="space-y-1">
+          {files.map((f, i) => (
+            <FileRow
+              key={f.id ?? i}
+              file={f}
+              onRemove={() => {
+                const next = files.filter((_, j) => j !== i)
+                onChange(next.length ? next : undefined)
+              }}
+            />
+          ))}
+        </ul>
+      )}
+      {room > 0 && (
+        <button
+          type="button"
+          onClick={() => ref.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setOver(true)
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setOver(false)
+            void add(Array.from(e.dataTransfer.files))
+          }}
+          disabled={uploading > 0}
+          className={cx(
+            'flex min-h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-xs font-medium disabled:cursor-wait',
+            over ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-slate-300 text-slate-600 hover:border-brand-400 hover:bg-brand-50/40 hover:text-brand-700',
+          )}
+        >
+          <Upload size={13} /> {uploading > 0 ? `Uploading ${uploading === 1 ? 'a file' : `${uploading} files`}…` : 'Upload a file, or drop one here'}
+        </button>
+      )}
+      {limits && <p className="text-[11px] text-slate-500">{limits}</p>}
+      {problems.map((p, i) => (
+        <p key={i} className="text-[11px] text-rose-600" role="alert">
+          {p}
+        </p>
       ))}
-      <button
-        type="button"
-        onClick={() => ref.current?.click()}
-        className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-slate-300 text-xs font-medium text-slate-600 hover:border-brand-400 hover:bg-brand-50/40 hover:text-brand-700"
-      >
-        <Upload size={13} /> Upload file
-      </button>
       <input
         ref={ref}
         type="file"
-        multiple
+        multiple={room > 1}
+        accept={accept.length ? accept.map((e) => `.${e}`).join(',') : undefined}
         className="hidden"
+        aria-label={`Files for ${field.label}`}
         onChange={(e) => {
-          const picked = Array.from(e.target.files ?? []).map((f) => ({ name: f.name, size: f.size, kind: f.type, url: URL.createObjectURL(f) }))
-          if (picked.length) onChange([...files, ...picked])
+          void add(Array.from(e.target.files ?? []))
           e.target.value = ''
         }}
       />

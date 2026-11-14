@@ -1,6 +1,7 @@
 import { ShieldAlert, WandSparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { FormRenderer } from '../../components/FormRenderer'
+import { LiveFiles } from '../../server/LiveFiles'
 import { TypeIcon } from '../../components/icons'
 import { Button, Field, Modal, Select } from '../../components/ui'
 import { createAccess, createObject, nextNumber, type SimObject } from '@modus-bpm/core'
@@ -177,18 +178,20 @@ function CreateForm({ app, wf, type }: { app: App; wf: Workflow; type: ObjectTyp
         </div>
       )}
 
-      <FormRenderer
-        type={type}
-        lists={app.lists}
-        users={users}
-        values={values}
-        access={access}
-        errors={errors}
-        onChange={(v) => {
-          setValues(v)
-          if (Object.keys(errors).length) setErrors(validateRequired(type, v))
-        }}
-      />
+      <LiveFiles>
+        <FormRenderer
+          type={type}
+          lists={app.lists}
+          users={users}
+          values={values}
+          access={access}
+          errors={errors}
+          onChange={(v) => {
+            setValues(v)
+            if (Object.keys(errors).length) setErrors(validateRequired(type, v))
+          }}
+        />
+      </LiveFiles>
     </Modal>
   )
 }

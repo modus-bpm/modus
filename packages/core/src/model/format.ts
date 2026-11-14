@@ -1,3 +1,4 @@
+import { attachmentProblem } from './attachments'
 import { itemLabel } from './lists'
 import { tableErrors } from './tables'
 import type { FieldDef, FieldType, ListDef, ObjectType, User } from './types'
@@ -18,10 +19,19 @@ export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
 }
 
 export interface AttachmentValue {
+  /** The stored file, on a server. Absent in the browser simulation, where a file lives only in the page. */
+  id?: string
   name: string
   size: number
+  /** Media type, as the browser reported it (`application/pdf`). */
   kind: string
+  /** An object URL for a file picked in this browser session (simulation only; never stored). */
   url?: string
+  /** Hex SHA-256 of the bytes, so a copy can be checked against what was uploaded. */
+  sha256?: string
+  /** Who uploaded it (a person's id) and when (ISO). */
+  uploadedBy?: string
+  uploadedAt?: string
 }
 
 export function formatFieldValue(field: FieldDef, value: unknown, lists: ListDef[], users: User[]): string {
@@ -77,6 +87,12 @@ export function validateRequired(type: ObjectType, values: Record<string, unknow
     const v = values[f.id]
     const empty = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)
     if (empty) errors[f.id] = `${f.label} is required`
+  }
+  // File uploads: how many, how large and what kind, whether or not the field is required.
+  for (const f of type.fields) {
+    if (f.type !== 'attachment' || errors[f.id] || (f.system && !includeSystem)) continue
+    const e = attachmentProblem(f, values[f.id])
+    if (e) errors[f.id] = e
   }
   // Tables: row count limits and required cells, whether or not the table itself is required.
   for (const f of type.fields) {

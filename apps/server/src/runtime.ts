@@ -18,7 +18,7 @@
 import { randomUUID } from 'node:crypto'
 import { advance, buildIndex, changedItems, changesBetween, copyState, type Ctx, type Design, ensureVersions, type Id, newSim, projectItem, type ProjectedItem, type SimState, withChanges } from '@modus-bpm/core'
 import { seedDesign } from '@modus-bpm/core/model/seed'
-import { type ChangeNotice, type Deliveries, type Storage, StorageBusy } from './ports'
+import { type ChangeNotice, type Deliveries, type Files, type Storage, StorageBusy } from './ports'
 
 export interface RuntimeOptions {
   storage: Storage
@@ -179,6 +179,11 @@ export class Runtime {
     const app = this.design.apps.find((a) => a.id === appId)
     if (!app) throw new NotFound(`No application “${appId}”`)
     return { app, users: this.design.users, groups: this.design.groups, services: this.design.services, live: true }
+  }
+
+  /** Where uploaded files are kept. */
+  get files(): Files {
+    return this.opts.storage.files
   }
 
   /** The outbox's deliveries, for the administrators' routes (the sender works on the storage directly). */

@@ -4,6 +4,7 @@
 // later the API — can explain a refusal instead of failing silently.
 
 import { blockedBy, blockedFields, fieldAccessMap, type FieldVerdict } from '../model/security'
+import { describeFileChange } from '../model/attachments'
 import { normalizeData } from '../model/tables'
 import type { ExpeditePolicy, FieldAccess, FieldDef, Id, Priority, WfNode } from '../model/types'
 import {
@@ -235,7 +236,11 @@ function writeData(sim: SimState, idx: Index, obj: SimObject, patch: Record<stri
     if (!f) audit(sim, obj, { kind: 'field', nodeId, actor, fieldIds: [k], redacted, text: `${k} updated by ${actor}` })
     else if (f.type === 'table') audit(sim, obj, { kind: 'field', nodeId, actor, fieldIds: [k], redacted, text: `${f.label} updated by ${actor} (${Array.isArray(v) ? v.length : 0} rows)` })
     else if (f.type !== 'attachment') audit(sim, obj, { kind: 'field', nodeId, actor, fieldIds: [k], redacted, text: `${f.label} changed to ${displayValue(idx, type, k, v) || '(blank)'} by ${actor}` })
-    else audit(sim, obj, { kind: 'field', nodeId, actor, fieldIds: [k], redacted, text: `${f.label} updated by ${actor}` })
+    else {
+      // Files: say which came and went. Their names are the field's value, so the redacted text leaves them out.
+      const what = describeFileChange(before[k], v)
+      audit(sim, obj, { kind: 'field', nodeId, actor, fieldIds: [k], redacted, text: what ? `${f.label}: ${actor} ${what}` : `${f.label} updated by ${actor}` })
+    }
   }
   if (!type) return
   obj.data = normalizeData(type, obj.data)
