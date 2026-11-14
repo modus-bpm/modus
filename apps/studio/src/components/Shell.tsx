@@ -11,6 +11,7 @@ import {
   Inbox,
   LayoutTemplate,
   ListTree,
+  Palette,
   Pause,
   PencilRuler,
   Play,
@@ -44,6 +45,7 @@ const NAV: Array<{ view: View; label: string; icon: typeof GitBranch }> = [
   { view: 'org', label: 'People & Security', icon: ShieldCheck },
   { view: 'integrations', label: 'Integrations', icon: Plug },
   { view: 'templates', label: 'Templates', icon: LayoutTemplate },
+  { view: 'branding', label: 'Branding', icon: Palette },
   { view: 'monitor', label: 'Monitor', icon: Activity },
   { view: 'scenarios', label: 'What-if', icon: FlaskConical },
 ]

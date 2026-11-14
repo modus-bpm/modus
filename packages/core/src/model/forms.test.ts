@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultLayout, formPlan, layoutProblems, tidyLayout, unplacedFields } from './forms'
-import { contrast, DEFAULT_THEME, isDefaultTheme, mix, onColor, scopedCss, themeFor, themeProblems, themeVars } from './theme'
+import { contrast, cssProblem, DEFAULT_THEME, isDefaultTheme, mix, onColor, scopedCss, themeFor, themeProblems, themeVars } from './theme'
 import type { FieldDef, FormLayout, ObjectType } from './types'
 
 const f = (id: string, extra: Partial<FieldDef> = {}): FieldDef => ({ id, label: id.toUpperCase(), type: 'text', width: 'half', ...extra })
@@ -69,6 +69,10 @@ describe('a form with a layout', () => {
     expect(layoutProblems({})).toHaveLength(1)
     expect(layoutProblems({ sections: [{ id: 's', columns: 5, items: [] }] })).toHaveLength(1)
     expect(layoutProblems({ sections: [{ id: 's', columns: 1, items: [{ id: 'x', kind: 'image', url: 'https://example.com/a.png' }, { id: 'x', kind: 'divider' }] }] })).toHaveLength(2)
+    // A picture's address must be text, and a picture kept in the design: anything else is refused and never drawn.
+    const odd = { sections: [{ id: 's', columns: 1, items: [{ id: 'p', kind: 'image', url: ['https://evil.example/a.png'] }, { id: 'f', kind: 'field', fieldId: 'a' }] }] }
+    expect(layoutProblems(odd)).toHaveLength(1)
+    expect(formPlan(type([f('a')], odd as unknown as FormLayout)).sections[0]!.items.map((i) => i.kind)).toEqual(['field'])
   })
 })
 
@@ -106,28 +110,41 @@ describe('the look', () => {
     expect(themeVars({ ...DEFAULT_THEME, primary: 'red; background: url(x)' })['--color-brand-600']).toBe(DEFAULT_THEME.primary)
   })
 
-  it('keeps the organization’s own style rules inside the Workspace and inside the page', () => {
+  it('uses the organization’s own style rules as written, inside the Workspace, or not at all', () => {
     expect(scopedCss('')).toBe('')
     expect(scopedCss('button { border-radius: 0 }')).toBe('.modus-themed {\nbutton { border-radius: 0 }\n}')
-    const out = scopedCss('@import url(https://evil.example/x.css); a { background: url(https://evil.example/?q=1) } b { background: url("data:image/png;base64,AAAA") } </style><script>alert(1)</script>')
-    expect(out).not.toMatch(/@import|evil\.example|<|script>/)
-    expect(out).toMatch(/data:image\/png;base64,AAAA/)
-    // Braces in quoted text and in comments are read as a browser reads them, so they can't close the scope early.
-    expect(scopedCss('a::before { content: "}" }')).toMatch(/content: "}"/)
-    expect(scopedCss('x { content: "{" } } body { display: none } y { content: "}" ')).toBe('')
-    expect(scopedCss('x { color: red } /* { */ } body { display: none } /* } */ y {')).toBe('')
-    expect(scopedCss('a { content: "open }')).toBe('')
-    // Nothing that loads: not through a comment-split word, an escape, or a function other than url().
-    // (What is left of a split or escaped word is not a function a browser knows, so it loads nothing.)
-    expect(scopedCss('a { background: u/**/rl(https://evil.example/x) }')).not.toMatch(/url\(/i)
-    expect(scopedCss('a { background: u\\72l(https://evil.example/x) }')).not.toMatch(/url\(/i)
-    expect(scopedCss('a { background: UR/**/L(https://evil.example/x) }')).not.toMatch(/url\(/i)
-    expect(scopedCss('a { background: image-set("https://evil.example/x" 1x) }')).toBe('')
-    expect(scopedCss('a { background: -webkit-image-set("https://evil.example/x" 1x) }')).toBe('')
-    expect(scopedCss('@font-face { font-family: x; src: url(https://evil.example/f.woff) }')).not.toMatch(/evil/)
-    // A stray brace would close the scope and let the rest out: the whole sheet is dropped.
+    const fine = '/* our look { */ .form-label::before { content: "} «" } a > b { background: url("data:image/png;base64,AAAA") }'
+    expect(cssProblem(fine)).toBeUndefined()
+    expect(scopedCss(fine, '[x]')).toBe(`[x] {\n${fine}\n}`)
+  })
+
+  it('refuses rules that could close the Workspace’s scope and restyle the Studio', () => {
+    // A stray brace, and braces a browser would not count: in quoted text and in comments.
     expect(scopedCss('a { color: red } } body { display: none } .x {')).toBe('')
     expect(scopedCss('a { color: red')).toBe('')
+    expect(scopedCss('x { content: "{" } } body { display: none } y { content: "}" ')).toBe('')
+    expect(scopedCss('x { color: red } /* { */ } body { display: none } /* } */ y {')).toBe('')
+    expect(cssProblem('a { content: "open }')).toMatch(/quote/)
+    expect(cssProblem('a { color: red } /* open')).toMatch(/comment/)
+    // Nothing is cleaned up, so nothing can be put together by the cleaning: these are refused whole.
+    expect(cssProblem('a { color: red } /<b>* { *<b>/ } body { display: none }')).toMatch(/angle bracket/)
+    expect(cssProblem('a { color: red } /\\* { *\\/ }')).toMatch(/backslash/)
+    expect(scopedCss('</style><script>alert(1)</script>')).toBe('')
+  })
+
+  it('refuses rules that could load anything', () => {
+    expect(cssProblem('@import url(https://evil.example/x.css);')).toMatch(/@import/)
+    expect(cssProblem('@import "https://evil.example/x.css";')).toMatch(/@import/)
+    expect(cssProblem('a { background: url(https://evil.example/?q=1) }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: URL( "https://evil.example/x" ) }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: url(data:image/png;base64,AAAA), url(//evil.example/x) }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: url("data:text/html;base64,AAAA") }')).toMatch(/url\(\)/)
+    expect(cssProblem('a { background: u\\72l(https://evil.example/x) }')).toMatch(/backslash/)
+    expect(cssProblem('a { background: image-set("https://evil.example/x" 1x) }')).toMatch(/loads/)
+    expect(cssProblem('a { background: -webkit-image-set("https://evil.example/x" 1x) }')).toMatch(/loads/)
+    expect(cssProblem('@font-face { font-family: x; src: url(https://evil.example/f.woff) }')).toBeDefined()
+    // A word split by a comment is two words to a browser too: not a url() at all, and it loads nothing.
+    expect(cssProblem('a { background: u/**/rl(https://evil.example/x) }')).toBeUndefined()
   })
 
   it('says what is wrong with a look that is not one', () => {

@@ -25,6 +25,7 @@ import { QuickSearch } from './QuickSearch'
 import { RequestsPage } from './RequestsPage'
 import { MOD_KEY } from './searchParts'
 import { SearchPage } from './SearchPage'
+import { useWorkspaceLook } from '../branding/look'
 import { type Page, useWorkspace } from './store'
 import { SupervisePage } from './SupervisePage'
 
@@ -137,6 +138,7 @@ interface WorkspaceProps {
 }
 
 function Workspace({ app, me, ctx, users, groups, people, suggested, source }: WorkspaceProps) {
+  const look = useWorkspaceLook()
   const { sim, tick, live } = source
   const available = useLive((s) => s.available)
   const signedInAsMe = useSession((s) => s.loaded && !s.choose && s.user?.id === me.id) && live
@@ -204,7 +206,13 @@ function Workspace({ app, me, ctx, users, groups, people, suggested, source }: W
 
   return (
     <div className="relative flex h-full">
-      <aside className="flex w-[232px] shrink-0 flex-col border-r border-slate-200 bg-white">
+      <aside className="theme-side flex w-[232px] shrink-0 flex-col border-r border-slate-200 bg-white">
+        {(look.name || look.logo) && (
+          <div className="flex items-center gap-2.5 border-b border-slate-200 px-3.5 py-3">
+            {look.logo && <img src={look.logo} alt={look.name ? '' : 'Logo'} className="h-7 max-w-[120px] shrink-0 object-contain" />}
+            {look.name && <span className="min-w-0 truncate text-sm font-semibold text-slate-900">{look.name}</span>}
+          </div>
+        )}
         <div className="space-y-2 p-3">
           <PersonaPicker me={me} people={people} suggested={suggested} ctx={ctx} fixed={signedInAsMe} />
           <button

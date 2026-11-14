@@ -9,6 +9,9 @@
 import type { FieldAccess, FieldDef, FormItem, FormLayout, FormSection, Id, ObjectType } from './types'
 import { uid } from './util'
 
+/** A picture kept in the design: a data URL of an image kind, and a string (never an address somewhere else). */
+export const isOwnPicture = (url: unknown): url is string => typeof url === 'string' && /^data:image\/(png|jpeg|gif|webp|svg\+xml);/.test(url)
+
 /** The layout a type has when nobody has laid it out: one section, two columns, wide fields across both. */
 export function defaultLayout(type: Pick<ObjectType, 'fields'>): FormLayout {
   return { sections: [{ id: 'sec_main', columns: 2, items: type.fields.map((f) => fieldItem(f, `fi_${f.id}`)) }] }
@@ -79,9 +82,10 @@ export function formPlan(type: ObjectType, opts: PlanOptions = {}): FormPlan {
         const span = field.type === 'table' ? s.columns : Math.min(item.span ?? 1, s.columns)
         items.push({ id: item.id, kind: 'field', field, span, label: item.label?.trim() || field.label, help: item.help?.trim() || field.helpText, placeholder: item.placeholder?.trim() || undefined })
       } else if (item.kind === 'image') {
-        if (item.url) items.push({ id: item.id, kind: 'image', url: item.url, alt: item.alt ?? '', height: item.height, span: s.columns })
+        // Only a picture kept in the design is ever drawn: never an address somewhere else.
+        if (isOwnPicture(item.url)) items.push({ id: item.id, kind: 'image', url: item.url, alt: typeof item.alt === 'string' ? item.alt : '', height: typeof item.height === 'number' ? Math.min(Math.max(item.height, 16), 800) : undefined, span: s.columns })
       } else if (item.kind === 'divider') items.push({ id: item.id, kind: 'divider', span: s.columns })
-      else if (item.text.trim()) items.push({ id: item.id, kind: item.kind, text: item.text, span: s.columns })
+      else if (typeof item.text === 'string' && item.text.trim()) items.push({ id: item.id, kind: item.kind, text: item.text, span: s.columns })
     }
     const required = items.some((i) => i.kind === 'field' && i.field.required)
     return { id: s.id, title: s.title?.trim() || undefined, description: s.description?.trim() || undefined, columns: s.columns, collapsed: !!s.collapsed && !required, items }
@@ -115,7 +119,7 @@ export function layoutProblems(layout: unknown): string[] {
   if (!l || !Array.isArray(l.sections)) return ['The form layout has no sections.']
   const ids = new Set<Id>()
   for (const s of l.sections) {
-    if (!s || typeof s.id !== 'string' || !Array.isArray(s.items) || ![1, 2, 3].includes(s.columns)) {
+    if (!s || typeof s.id !== 'string' || !Array.isArray(s.items) || ![1, 2, 3].includes(s.columns) || [s.title, s.description].some((x) => x !== undefined && typeof x !== 'string')) {
       out.push('A section of the form layout is not one Modus knows.')
       continue
     }
@@ -123,7 +127,10 @@ export function layoutProblems(layout: unknown): string[] {
       if (!i || typeof i.id !== 'string' || !['field', 'heading', 'text', 'divider', 'image'].includes(i.kind)) out.push('Something on the form layout is not a kind Modus knows.')
       else if (ids.has(i.id)) out.push(`Two things on the form layout share the id ${i.id}.`)
       else ids.add(i.id)
-      if (i?.kind === 'image' && typeof i.url === 'string' && i.url && !/^data:image\/(png|jpeg|gif|webp|svg\+xml);/.test(i.url)) out.push('A picture on the form is not an image kept in the design.')
+      if (i?.kind === 'image' && i.url !== undefined && i.url !== '' && !isOwnPicture(i.url)) out.push('A picture on the form is not an image kept in the design.')
+      if (i?.kind === 'image' && ((i.alt !== undefined && typeof i.alt !== 'string') || (i.height !== undefined && typeof i.height !== 'number'))) out.push('A picture on the form has a description or height that is not one.')
+      if ((i?.kind === 'heading' || i?.kind === 'text') && typeof i.text !== 'string') out.push('A heading or paragraph on the form has no text.')
+      if (i?.kind === 'field' && (typeof i.fieldId !== 'string' || (i.span !== undefined && ![1, 2, 3].includes(i.span)) || [i.label, i.help, i.placeholder].some((x) => x !== undefined && typeof x !== 'string'))) out.push('A field on the form layout is not placed the way Modus knows.')
     }
   }
   return out

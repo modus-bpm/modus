@@ -144,44 +144,66 @@ export function themeAttrs(theme: Theme): Record<string, string> {
   return { 'data-theme-density': theme.density, 'data-theme-fields': theme.fields, 'data-theme-labels': theme.labels, 'data-theme-header': theme.header }
 }
 
-/** Functions that can load something, whatever they are given. `url()` is handled on its own. */
+/** Functions that can load something, whatever they are given. `url()` is checked on its own. */
 const LOADS = /(?:^|[^a-z0-9_-])(?:-webkit-)?(?:image-set|image|cross-fade|src|element|paint)\s*\(/i
+/** The one `url()` allowed: a picture held in the rules themselves. */
+const URLS = /url\(/gi
+const OWN_PICTURE = /^url\(\s*['"]?data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=\s]*['"]?\s*\)/i
 
 /**
- * The organization's own style rules, made safe to put in the page and kept to the Workspace.
+ * Why the organization's own style rules can't be used, or undefined when they can.
  *
- * Nothing in them may load anything: no @import, no url() but a picture held in the rules
- * themselves, and none of the other functions that fetch. So a style sheet can't send what is on
- * the screen anywhere. Nothing may close the style element. And every rule is nested under
- * `scope`, so it can't restyle the Studio: the rules are read the way a browser reads them
- * (comments gone, no escapes, braces inside quoted text not counted), and a sheet whose braces
- * don't balance, or that has a string left open, is dropped whole rather than guessed at.
+ * The rules are never rewritten: they are used exactly as written or not at all, so no cleaning-up
+ * step can turn something harmless into something that isn't. They are read the way a browser
+ * reads them (comments and quoted text skipped, braces counted outside both), and refused when:
+ * a brace, quote or comment is left open, so the rules could close the Workspace's scope and
+ * restyle the Studio; they contain a backslash or an angle bracket, which could spell something
+ * other than what is read here; or they could load anything (@import, a url() that is not a
+ * picture in the rules themselves, the other functions that fetch), which is how a style sheet
+ * sends what is on the screen somewhere else.
  */
-export function scopedCss(css: string | undefined, scope = '.modus-themed'): string {
-  if (!css?.trim()) return ''
-  const safe = css
-    .slice(0, MAX_CSS_CHARS)
-    // Comments first: one could hide a brace, or split a word such as u/**/rl( that is checked below.
-    .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, ' ')
-    // No escapes: what is written is what the browser reads.
-    .replace(/\\/g, '')
-    .replace(/<\/?[a-z!][^>]*>?/gi, '')
-    .replace(/@(import|charset|namespace)[^;{}]*;?/gi, '')
-    .replace(/url\(\s*(?!['"]?data:image\/(?:png|jpeg|gif|webp);base64,)[^)]*\)/gi, 'none')
-  if (LOADS.test(safe) || /expression\s*\(|-moz-binding|behavior\s*:/i.test(safe)) return ''
+export function cssProblem(css: string | undefined): string | undefined {
+  if (!css?.trim()) return undefined
+  if (css.length > MAX_CSS_CHARS) return `The style rules are longer than ${MAX_CSS_CHARS.toLocaleString('en-US')} characters.`
+  if (css.includes('\\')) return 'The style rules contain a backslash. Write characters as they are, without escapes.'
+  if (/[<>]/.test(css.replace(/\s>\s/g, ' '))) return 'The style rules contain an angle bracket. (A child selector such as “a > b” needs a space on each side.)'
+  // One pass, as a browser tokenizes: comments and strings are skipped; what is left is the code.
+  let code = ''
   let depth = 0
-  let quote = ''
-  for (const ch of safe) {
-    if (quote) {
-      // A line break inside a string is an error a browser recovers from in its own way: don't guess.
-      if (ch === '\n' || ch === '\r' || ch === '\f') return ''
-      if (ch === quote) quote = ''
-    } else if (ch === '"' || ch === "'") quote = ch
-    else if (ch === '{') depth++
-    else if (ch === '}' && --depth < 0) return ''
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i]!
+    if (ch === '/' && css[i + 1] === '*') {
+      const end = css.indexOf('*/', i + 2)
+      if (end < 0) return 'A comment in the style rules is left open.'
+      i = end + 1
+      code += ' '
+    } else if (ch === '"' || ch === "'") {
+      let j = i + 1
+      while (j < css.length && css[j] !== ch) {
+        if (css[j] === '\n' || css[j] === '\r' || css[j] === '\f') return 'A quote in the style rules is left open.'
+        j++
+      }
+      if (j >= css.length) return 'A quote in the style rules is left open.'
+      // Kept in the code only so a url("…") can be judged; braces inside it are not counted.
+      code += css.slice(i, j + 1).replace(/[{}]/g, ' ')
+      i = j
+    } else {
+      if (ch === '{') depth++
+      else if (ch === '}' && --depth < 0) return 'The style rules close a brace that was never opened.'
+      code += ch
+    }
   }
-  if (depth !== 0 || quote) return ''
-  return `${scope} {\n${safe}\n}`
+  if (depth !== 0) return 'A brace in the style rules is left open.'
+  if (/@(import|charset|namespace)/i.test(code)) return 'The style rules use @import, @charset or @namespace, which are not allowed.'
+  if (LOADS.test(code) || /expression\s*\(|-moz-binding|behavior\s*:/i.test(code)) return 'The style rules use a function that loads from elsewhere, which is not allowed.'
+  for (const m of code.matchAll(URLS)) if (!OWN_PICTURE.test(code.slice(m.index))) return 'The style rules load something with url(). Only a picture written into the rules themselves (data:image/png;base64,…) is allowed.'
+  return undefined
+}
+
+/** The organization's own style rules, kept to the Workspace: as written under `scope`, or nothing when they can't be used. */
+export function scopedCss(css: string | undefined, scope = '.modus-themed'): string {
+  if (!css?.trim() || cssProblem(css)) return ''
+  return `${scope} {\n${css}\n}`
 }
 
 /** What is wrong with a theme as data; empty when nothing is. */
@@ -193,7 +215,8 @@ export function themeProblems(theme: unknown): string[] {
   for (const k of ['primary', 'background', 'surface', 'text'] as const) if (t[k] !== undefined && !isHex(t[k])) out.push(`The ${k} colour is not a hex colour such as #4f46e5.`)
   if (t.logo !== undefined && t.logo !== '' && (typeof t.logo !== 'string' || !IMAGE.test(t.logo))) out.push('The logo is not an image kept in the design.')
   if (typeof t.logo === 'string' && t.logo.length > MAX_IMAGE_BYTES * 1.4) out.push(`The logo is larger than ${Math.round(MAX_IMAGE_BYTES / 1000)} KB.`)
-  if (t.css !== undefined && (typeof t.css !== 'string' || t.css.length > MAX_CSS_CHARS)) out.push(`The style rules are longer than ${MAX_CSS_CHARS.toLocaleString('en-US')} characters.`)
+  if (t.css !== undefined && typeof t.css !== 'string') out.push('The style rules are not text.')
+  else if (t.css && t.css.length > MAX_CSS_CHARS) out.push(`The style rules are longer than ${MAX_CSS_CHARS.toLocaleString('en-US')} characters.`)
   if (t.name !== undefined && (typeof t.name !== 'string' || t.name.length > 80)) out.push('The name is longer than 80 characters.')
   const choice = <K extends keyof Theme>(k: K, allowed: readonly string[]) => {
     if (t[k] !== undefined && !allowed.includes(t[k] as string)) out.push(`The look’s ${k} is not a choice Modus knows.`)
