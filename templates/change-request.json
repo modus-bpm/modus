@@ -1,0 +1,607 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_chg",
+      "name": "Change request",
+      "description": "An emergency change goes to one emergency approver. Every other change goes to five board members at once and proceeds when three have approved; an objection sends it back.",
+      "category": "IT and security",
+      "tags": [
+        "three of five",
+        "change board",
+        "emergency path"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "chg_change",
+          "label": "Change",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "chg_when",
+          "label": "Planned For",
+          "type": "date",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "chg_emergency",
+          "label": "Emergency",
+          "type": "boolean",
+          "width": "half"
+        },
+        {
+          "id": "chg_risk",
+          "label": "Risk and Rollback Plan",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "chg_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 544
+          },
+          "data": {
+            "label": "Change proposed"
+          }
+        },
+        {
+          "id": "chg_em",
+          "type": "decision",
+          "position": {
+            "x": 379,
+            "y": 510
+          },
+          "data": {
+            "label": "Emergency?"
+          }
+        },
+        {
+          "id": "chg_fast",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Emergency approver",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 1,
+            "outcomes": [
+              {
+                "id": "chg_fast_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "chg_fast_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chg_risk": "read"
+            }
+          }
+        },
+        {
+          "id": "chg_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 528
+          },
+          "data": {
+            "label": "To the change board",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "chg_b1",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Board member 1",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "chg_b1_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chg_b1_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chg_risk": "read"
+            }
+          }
+        },
+        {
+          "id": "chg_b2",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Board member 2",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "chg_b2_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chg_b2_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chg_risk": "read"
+            }
+          }
+        },
+        {
+          "id": "chg_b3",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 514
+          },
+          "data": {
+            "label": "Board member 3",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "chg_b3_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chg_b3_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chg_risk": "read"
+            }
+          }
+        },
+        {
+          "id": "chg_b4",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 684
+          },
+          "data": {
+            "label": "Board member 4",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "chg_b4_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chg_b4_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chg_risk": "read"
+            }
+          }
+        },
+        {
+          "id": "chg_b5",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 854
+          },
+          "data": {
+            "label": "Board member 5",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "chg_b5_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chg_b5_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chg_risk": "read"
+            }
+          }
+        },
+        {
+          "id": "chg_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 528
+          },
+          "data": {
+            "label": "Three approvals",
+            "mode": "count",
+            "count": 3,
+            "cancelRemaining": true
+          }
+        },
+        {
+          "id": "chg_impl",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 514
+          },
+          "data": {
+            "label": "Make the change",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "chg_impl_ok",
+                "label": "Done",
+                "weight": 93,
+                "actions": []
+              },
+              {
+                "id": "chg_impl_back",
+                "label": "Rolled back",
+                "weight": 7,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "chg_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 544
+          },
+          "data": {
+            "label": "Implemented",
+            "result": "completed",
+            "outcome": "Implemented"
+          }
+        },
+        {
+          "id": "chg_rb",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 714
+          },
+          "data": {
+            "label": "Rolled back",
+            "result": "cancelled",
+            "outcome": "Rolled back"
+          }
+        },
+        {
+          "id": "chg_rej",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 1054
+          },
+          "data": {
+            "label": "Sent back",
+            "result": "rejected",
+            "outcome": "Sent back"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "chg_e1",
+          "source": "chg_s",
+          "target": "chg_em",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chg_e2",
+          "source": "chg_em",
+          "target": "chg_fast",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "chg_r1_0",
+                  "fieldId": "chg_emergency",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "chg_e3",
+          "source": "chg_em",
+          "target": "chg_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "chg_e4",
+          "source": "chg_fast",
+          "target": "chg_impl",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_fast_ok"
+          }
+        },
+        {
+          "id": "chg_e5",
+          "source": "chg_fast",
+          "target": "chg_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_fast_no"
+          }
+        },
+        {
+          "id": "chg_e6",
+          "source": "chg_sp",
+          "target": "chg_b1",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chg_e7",
+          "source": "chg_sp",
+          "target": "chg_b2",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chg_e8",
+          "source": "chg_sp",
+          "target": "chg_b3",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chg_e9",
+          "source": "chg_sp",
+          "target": "chg_b4",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chg_e10",
+          "source": "chg_sp",
+          "target": "chg_b5",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chg_e11",
+          "source": "chg_b1",
+          "target": "chg_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_b1_ok"
+          }
+        },
+        {
+          "id": "chg_e12",
+          "source": "chg_b2",
+          "target": "chg_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_b2_ok"
+          }
+        },
+        {
+          "id": "chg_e13",
+          "source": "chg_b3",
+          "target": "chg_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "chg_b3_ok"
+          }
+        },
+        {
+          "id": "chg_e14",
+          "source": "chg_b4",
+          "target": "chg_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "chg_b4_ok"
+          }
+        },
+        {
+          "id": "chg_e15",
+          "source": "chg_b5",
+          "target": "chg_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "chg_b5_ok"
+          }
+        },
+        {
+          "id": "chg_e16",
+          "source": "chg_b1",
+          "target": "chg_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_b1_no"
+          }
+        },
+        {
+          "id": "chg_e17",
+          "source": "chg_b2",
+          "target": "chg_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_b2_no"
+          }
+        },
+        {
+          "id": "chg_e18",
+          "source": "chg_b3",
+          "target": "chg_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_b3_no"
+          }
+        },
+        {
+          "id": "chg_e19",
+          "source": "chg_b4",
+          "target": "chg_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chg_b4_no"
+          }
+        },
+        {
+          "id": "chg_e20",
+          "source": "chg_b5",
+          "target": "chg_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "chg_b5_no"
+          }
+        },
+        {
+          "id": "chg_e21",
+          "source": "chg_jn",
+          "target": "chg_impl",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chg_e22",
+          "source": "chg_impl",
+          "target": "chg_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "chg_impl_ok"
+          }
+        },
+        {
+          "id": "chg_e23",
+          "source": "chg_impl",
+          "target": "chg_rb",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "chg_impl_back"
+          }
+        }
+      ],
+      "item": {
+        "one": "Change",
+        "many": "Changes"
+      }
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_wo",
+      "name": "Work order",
+      "description": "Emergencies go straight to the on-call technician. Routine work is handed out by a dispatcher, can wait on parts, and closes only when the person who asked confirms it is fixed.",
+      "category": "Facilities, fleet and safety",
+      "tags": [
+        "dispatcher",
+        "waiting on parts",
+        "maintenance request"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "wo_where",
+          "label": "Location",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "wo_problem",
+          "label": "Problem",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "wo_emergency",
+          "label": "Emergency",
+          "type": "boolean",
+          "width": "half"
+        },
+        {
+          "id": "wo_requester",
+          "label": "Requested By",
+          "type": "user",
+          "width": "half",
+          "required": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "wo_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Work requested"
+          }
+        },
+        {
+          "id": "wo_em",
+          "type": "decision",
+          "position": {
+            "x": 379,
+            "y": 170
+          },
+          "data": {
+            "label": "Emergency?"
+          }
+        },
+        {
+          "id": "wo_now",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "On-call technician",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 2,
+            "escalateAfterHours": 1,
+            "escalation": {
+              "raisePriority": true,
+              "toDistributors": false,
+              "notifySupervisors": true
+            },
+            "outcomes": [
+              {
+                "id": "wo_now_ok",
+                "label": "Fixed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "wo_problem": "read"
+            }
+          }
+        },
+        {
+          "id": "wo_fix",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "Technician",
+            "description": "A dispatcher hands these out; technicians do not pick their own.",
+            "distribution": "manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 50,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "wo_fix_ok",
+                "label": "Fixed",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "wo_fix_parts",
+                "label": "Waiting on parts",
+                "weight": 20,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "wo_problem": "read"
+            }
+          }
+        },
+        {
+          "id": "wo_w",
+          "type": "wait",
+          "position": {
+            "x": 674,
+            "y": 544
+          },
+          "data": {
+            "label": "Until the parts arrive",
+            "minutes": 4320
+          }
+        },
+        {
+          "id": "wo_conf",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Requester confirms",
+            "distribution": "field",
+            "assigneeFieldId": "wo_requester",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 2,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "wo_conf_ok",
+                "label": "It is fixed",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "wo_conf_no",
+                "label": "Still broken",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "wo_done",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 204
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "wo_e1",
+          "source": "wo_s",
+          "target": "wo_em",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "wo_e2",
+          "source": "wo_em",
+          "target": "wo_now",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "wo_r1_0",
+                  "fieldId": "wo_emergency",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "wo_e3",
+          "source": "wo_em",
+          "target": "wo_fix",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "wo_e4",
+          "source": "wo_now",
+          "target": "wo_conf",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "wo_now_ok"
+          }
+        },
+        {
+          "id": "wo_e5",
+          "source": "wo_fix",
+          "target": "wo_conf",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "wo_fix_ok"
+          }
+        },
+        {
+          "id": "wo_e6",
+          "source": "wo_fix",
+          "target": "wo_w",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "wo_fix_parts"
+          }
+        },
+        {
+          "id": "wo_e7",
+          "source": "wo_w",
+          "target": "wo_fix",
+          "sourceHandle": "l",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "wo_e8",
+          "source": "wo_conf",
+          "target": "wo_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "wo_conf_ok"
+          }
+        },
+        {
+          "id": "wo_e9",
+          "source": "wo_conf",
+          "target": "wo_fix",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "wo_conf_no"
+          }
+        }
+      ],
+      "item": {
+        "one": "Work order",
+        "many": "Work orders"
+      }
+    }
+  ]
+}

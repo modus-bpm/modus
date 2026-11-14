@@ -1,0 +1,335 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_va",
+      "name": "Vehicle accident report",
+      "description": "The driver named on the report writes the statement. The insurance claim, the repair estimate and the safety review then run at the same time before the fleet manager closes it.",
+      "category": "Facilities, fleet and safety",
+      "tags": [
+        "parallel",
+        "person on the item",
+        "fleet"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "va_driver",
+          "label": "Driver",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "va_unit",
+          "label": "Vehicle",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "va_when",
+          "label": "Date of Accident",
+          "type": "date",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "va_what",
+          "label": "What Happened",
+          "type": "textarea",
+          "width": "full"
+        },
+        {
+          "id": "va_injury",
+          "label": "Anyone Injured",
+          "type": "boolean",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "va_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Accident reported"
+          }
+        },
+        {
+          "id": "va_drv",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Driver’s statement",
+            "distribution": "field",
+            "assigneeFieldId": "va_driver",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "va_drv_ok",
+                "label": "Submitted",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "va_what": "edit",
+              "va_injury": "edit"
+            }
+          }
+        },
+        {
+          "id": "va_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Three things at once",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "va_ins",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Insurance claim",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "va_ins_ok",
+                "label": "Claim filed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "va_what": "read"
+            }
+          }
+        },
+        {
+          "id": "va_est",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Repair estimate",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "va_est_ok",
+                "label": "Estimated",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "va_saf",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Safety review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "va_saf_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "va_what": "read",
+              "va_injury": "read"
+            }
+          }
+        },
+        {
+          "id": "va_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "All three done",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "va_mgr",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Fleet manager closes",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "va_mgr_ok",
+                "label": "Closed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "va_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "va_e1",
+          "source": "va_s",
+          "target": "va_drv",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "va_e2",
+          "source": "va_drv",
+          "target": "va_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "va_drv_ok"
+          }
+        },
+        {
+          "id": "va_e3",
+          "source": "va_sp",
+          "target": "va_ins",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "va_e4",
+          "source": "va_sp",
+          "target": "va_est",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "va_e5",
+          "source": "va_sp",
+          "target": "va_saf",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "va_e6",
+          "source": "va_ins",
+          "target": "va_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "va_ins_ok"
+          }
+        },
+        {
+          "id": "va_e7",
+          "source": "va_est",
+          "target": "va_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "va_est_ok"
+          }
+        },
+        {
+          "id": "va_e8",
+          "source": "va_saf",
+          "target": "va_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "va_saf_ok"
+          }
+        },
+        {
+          "id": "va_e9",
+          "source": "va_jn",
+          "target": "va_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "va_e10",
+          "source": "va_mgr",
+          "target": "va_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "va_mgr_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Accident report",
+        "many": "Accident reports"
+      }
+    }
+  ]
+}

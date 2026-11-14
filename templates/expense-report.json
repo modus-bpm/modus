@@ -1,0 +1,344 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_exp",
+      "name": "Expense report",
+      "description": "The employee’s own manager reviews it and can send it back for changes. Reports over $1,000 also go to finance before reimbursement.",
+      "category": "Finance and AP",
+      "tags": [
+        "reimbursement",
+        "return for changes",
+        "threshold"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "exp_employee",
+          "label": "Employee",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "exp_manager",
+          "label": "Manager",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "exp_amount",
+          "label": "Total",
+          "type": "currency",
+          "width": "half",
+          "min": 20,
+          "max": 4000,
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "exp_purpose",
+          "label": "Purpose",
+          "type": "textarea",
+          "width": "full"
+        },
+        {
+          "id": "exp_receipts",
+          "label": "Receipts",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "exp_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Report submitted"
+          }
+        },
+        {
+          "id": "exp_mgr",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Manager review",
+            "distribution": "field",
+            "assigneeFieldId": "exp_manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "exp_mgr_ok",
+                "label": "Approve",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "exp_mgr_back",
+                "label": "Return for changes",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              },
+              {
+                "id": "exp_mgr_no",
+                "label": "Reject",
+                "weight": 5,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "exp_amount": "read",
+              "exp_purpose": "read",
+              "exp_receipts": "read"
+            }
+          }
+        },
+        {
+          "id": "exp_fix",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 344
+          },
+          "data": {
+            "label": "Employee corrects it",
+            "distribution": "field",
+            "assigneeFieldId": "exp_employee",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "exp_fix_ok",
+                "label": "Resubmit",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "exp_amount": "edit",
+              "exp_purpose": "edit",
+              "exp_receipts": "edit"
+            }
+          }
+        },
+        {
+          "id": "exp_lim",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 170
+          },
+          "data": {
+            "label": "Over $1,000?"
+          }
+        },
+        {
+          "id": "exp_fin",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Finance review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "exp_fin_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "exp_fin_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "exp_amount": "read",
+              "exp_receipts": "read"
+            }
+          }
+        },
+        {
+          "id": "exp_pay",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 184
+          },
+          "data": {
+            "label": "Reimburse",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "exp_paid",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 204
+          },
+          "data": {
+            "label": "Reimbursed",
+            "result": "completed",
+            "outcome": "Reimbursed"
+          }
+        },
+        {
+          "id": "exp_rej",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 374
+          },
+          "data": {
+            "label": "Rejected",
+            "result": "rejected",
+            "outcome": "Rejected"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "exp_e1",
+          "source": "exp_s",
+          "target": "exp_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "exp_e2",
+          "source": "exp_mgr",
+          "target": "exp_lim",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "exp_mgr_ok"
+          }
+        },
+        {
+          "id": "exp_e3",
+          "source": "exp_mgr",
+          "target": "exp_fix",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "exp_mgr_back"
+          }
+        },
+        {
+          "id": "exp_e4",
+          "source": "exp_fix",
+          "target": "exp_mgr",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "exp_fix_ok"
+          }
+        },
+        {
+          "id": "exp_e5",
+          "source": "exp_mgr",
+          "target": "exp_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "exp_mgr_no"
+          }
+        },
+        {
+          "id": "exp_e6",
+          "source": "exp_lim",
+          "target": "exp_fin",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "exp_r5_0",
+                  "fieldId": "exp_amount",
+                  "op": "gt",
+                  "value": 1000
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "exp_e7",
+          "source": "exp_lim",
+          "target": "exp_pay",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "exp_e8",
+          "source": "exp_fin",
+          "target": "exp_pay",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "exp_fin_ok"
+          }
+        },
+        {
+          "id": "exp_e9",
+          "source": "exp_fin",
+          "target": "exp_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "exp_fin_no"
+          }
+        },
+        {
+          "id": "exp_e10",
+          "source": "exp_pay",
+          "target": "exp_paid",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Expense report",
+        "many": "Expense reports"
+      }
+    }
+  ]
+}

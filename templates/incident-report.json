@@ -1,0 +1,192 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_incident",
+      "name": "Incident report",
+      "description": "The person who handled the incident writes it up (retain familiar), a commander reviews, and it is filed to records automatically.",
+      "category": "Government and public safety",
+      "tags": [
+        "retain familiar",
+        "records"
+      ],
+      "createdAt": "2026-09-30T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ir_officer",
+          "label": "Responding Officer",
+          "type": "user",
+          "width": "half",
+          "system": true
+        },
+        {
+          "id": "ir_notes",
+          "label": "Report",
+          "type": "textarea",
+          "width": "full",
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ir_s",
+          "type": "start",
+          "position": {
+            "x": 0,
+            "y": 136
+          },
+          "data": {
+            "label": "Incident confirmed"
+          }
+        },
+        {
+          "id": "ir_write",
+          "type": "user",
+          "position": {
+            "x": 230,
+            "y": 106
+          },
+          "data": {
+            "label": "Write incident report",
+            "distribution": "field",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 8,
+            "outcomes": [
+              {
+                "id": "ir_w_ok",
+                "label": "Submit",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ir_notes": "edit",
+              "ir_officer": "read"
+            },
+            "assigneeFieldId": "ir_officer"
+          }
+        },
+        {
+          "id": "ir_rev",
+          "type": "user",
+          "position": {
+            "x": 600,
+            "y": 106
+          },
+          "data": {
+            "label": "Supervisor review",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ir_r_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "ir_r_back",
+                "label": "Return for changes",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ir_notes": "read",
+              "ir_officer": "read"
+            }
+          }
+        },
+        {
+          "id": "ir_file",
+          "type": "auto",
+          "position": {
+            "x": 970,
+            "y": 120
+          },
+          "data": {
+            "label": "File to records",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_records",
+            "operationId": "op_rec_put",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "ir_end",
+          "type": "end",
+          "position": {
+            "x": 1280,
+            "y": 136
+          },
+          "data": {
+            "label": "Filed",
+            "result": "completed",
+            "outcome": "Filed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ir_e1",
+          "source": "ir_s",
+          "target": "ir_write",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ir_e2",
+          "source": "ir_write",
+          "target": "ir_rev",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ir_w_ok"
+          }
+        },
+        {
+          "id": "ir_e3",
+          "source": "ir_rev",
+          "target": "ir_file",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ir_r_ok"
+          }
+        },
+        {
+          "id": "ir_e4",
+          "source": "ir_rev",
+          "target": "ir_write",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "ir_r_back"
+          }
+        },
+        {
+          "id": "ir_e5",
+          "source": "ir_file",
+          "target": "ir_end",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Incident",
+        "many": "Incidents"
+      }
+    }
+  ]
+}

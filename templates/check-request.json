@@ -1,0 +1,388 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_chk",
+      "name": "Check request",
+      "description": "A payment outside the normal invoice run goes to three authorized signers at once and is released as soon as any two have signed. One refusal stops it.",
+      "category": "Finance and AP",
+      "tags": [
+        "two of three",
+        "dual signature",
+        "payment"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "chk_payee",
+          "label": "Payee",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "chk_amount",
+          "label": "Amount",
+          "type": "currency",
+          "width": "half",
+          "min": 500,
+          "max": 40000,
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "chk_reason",
+          "label": "Reason",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "chk_backup",
+          "label": "Supporting Document",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "chk_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Check requested"
+          }
+        },
+        {
+          "id": "chk_prep",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Prepare the payment",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "chk_prep_ok",
+                "label": "Ready to sign",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "chk_payee": "edit",
+              "chk_amount": "edit",
+              "chk_backup": "edit"
+            }
+          }
+        },
+        {
+          "id": "chk_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "To the signers",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "chk_s1",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "First signer",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "chk_s1_ok",
+                "label": "Sign",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chk_s1_no",
+                "label": "Refuse",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chk_amount": "read",
+              "chk_reason": "read"
+            }
+          }
+        },
+        {
+          "id": "chk_s2",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Second signer",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "chk_s2_ok",
+                "label": "Sign",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chk_s2_no",
+                "label": "Refuse",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chk_amount": "read",
+              "chk_reason": "read"
+            }
+          }
+        },
+        {
+          "id": "chk_s3",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Third signer",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "chk_s3_ok",
+                "label": "Sign",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "chk_s3_no",
+                "label": "Refuse",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "chk_amount": "read",
+              "chk_reason": "read"
+            }
+          }
+        },
+        {
+          "id": "chk_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "Two signatures",
+            "mode": "count",
+            "count": 2,
+            "cancelRemaining": true
+          }
+        },
+        {
+          "id": "chk_rel",
+          "type": "auto",
+          "position": {
+            "x": 1565,
+            "y": 184
+          },
+          "data": {
+            "label": "Release the payment",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "chk_paid",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Paid",
+            "result": "completed",
+            "outcome": "Paid"
+          }
+        },
+        {
+          "id": "chk_rej",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 544
+          },
+          "data": {
+            "label": "Refused",
+            "result": "rejected",
+            "outcome": "Refused"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "chk_e1",
+          "source": "chk_s",
+          "target": "chk_prep",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chk_e2",
+          "source": "chk_prep",
+          "target": "chk_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "chk_prep_ok"
+          }
+        },
+        {
+          "id": "chk_e3",
+          "source": "chk_sp",
+          "target": "chk_s1",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chk_e4",
+          "source": "chk_sp",
+          "target": "chk_s2",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chk_e5",
+          "source": "chk_sp",
+          "target": "chk_s3",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chk_e6",
+          "source": "chk_s1",
+          "target": "chk_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chk_s1_ok"
+          }
+        },
+        {
+          "id": "chk_e7",
+          "source": "chk_s2",
+          "target": "chk_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "chk_s2_ok"
+          }
+        },
+        {
+          "id": "chk_e8",
+          "source": "chk_s3",
+          "target": "chk_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "chk_s3_ok"
+          }
+        },
+        {
+          "id": "chk_e9",
+          "source": "chk_s1",
+          "target": "chk_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chk_s1_no"
+          }
+        },
+        {
+          "id": "chk_e10",
+          "source": "chk_s2",
+          "target": "chk_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "chk_s2_no"
+          }
+        },
+        {
+          "id": "chk_e11",
+          "source": "chk_s3",
+          "target": "chk_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "chk_s3_no"
+          }
+        },
+        {
+          "id": "chk_e12",
+          "source": "chk_jn",
+          "target": "chk_rel",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "chk_e13",
+          "source": "chk_rel",
+          "target": "chk_paid",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Check request",
+        "many": "Check requests"
+      }
+    }
+  ]
+}

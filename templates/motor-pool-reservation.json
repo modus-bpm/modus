@@ -1,0 +1,297 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_mp",
+      "name": "Motor pool reservation",
+      "description": "The motor pool approves and assigns a vehicle. The reservation then waits until the vehicle is due back, and a check-in inspection logs any damage before it closes.",
+      "category": "Facilities, fleet and safety",
+      "tags": [
+        "timer",
+        "reservation",
+        "fleet"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "mp_driver",
+          "label": "Driver",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "mp_from",
+          "label": "Pick-up",
+          "type": "date",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "mp_to",
+          "label": "Return",
+          "type": "date",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "mp_why",
+          "label": "Purpose",
+          "type": "text",
+          "width": "half"
+        },
+        {
+          "id": "mp_damage",
+          "label": "Damage Found",
+          "type": "boolean",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "mp_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Vehicle requested"
+          }
+        },
+        {
+          "id": "mp_appr",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Approve and assign a vehicle",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "mp_appr_ok",
+                "label": "Assigned",
+                "weight": 90,
+                "actions": []
+              },
+              {
+                "id": "mp_appr_no",
+                "label": "None available",
+                "weight": 10,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "mp_from": "read",
+              "mp_to": "read"
+            }
+          }
+        },
+        {
+          "id": "mp_w",
+          "type": "wait",
+          "position": {
+            "x": 674,
+            "y": 204
+          },
+          "data": {
+            "label": "Until the vehicle is due back",
+            "minutes": 2880
+          }
+        },
+        {
+          "id": "mp_chk",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Check-in inspection",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "mp_chk_ok",
+                "label": "Inspected",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "mp_damage": "edit"
+            }
+          }
+        },
+        {
+          "id": "mp_dmg",
+          "type": "decision",
+          "position": {
+            "x": 1309,
+            "y": 170
+          },
+          "data": {
+            "label": "Damage found?"
+          }
+        },
+        {
+          "id": "mp_log",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Log the damage",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "mp_log_ok",
+                "label": "Logged",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "mp_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Returned",
+            "result": "completed",
+            "outcome": "Returned"
+          }
+        },
+        {
+          "id": "mp_rej",
+          "type": "end",
+          "position": {
+            "x": 671,
+            "y": 374
+          },
+          "data": {
+            "label": "Not available",
+            "result": "rejected",
+            "outcome": "Not available"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "mp_e1",
+          "source": "mp_s",
+          "target": "mp_appr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "mp_e2",
+          "source": "mp_appr",
+          "target": "mp_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "mp_appr_ok"
+          }
+        },
+        {
+          "id": "mp_e3",
+          "source": "mp_appr",
+          "target": "mp_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "mp_appr_no"
+          }
+        },
+        {
+          "id": "mp_e4",
+          "source": "mp_w",
+          "target": "mp_chk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "mp_e5",
+          "source": "mp_chk",
+          "target": "mp_dmg",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "mp_chk_ok"
+          }
+        },
+        {
+          "id": "mp_e6",
+          "source": "mp_dmg",
+          "target": "mp_log",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "mp_r5_0",
+                  "fieldId": "mp_damage",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "mp_e7",
+          "source": "mp_dmg",
+          "target": "mp_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "mp_e8",
+          "source": "mp_log",
+          "target": "mp_done",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "mp_log_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Reservation",
+        "many": "Reservations"
+      }
+    }
+  ]
+}

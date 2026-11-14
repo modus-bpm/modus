@@ -1,0 +1,280 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_vbc",
+      "name": "Vendor bank change",
+      "description": "A request to change a vendor’s bank details is confirmed by a call-back to the number already on file, made by someone other than the person who took the request, before the controller approves it.",
+      "category": "Finance and AP",
+      "tags": [
+        "fraud control",
+        "four eyes",
+        "accounts payable"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "vbc_vendor",
+          "label": "Vendor",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "vbc_from",
+          "label": "Requested By (at the vendor)",
+          "type": "text",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "vbc_letter",
+          "label": "Request Letter",
+          "type": "attachment",
+          "width": "half"
+        },
+        {
+          "id": "vbc_call",
+          "label": "Call-back Notes",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "vbc_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Change requested"
+          }
+        },
+        {
+          "id": "vbc_log",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Record the request",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "vbc_log_ok",
+                "label": "Recorded",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "vbc_vendor": "edit",
+              "vbc_from": "edit",
+              "vbc_letter": "edit"
+            }
+          }
+        },
+        {
+          "id": "vbc_call",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Call back on the number on file",
+            "description": "Use the phone number already in the vendor record, never one given in the request.",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 12,
+            "slaHours": 48,
+            "separateFrom": [
+              "vbc_log"
+            ],
+            "outcomes": [
+              {
+                "id": "vbc_call_ok",
+                "label": "Vendor confirmed it",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "vbc_call_no",
+                "label": "Could not confirm",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "vbc_call": "edit",
+              "vbc_vendor": "read",
+              "vbc_from": "read"
+            }
+          }
+        },
+        {
+          "id": "vbc_ctrl",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Controller approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "separateFrom": [
+              "vbc_log",
+              "vbc_call"
+            ],
+            "outcomes": [
+              {
+                "id": "vbc_ctrl_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "vbc_ctrl_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "vbc_call": "read",
+              "vbc_letter": "read"
+            }
+          }
+        },
+        {
+          "id": "vbc_upd",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 14
+          },
+          "data": {
+            "label": "Update the vendor record",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "vbc_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 34
+          },
+          "data": {
+            "label": "Changed",
+            "result": "completed",
+            "outcome": "Changed"
+          }
+        },
+        {
+          "id": "vbc_rej",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 204
+          },
+          "data": {
+            "label": "Not changed",
+            "result": "rejected",
+            "outcome": "Not changed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "vbc_e1",
+          "source": "vbc_s",
+          "target": "vbc_log",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "vbc_e2",
+          "source": "vbc_log",
+          "target": "vbc_call",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "vbc_log_ok"
+          }
+        },
+        {
+          "id": "vbc_e3",
+          "source": "vbc_call",
+          "target": "vbc_ctrl",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "vbc_call_ok"
+          }
+        },
+        {
+          "id": "vbc_e4",
+          "source": "vbc_call",
+          "target": "vbc_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "vbc_call_no"
+          }
+        },
+        {
+          "id": "vbc_e5",
+          "source": "vbc_ctrl",
+          "target": "vbc_upd",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "vbc_ctrl_ok"
+          }
+        },
+        {
+          "id": "vbc_e6",
+          "source": "vbc_ctrl",
+          "target": "vbc_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "vbc_ctrl_no"
+          }
+        },
+        {
+          "id": "vbc_e7",
+          "source": "vbc_upd",
+          "target": "vbc_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Bank change",
+        "many": "Bank changes"
+      }
+    }
+  ]
+}

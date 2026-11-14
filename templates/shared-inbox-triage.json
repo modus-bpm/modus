@@ -1,0 +1,221 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_ai_hitl",
+      "name": "Shared inbox triage",
+      "description": "An AI agent classifies each message that arrives. Confident answers go straight through; the rest go to a person, whose corrections are recorded.",
+      "category": "Customers and operations",
+      "tags": [
+        "AI",
+        "human in the loop",
+        "email"
+      ],
+      "createdAt": "2026-09-30T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ai_conf",
+          "label": "AI Confidence",
+          "type": "number",
+          "min": 0,
+          "max": 100,
+          "width": "half",
+          "system": true
+        },
+        {
+          "id": "ai_cat",
+          "label": "Category",
+          "type": "text",
+          "width": "half",
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ai_s",
+          "type": "start",
+          "position": {
+            "x": 0,
+            "y": 150
+          },
+          "data": {
+            "label": "Received"
+          }
+        },
+        {
+          "id": "ai_cls",
+          "type": "auto",
+          "position": {
+            "x": 210,
+            "y": 147
+          },
+          "data": {
+            "label": "AI classification",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_classifier",
+            "operationId": "op_classify",
+            "outputs": [
+              {
+                "key": "confidence",
+                "fieldId": "ai_conf"
+              },
+              {
+                "key": "category",
+                "fieldId": "ai_cat"
+              }
+            ],
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "ai_dec",
+          "type": "decision",
+          "position": {
+            "x": 510,
+            "y": 114
+          },
+          "data": {
+            "label": "Confident?"
+          }
+        },
+        {
+          "id": "ai_auto",
+          "type": "end",
+          "position": {
+            "x": 760,
+            "y": 10
+          },
+          "data": {
+            "label": "Auto-routed",
+            "result": "completed",
+            "outcome": "Auto-routed"
+          }
+        },
+        {
+          "id": "ai_rev",
+          "type": "user",
+          "position": {
+            "x": 720,
+            "y": 240
+          },
+          "data": {
+            "label": "Human review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ai_r_ok",
+                "label": "Confirm",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "ai_r_fix",
+                "label": "Correct category",
+                "weight": 20,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ai_conf": "read",
+              "ai_cat": "edit"
+            }
+          }
+        },
+        {
+          "id": "ai_done",
+          "type": "end",
+          "position": {
+            "x": 1080,
+            "y": 266
+          },
+          "data": {
+            "label": "Reviewed",
+            "result": "completed",
+            "outcome": "Reviewed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ai_e1",
+          "source": "ai_s",
+          "target": "ai_cls",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ai_e2",
+          "source": "ai_cls",
+          "target": "ai_dec",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ai_e3",
+          "source": "ai_dec",
+          "target": "ai_auto",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "ai_r1",
+                  "fieldId": "ai_conf",
+                  "op": "gte",
+                  "value": 85
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ai_e4",
+          "source": "ai_dec",
+          "target": "ai_rev",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "isDefault": true,
+            "order": 1
+          }
+        },
+        {
+          "id": "ai_e5",
+          "source": "ai_rev",
+          "target": "ai_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ai_r_ok"
+          }
+        },
+        {
+          "id": "ai_e6",
+          "source": "ai_rev",
+          "target": "ai_done",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "ai_r_fix"
+          }
+        }
+      ],
+      "item": {
+        "one": "Message",
+        "many": "Messages"
+      }
+    }
+  ]
+}

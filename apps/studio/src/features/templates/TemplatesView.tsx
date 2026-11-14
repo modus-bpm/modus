@@ -1,5 +1,5 @@
-import { Copy, LayoutTemplate, Pencil, Search, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Copy, Download, LayoutTemplate, Pencil, Search, Trash2, Upload } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
 import { appFromTemplate } from '@modus-bpm/core/model/seed'
 import { TEMPLATE_CATEGORIES } from '@modus-bpm/core/model/seed-templates'
 import type { Id, Template } from '@modus-bpm/core/model/types'
@@ -9,12 +9,13 @@ import { Badge, Button, Card, cx, EmptyState, IconButton, Input } from '../../co
 import { useApp, useDesign } from '../../store/design'
 import { useUi } from '../../store/ui'
 import { TemplateDetailsModal } from './TemplateDetailsModal'
+import { downloadTemplates, ImportTemplatesModal, type Picked, readPicked } from './TemplateFiles'
 import { TemplatePreview } from './TemplatePreview'
 import { UseTemplateModal } from './UseTemplateModal'
 
 // The organization's library of reusable workflows: find one by department, tag or
 // search, look at its steps, and stamp it into the open application with its fields
-// mapped onto an object type.
+// mapped onto an object type. Templates also leave and enter the library as files (TemplateFiles.tsx).
 
 const dateFmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -40,6 +41,8 @@ export function TemplatesView() {
   const [dept, setDept] = useState<string | null>(null)
   const [using, setUsing] = useState<Id | null>(null)
   const [editing, setEditing] = useState<Id | null>(null)
+  const [picked, setPicked] = useState<Picked | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const tags = useMemo(() => {
     const n = new Map<string, number>()
@@ -101,6 +104,16 @@ export function TemplatesView() {
     toast(`“${t.name}” deleted.`)
   }
 
+  const pick = async (files: File[]) => {
+    if (files.length) setPicked(await readPicked(files))
+  }
+
+  /** Export what is on screen: the whole library, or what the search and filters left. */
+  const exportShown = () => {
+    downloadTemplates(shown)
+    toast(`${plural(shown.length, 'template')} saved to a file. Import it into another Modus from this page.`, 'success')
+  }
+
   const usingTpl = templates.find((t) => t.id === using)
   const editingTpl = templates.find((t) => t.id === editing)
 
@@ -118,6 +131,24 @@ export function TemplatesView() {
           <Search size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-400" />
           <Input className="w-64 pl-8" placeholder="Search templates, fields and steps" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search templates" />
         </div>
+        <Button icon={<Upload size={14} />} onClick={() => fileRef.current?.click()} title="Add templates from template files (JSON)">
+          Import…
+        </Button>
+        <Button icon={<Download size={14} />} onClick={exportShown} disabled={shown.length === 0} title="Save these templates to one file">
+          {filtered ? `Export these ${shown.length}` : 'Export all'}
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          multiple
+          className="hidden"
+          aria-label="Template files to import"
+          onChange={(e) => {
+            void pick(Array.from(e.target.files ?? []))
+            e.target.value = ''
+          }}
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
@@ -155,13 +186,14 @@ export function TemplatesView() {
 
           <p className="flex items-center gap-1.5 text-xs text-slate-500">
             <LayoutTemplate size={13} className="text-slate-400" />
-            To save one of your own, open it in the designer and choose <span className="font-medium text-slate-700">Workflows › Save as template</span>.
+            To save one of your own, open it in the designer and choose <span className="font-medium text-slate-700">Workflows › Save as template</span>. Export a template to a file to
+            share it or keep it with your own records, and import files others send you.
           </p>
 
           {templates.length === 0 ? (
             <Card>
               <EmptyState icon={<LayoutTemplate size={30} />} title="No templates yet">
-                Save a workflow as a template from the designer (Workflows › Save as template) and it shows up here for every application to use.
+                Save a workflow as a template from the designer (Workflows › Save as template), or import template files, and they show up here for every application to use.
               </EmptyState>
             </Card>
           ) : byCategory.length === 0 ? (
@@ -207,6 +239,7 @@ export function TemplatesView() {
                         onStart={() => startApp(t)}
                         onDuplicate={() => duplicate(t)}
                         onEdit={() => setEditing(t.id)}
+                        onExport={() => downloadTemplates([t])}
                         onDelete={() => remove(t)}
                       />
                     ))}
@@ -219,6 +252,7 @@ export function TemplatesView() {
       </div>
 
       {usingTpl && <UseTemplateModal key={usingTpl.id} template={usingTpl} onClose={() => setUsing(null)} />}
+      {picked && <ImportTemplatesModal picked={picked} onClose={() => setPicked(null)} />}
       {editingTpl && <TemplateDetailsModal key={editingTpl.id} template={editingTpl} categories={categories} onClose={() => setEditing(null)} />}
     </div>
   )
@@ -248,6 +282,7 @@ function TemplateCard({
   onStart,
   onDuplicate,
   onEdit,
+  onExport,
   onDelete,
 }: {
   t: Template
@@ -257,6 +292,7 @@ function TemplateCard({
   onStart: () => void
   onDuplicate: () => void
   onEdit: () => void
+  onExport: () => void
   onDelete: () => void
 }) {
   const people = t.nodes.filter((n) => n.type === 'user').length
@@ -338,6 +374,9 @@ function TemplateCard({
         </IconButton>
         <IconButton label="Edit details" onClick={onEdit}>
           <Pencil size={14} />
+        </IconButton>
+        <IconButton label={`Export ${t.name} to a file`} onClick={onExport}>
+          <Download size={14} />
         </IconButton>
         {!t.builtIn && (
           <IconButton label={`Delete ${t.name}`} onClick={onDelete} className="hover:bg-rose-50 hover:text-rose-600">

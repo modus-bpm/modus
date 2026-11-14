@@ -1,0 +1,272 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_nm",
+      "name": "Safety near-miss",
+      "description": "The first safety lead to pick it up decides whether action is needed. A task is handed out, verified, and sent back if the hazard is still there; then what was learned is shared.",
+      "category": "Facilities, fleet and safety",
+      "tags": [
+        "claim",
+        "verify",
+        "safety"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "nm_where",
+          "label": "Where",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "nm_what",
+          "label": "What Nearly Happened",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "nm_reporter",
+          "label": "Reported By",
+          "type": "user",
+          "width": "half"
+        },
+        {
+          "id": "nm_action",
+          "label": "Corrective Action",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "nm_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Near-miss reported"
+          }
+        },
+        {
+          "id": "nm_rev",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Safety lead reviews",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "nm_rev_act",
+                "label": "Action needed",
+                "weight": 65,
+                "actions": []
+              },
+              {
+                "id": "nm_rev_none",
+                "label": "No action",
+                "weight": 35,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "nm_what": "read",
+              "nm_action": "edit"
+            }
+          }
+        },
+        {
+          "id": "nm_task",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Carry out the action",
+            "distribution": "manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "nm_task_ok",
+                "label": "Done",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "nm_action": "read"
+            }
+          }
+        },
+        {
+          "id": "nm_ver",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Verify on site",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "separateFrom": [
+              "nm_task"
+            ],
+            "outcomes": [
+              {
+                "id": "nm_ver_ok",
+                "label": "Hazard removed",
+                "weight": 90,
+                "actions": []
+              },
+              {
+                "id": "nm_ver_back",
+                "label": "Still there",
+                "weight": 10,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "nm_share",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 14
+          },
+          "data": {
+            "label": "Share what was learned",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "nm_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 34
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        },
+        {
+          "id": "nm_na",
+          "type": "end",
+          "position": {
+            "x": 671,
+            "y": 204
+          },
+          "data": {
+            "label": "No action needed",
+            "result": "completed",
+            "outcome": "No action needed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "nm_e1",
+          "source": "nm_s",
+          "target": "nm_rev",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nm_e2",
+          "source": "nm_rev",
+          "target": "nm_task",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nm_rev_act"
+          }
+        },
+        {
+          "id": "nm_e3",
+          "source": "nm_rev",
+          "target": "nm_na",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nm_rev_none"
+          }
+        },
+        {
+          "id": "nm_e4",
+          "source": "nm_task",
+          "target": "nm_ver",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nm_task_ok"
+          }
+        },
+        {
+          "id": "nm_e5",
+          "source": "nm_ver",
+          "target": "nm_share",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nm_ver_ok"
+          }
+        },
+        {
+          "id": "nm_e6",
+          "source": "nm_ver",
+          "target": "nm_task",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "nm_ver_back"
+          }
+        },
+        {
+          "id": "nm_e7",
+          "source": "nm_share",
+          "target": "nm_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Near-miss",
+        "many": "Near-misses"
+      }
+    }
+  ]
+}

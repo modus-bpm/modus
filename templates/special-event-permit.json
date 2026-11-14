@@ -1,0 +1,526 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_ev",
+      "name": "Special event permit",
+      "description": "The clerk checks the application and the insurance certificate. Police, fire and public works sign off at the same time, and events expecting more than 1,000 people also need the manager.",
+      "category": "Government and public safety",
+      "tags": [
+        "parallel",
+        "threshold",
+        "permits"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ev_event",
+          "label": "Event",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ev_day",
+          "label": "Event Date",
+          "type": "date",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ev_crowd",
+          "label": "Expected Attendance",
+          "type": "number",
+          "width": "half",
+          "min": 50,
+          "max": 8000
+        },
+        {
+          "id": "ev_cert",
+          "label": "Insurance Certificate",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ev_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Application filed"
+          }
+        },
+        {
+          "id": "ev_clerk",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Check application and insurance",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ev_clerk_ok",
+                "label": "Complete",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "ev_clerk_back",
+                "label": "Something is missing",
+                "weight": 20,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ev_cert": "read",
+              "ev_crowd": "read"
+            }
+          }
+        },
+        {
+          "id": "ev_app",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 344
+          },
+          "data": {
+            "label": "Organizer supplies it",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 168,
+            "outcomes": [
+              {
+                "id": "ev_app_ok",
+                "label": "Supplied",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ev_cert": "edit"
+            }
+          }
+        },
+        {
+          "id": "ev_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Three sign-offs",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "ev_pol",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Police sign-off",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "ev_pol_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "ev_pol_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ev_fire",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Fire sign-off",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "ev_fire_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "ev_fire_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ev_pw",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Public works sign-off",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "ev_pw_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "ev_pw_no",
+                "label": "Object",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ev_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "All three approve",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "ev_big",
+          "type": "decision",
+          "position": {
+            "x": 1619,
+            "y": 170
+          },
+          "data": {
+            "label": "Over 1,000 people?"
+          }
+        },
+        {
+          "id": "ev_mgr",
+          "type": "user",
+          "position": {
+            "x": 1860,
+            "y": 4
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "ev_mgr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "ev_mgr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ev_crowd": "read"
+            }
+          }
+        },
+        {
+          "id": "ev_iss",
+          "type": "auto",
+          "position": {
+            "x": 2185,
+            "y": 184
+          },
+          "data": {
+            "label": "Issue the permit",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "ev_done",
+          "type": "end",
+          "position": {
+            "x": 2531,
+            "y": 204
+          },
+          "data": {
+            "label": "Permit issued",
+            "result": "completed",
+            "outcome": "Permit issued"
+          }
+        },
+        {
+          "id": "ev_rej",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 544
+          },
+          "data": {
+            "label": "Denied",
+            "result": "rejected",
+            "outcome": "Denied"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ev_e1",
+          "source": "ev_s",
+          "target": "ev_clerk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ev_e2",
+          "source": "ev_clerk",
+          "target": "ev_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ev_clerk_ok"
+          }
+        },
+        {
+          "id": "ev_e3",
+          "source": "ev_clerk",
+          "target": "ev_app",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ev_clerk_back"
+          }
+        },
+        {
+          "id": "ev_e4",
+          "source": "ev_app",
+          "target": "ev_clerk",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "ev_app_ok"
+          }
+        },
+        {
+          "id": "ev_e5",
+          "source": "ev_sp",
+          "target": "ev_pol",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ev_e6",
+          "source": "ev_sp",
+          "target": "ev_fire",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ev_e7",
+          "source": "ev_sp",
+          "target": "ev_pw",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ev_e8",
+          "source": "ev_pol",
+          "target": "ev_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ev_pol_ok"
+          }
+        },
+        {
+          "id": "ev_e9",
+          "source": "ev_fire",
+          "target": "ev_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ev_fire_ok"
+          }
+        },
+        {
+          "id": "ev_e10",
+          "source": "ev_pw",
+          "target": "ev_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "ev_pw_ok"
+          }
+        },
+        {
+          "id": "ev_e11",
+          "source": "ev_pol",
+          "target": "ev_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ev_pol_no"
+          }
+        },
+        {
+          "id": "ev_e12",
+          "source": "ev_fire",
+          "target": "ev_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ev_fire_no"
+          }
+        },
+        {
+          "id": "ev_e13",
+          "source": "ev_pw",
+          "target": "ev_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ev_pw_no"
+          }
+        },
+        {
+          "id": "ev_e14",
+          "source": "ev_jn",
+          "target": "ev_big",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ev_e15",
+          "source": "ev_big",
+          "target": "ev_mgr",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "ev_r14_0",
+                  "fieldId": "ev_crowd",
+                  "op": "gt",
+                  "value": 1000
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ev_e16",
+          "source": "ev_big",
+          "target": "ev_iss",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "ev_e17",
+          "source": "ev_mgr",
+          "target": "ev_iss",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ev_mgr_ok"
+          }
+        },
+        {
+          "id": "ev_e18",
+          "source": "ev_mgr",
+          "target": "ev_rej",
+          "sourceHandle": "b",
+          "targetHandle": "r",
+          "data": {
+            "outcomeId": "ev_mgr_no"
+          }
+        },
+        {
+          "id": "ev_e19",
+          "source": "ev_iss",
+          "target": "ev_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Event permit",
+        "many": "Event permits"
+      }
+    }
+  ]
+}

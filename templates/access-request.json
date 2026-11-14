@@ -1,0 +1,297 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_acc",
+      "name": "Access request",
+      "description": "The person’s manager approves, then the system’s owner, who can ask the requester for more information. Access is granted only after both say yes.",
+      "category": "IT and security",
+      "tags": [
+        "two approvals",
+        "return for changes",
+        "permissions"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "acc_person",
+          "label": "Who Needs Access",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "acc_manager",
+          "label": "Their Manager",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "acc_system",
+          "label": "System",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "acc_why",
+          "label": "Why It Is Needed",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "acc_until",
+          "label": "Needed Until",
+          "type": "date",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "acc_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Access requested"
+          }
+        },
+        {
+          "id": "acc_mgr",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "field",
+            "assigneeFieldId": "acc_manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 3,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "acc_mgr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "acc_mgr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "acc_system": "read",
+              "acc_why": "read"
+            }
+          }
+        },
+        {
+          "id": "acc_own",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "System owner approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "acc_own_ok",
+                "label": "Approve",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "acc_own_more",
+                "label": "Ask for more information",
+                "weight": 12,
+                "actions": [],
+                "requireComment": true
+              },
+              {
+                "id": "acc_own_no",
+                "label": "Reject",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "acc_why": "read",
+              "acc_until": "read"
+            }
+          }
+        },
+        {
+          "id": "acc_info",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Requester answers",
+            "distribution": "field",
+            "assigneeFieldId": "acc_person",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "acc_info_ok",
+                "label": "Answered",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "acc_why": "edit"
+            }
+          }
+        },
+        {
+          "id": "acc_grant",
+          "type": "auto",
+          "position": {
+            "x": 945,
+            "y": 14
+          },
+          "data": {
+            "label": "Grant access",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "acc_done",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 34
+          },
+          "data": {
+            "label": "Granted",
+            "result": "completed",
+            "outcome": "Granted"
+          }
+        },
+        {
+          "id": "acc_rej",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 204
+          },
+          "data": {
+            "label": "Denied",
+            "result": "rejected",
+            "outcome": "Denied"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "acc_e1",
+          "source": "acc_s",
+          "target": "acc_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "acc_e2",
+          "source": "acc_mgr",
+          "target": "acc_own",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "acc_mgr_ok"
+          }
+        },
+        {
+          "id": "acc_e3",
+          "source": "acc_mgr",
+          "target": "acc_rej",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "acc_mgr_no"
+          }
+        },
+        {
+          "id": "acc_e4",
+          "source": "acc_own",
+          "target": "acc_grant",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "acc_own_ok"
+          }
+        },
+        {
+          "id": "acc_e5",
+          "source": "acc_own",
+          "target": "acc_info",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "acc_own_more"
+          }
+        },
+        {
+          "id": "acc_e6",
+          "source": "acc_info",
+          "target": "acc_own",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "acc_info_ok"
+          }
+        },
+        {
+          "id": "acc_e7",
+          "source": "acc_own",
+          "target": "acc_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "acc_own_no"
+          }
+        },
+        {
+          "id": "acc_e8",
+          "source": "acc_grant",
+          "target": "acc_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Access request",
+        "many": "Access requests"
+      }
+    }
+  ]
+}

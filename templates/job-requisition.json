@@ -1,0 +1,358 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_req",
+      "name": "Job requisition",
+      "description": "Finance checks the budget while HR checks the grade and the posting. A replacement can then be posted; a new position needs an executive first.",
+      "category": "People and HR",
+      "tags": [
+        "parallel",
+        "recruiting",
+        "headcount"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "req_title",
+          "label": "Job Title",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "req_dept",
+          "label": "Department",
+          "type": "text",
+          "width": "half",
+          "summary": true
+        },
+        {
+          "id": "req_salary",
+          "label": "Salary Budget",
+          "type": "currency",
+          "width": "half",
+          "min": 40000,
+          "max": 220000
+        },
+        {
+          "id": "req_new",
+          "label": "New Position",
+          "type": "boolean",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "req_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Requisition opened"
+          }
+        },
+        {
+          "id": "req_sp",
+          "type": "split",
+          "position": {
+            "x": 397,
+            "y": 188
+          },
+          "data": {
+            "label": "Two checks",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "req_fin",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Budget check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 12,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "req_fin_ok",
+                "label": "Budgeted",
+                "weight": 88,
+                "actions": []
+              },
+              {
+                "id": "req_fin_no",
+                "label": "Not budgeted",
+                "weight": 12,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "req_salary": "read"
+            }
+          }
+        },
+        {
+          "id": "req_hr",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "HR review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "req_hr_ok",
+                "label": "Ready to post",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "req_title": "edit",
+              "req_salary": "read"
+            }
+          }
+        },
+        {
+          "id": "req_jn",
+          "type": "join",
+          "position": {
+            "x": 1017,
+            "y": 188
+          },
+          "data": {
+            "label": "Both done",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "req_new",
+          "type": "decision",
+          "position": {
+            "x": 1309,
+            "y": 170
+          },
+          "data": {
+            "label": "New position?"
+          }
+        },
+        {
+          "id": "req_exec",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Executive approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "req_exec_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "req_exec_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "req_post",
+          "type": "auto",
+          "position": {
+            "x": 1875,
+            "y": 184
+          },
+          "data": {
+            "label": "Post the job",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "req_open",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Posted",
+            "result": "completed",
+            "outcome": "Posted"
+          }
+        },
+        {
+          "id": "req_rej",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 374
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "req_e1",
+          "source": "req_s",
+          "target": "req_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "req_e2",
+          "source": "req_sp",
+          "target": "req_fin",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "req_e3",
+          "source": "req_sp",
+          "target": "req_hr",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "req_e4",
+          "source": "req_fin",
+          "target": "req_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "req_fin_ok"
+          }
+        },
+        {
+          "id": "req_e5",
+          "source": "req_hr",
+          "target": "req_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "req_hr_ok"
+          }
+        },
+        {
+          "id": "req_e6",
+          "source": "req_fin",
+          "target": "req_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "req_fin_no"
+          }
+        },
+        {
+          "id": "req_e7",
+          "source": "req_jn",
+          "target": "req_new",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "req_e8",
+          "source": "req_new",
+          "target": "req_exec",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "req_r7_0",
+                  "fieldId": "req_new",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "req_e9",
+          "source": "req_new",
+          "target": "req_post",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "req_e10",
+          "source": "req_exec",
+          "target": "req_post",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "req_exec_ok"
+          }
+        },
+        {
+          "id": "req_e11",
+          "source": "req_exec",
+          "target": "req_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "req_exec_no"
+          }
+        },
+        {
+          "id": "req_e12",
+          "source": "req_post",
+          "target": "req_open",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Requisition",
+        "many": "Requisitions"
+      }
+    }
+  ]
+}

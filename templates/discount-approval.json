@@ -1,0 +1,304 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_disc",
+      "name": "Discount approval",
+      "description": "The size of the discount decides who signs: up to 10% is approved automatically, up to 20% needs the sales manager, and anything more goes to a director.",
+      "category": "Customers and operations",
+      "tags": [
+        "threshold",
+        "auto-approve",
+        "pricing"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "disc_customer",
+          "label": "Customer",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "disc_deal",
+          "label": "Deal Value",
+          "type": "currency",
+          "width": "half",
+          "min": 2000,
+          "max": 400000,
+          "summary": true
+        },
+        {
+          "id": "disc_pct",
+          "label": "Discount %",
+          "type": "number",
+          "width": "half",
+          "min": 0,
+          "max": 35,
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "disc_why",
+          "label": "Why",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "disc_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 374
+          },
+          "data": {
+            "label": "Discount requested"
+          }
+        },
+        {
+          "id": "disc_how",
+          "type": "decision",
+          "position": {
+            "x": 379,
+            "y": 340
+          },
+          "data": {
+            "label": "How big?"
+          }
+        },
+        {
+          "id": "disc_dir",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Director approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "disc_dir_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "disc_dir_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "disc_pct": "read",
+              "disc_deal": "read",
+              "disc_why": "read"
+            }
+          }
+        },
+        {
+          "id": "disc_mgr",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "Sales manager approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "disc_mgr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "disc_mgr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "disc_pct": "read",
+              "disc_deal": "read",
+              "disc_why": "read"
+            }
+          }
+        },
+        {
+          "id": "disc_auto",
+          "type": "auto",
+          "position": {
+            "x": 635,
+            "y": 524
+          },
+          "data": {
+            "label": "Approve automatically",
+            "description": "No service needed: small discounts simply pass.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "disc_ok",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 374
+          },
+          "data": {
+            "label": "Approved",
+            "result": "completed",
+            "outcome": "Approved"
+          }
+        },
+        {
+          "id": "disc_rej",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 34
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "disc_e1",
+          "source": "disc_s",
+          "target": "disc_how",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "disc_e2",
+          "source": "disc_how",
+          "target": "disc_dir",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "disc_r1_0",
+                  "fieldId": "disc_pct",
+                  "op": "gt",
+                  "value": 20
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "disc_e3",
+          "source": "disc_how",
+          "target": "disc_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "disc_r2_0",
+                  "fieldId": "disc_pct",
+                  "op": "gt",
+                  "value": 10
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "disc_e4",
+          "source": "disc_how",
+          "target": "disc_auto",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 2,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "disc_e5",
+          "source": "disc_dir",
+          "target": "disc_ok",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "disc_dir_ok"
+          }
+        },
+        {
+          "id": "disc_e6",
+          "source": "disc_mgr",
+          "target": "disc_ok",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "disc_mgr_ok"
+          }
+        },
+        {
+          "id": "disc_e7",
+          "source": "disc_auto",
+          "target": "disc_ok",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {}
+        },
+        {
+          "id": "disc_e8",
+          "source": "disc_dir",
+          "target": "disc_rej",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "disc_dir_no"
+          }
+        },
+        {
+          "id": "disc_e9",
+          "source": "disc_mgr",
+          "target": "disc_rej",
+          "sourceHandle": "t",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "disc_mgr_no"
+          }
+        }
+      ],
+      "item": {
+        "one": "Discount request",
+        "many": "Discount requests"
+      }
+    }
+  ]
+}

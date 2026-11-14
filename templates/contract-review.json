@@ -1,0 +1,281 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_parallel_review",
+      "name": "Contract review",
+      "description": "Legal and compliance review the contract at the same time. Both must approve before final sign-off; a rejection from either stops the other.",
+      "category": "Purchasing and contracts",
+      "tags": [
+        "parallel",
+        "legal",
+        "compliance"
+      ],
+      "createdAt": "2026-09-30T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "pr_doc",
+          "label": "Document",
+          "type": "attachment",
+          "width": "half"
+        },
+        {
+          "id": "pr_notes",
+          "label": "Review Notes",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "pr_start",
+          "type": "start",
+          "position": {
+            "x": 0,
+            "y": 176
+          },
+          "data": {
+            "label": "Ready for review"
+          }
+        },
+        {
+          "id": "pr_split",
+          "type": "split",
+          "position": {
+            "x": 210,
+            "y": 160
+          },
+          "data": {
+            "label": "Send to both",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "pr_legal",
+          "type": "user",
+          "position": {
+            "x": 380,
+            "y": 40
+          },
+          "data": {
+            "label": "Legal review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "Legal review_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "Legal review_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "pr_doc": "read",
+              "pr_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "pr_comp",
+          "type": "user",
+          "position": {
+            "x": 380,
+            "y": 270
+          },
+          "data": {
+            "label": "Compliance review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "Compliance review_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "Compliance review_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "pr_doc": "read",
+              "pr_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "pr_join",
+          "type": "join",
+          "position": {
+            "x": 760,
+            "y": 160
+          },
+          "data": {
+            "label": "Both approved",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "pr_sign",
+          "type": "user",
+          "position": {
+            "x": 920,
+            "y": 146
+          },
+          "data": {
+            "label": "Final sign-off",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "pr_s_ok",
+                "label": "Sign off",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "pr_doc": "read",
+              "pr_notes": "read"
+            }
+          }
+        },
+        {
+          "id": "pr_ok",
+          "type": "end",
+          "position": {
+            "x": 1280,
+            "y": 172
+          },
+          "data": {
+            "label": "Signed off",
+            "result": "completed",
+            "outcome": "Approved"
+          }
+        },
+        {
+          "id": "pr_no",
+          "type": "end",
+          "position": {
+            "x": 780,
+            "y": 430
+          },
+          "data": {
+            "label": "Rejected",
+            "result": "rejected",
+            "outcome": "Rejected"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "pr_e1",
+          "source": "pr_start",
+          "target": "pr_split",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "pr_e2",
+          "source": "pr_split",
+          "target": "pr_legal",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "pr_e3",
+          "source": "pr_split",
+          "target": "pr_comp",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "pr_e4",
+          "source": "pr_legal",
+          "target": "pr_join",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "Legal review_ok"
+          }
+        },
+        {
+          "id": "pr_e5",
+          "source": "pr_comp",
+          "target": "pr_join",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "Compliance review_ok"
+          }
+        },
+        {
+          "id": "pr_e6",
+          "source": "pr_legal",
+          "target": "pr_no",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "Legal review_no"
+          }
+        },
+        {
+          "id": "pr_e7",
+          "source": "pr_comp",
+          "target": "pr_no",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "Compliance review_no"
+          }
+        },
+        {
+          "id": "pr_e8",
+          "source": "pr_join",
+          "target": "pr_sign",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "pr_e9",
+          "source": "pr_sign",
+          "target": "pr_ok",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "pr_s_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Contract",
+        "many": "Contracts"
+      }
+    }
+  ]
+}

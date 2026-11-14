@@ -1,0 +1,377 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_prr",
+      "name": "Public records request",
+      "description": "The clerk logs the request and can pause it while the requester clarifies. Departments search at the same time, legal reviews for exemptions, and the response goes out. Set the deadline your own law gives you.",
+      "category": "Government and public safety",
+      "tags": [
+        "deadline",
+        "parallel",
+        "FOIA"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "prr_from",
+          "label": "Requester",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "prr_what",
+          "label": "Records Requested",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "prr_due",
+          "label": "Response Due",
+          "type": "date",
+          "width": "half",
+          "summary": true
+        },
+        {
+          "id": "prr_notes",
+          "label": "Exemption Notes",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "prr_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Request received"
+          }
+        },
+        {
+          "id": "prr_clerk",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Log and check the request",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "prr_clerk_ok",
+                "label": "Clear enough to search",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "prr_clerk_ask",
+                "label": "Ask the requester to clarify",
+                "weight": 20,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "prr_what": "read",
+              "prr_due": "edit"
+            }
+          }
+        },
+        {
+          "id": "prr_w",
+          "type": "wait",
+          "position": {
+            "x": 364,
+            "y": 374
+          },
+          "data": {
+            "label": "Until the requester answers",
+            "minutes": 4320
+          }
+        },
+        {
+          "id": "prr_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Departments search",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "prr_d1",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "First department searches",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "prr_d1_ok",
+                "label": "Records gathered",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "prr_d2",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Second department searches",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "prr_d2_ok",
+                "label": "Records gathered",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "prr_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "All searches back",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "prr_leg",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Review for exemptions",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "prr_leg_ok",
+                "label": "Release",
+                "weight": 75,
+                "actions": []
+              },
+              {
+                "id": "prr_leg_part",
+                "label": "Release in part",
+                "weight": 20,
+                "actions": [],
+                "requireComment": true
+              },
+              {
+                "id": "prr_leg_no",
+                "label": "Withhold",
+                "weight": 5,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "prr_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "prr_send",
+          "type": "auto",
+          "position": {
+            "x": 1875,
+            "y": 184
+          },
+          "data": {
+            "label": "Send the response",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "prr_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Answered",
+            "result": "completed",
+            "outcome": "Answered"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "prr_e1",
+          "source": "prr_s",
+          "target": "prr_clerk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "prr_e2",
+          "source": "prr_clerk",
+          "target": "prr_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "prr_clerk_ok"
+          }
+        },
+        {
+          "id": "prr_e3",
+          "source": "prr_clerk",
+          "target": "prr_w",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "prr_clerk_ask"
+          }
+        },
+        {
+          "id": "prr_e4",
+          "source": "prr_w",
+          "target": "prr_clerk",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {}
+        },
+        {
+          "id": "prr_e5",
+          "source": "prr_sp",
+          "target": "prr_d1",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "prr_e6",
+          "source": "prr_sp",
+          "target": "prr_d2",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "prr_e7",
+          "source": "prr_d1",
+          "target": "prr_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "prr_d1_ok"
+          }
+        },
+        {
+          "id": "prr_e8",
+          "source": "prr_d2",
+          "target": "prr_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "prr_d2_ok"
+          }
+        },
+        {
+          "id": "prr_e9",
+          "source": "prr_jn",
+          "target": "prr_leg",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "prr_e10",
+          "source": "prr_leg",
+          "target": "prr_send",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "prr_leg_ok"
+          }
+        },
+        {
+          "id": "prr_e11",
+          "source": "prr_leg",
+          "target": "prr_send",
+          "sourceHandle": "t",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "prr_leg_part"
+          }
+        },
+        {
+          "id": "prr_e12",
+          "source": "prr_leg",
+          "target": "prr_send",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "prr_leg_no"
+          }
+        },
+        {
+          "id": "prr_e13",
+          "source": "prr_send",
+          "target": "prr_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Records request",
+        "many": "Records requests"
+      }
+    }
+  ]
+}

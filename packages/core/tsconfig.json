@@ -7,6 +7,7 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
+    "resolveJsonModule": true,
     "noEmit": true,
     "strict": true,
     "noUnusedLocals": true,

@@ -46,7 +46,8 @@ they changed something.
   work order, public records request, building permit review and [the rest](docs/TEMPLATES.md). Start a new
   application from one, or add it to an application you have.
 - **Templates of your own**: save any workflow, stamp it into another application with a field
-  mapping, or blow a single step out into its own subflow.
+  mapping, or blow a single step out into its own subflow. Templates are files: export them to
+  share or keep, and import the ones others send.
 - **Drafts and versions**: change the map freely, then **publish** a new version for new items
   only, for items in flight too (choosing where work at removed steps goes), or for nobody yet.
   Every version is kept with a note, you can see which items run on which, and move them to the
@@ -131,6 +132,7 @@ SaaS, and every configuration setting.
 packages/core   the model and the engine: pure, deterministic TypeScript, no UI, no I/O
 apps/studio     React 19 + Vite + Tailwind + React Flow: Studio and Workspace
 apps/server     the same engine live behind a REST API, a worker job protocol and a live stream
+templates       the starter library: one template file each, importable and exportable
 deploy          Helm chart (Dockerfile and docker-compose.yml at the root)
 docs            architecture, tech stack, deployment, concepts, roadmap, demo script, research
 ```

@@ -10,7 +10,7 @@ pnpm --filter @modus-bpm/template-docs capture                    # only the pic
 pnpm --filter @modus-bpm/template-docs capture invoice-approval   # only the pictures named
 ```
 
-Run it after adding or changing a template in `packages/core/src/model`, and commit what changed.
+Run it after adding or changing a template file in `templates/`, and commit what changed.
 
 - **Pages** (`src/pages.ts`) are written from the templates themselves: the description, every
   step with what it does and where its paths lead, and the fields. It also links each name in

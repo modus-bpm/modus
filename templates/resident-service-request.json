@@ -1,0 +1,288 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_sr",
+      "name": "Resident service request",
+      "description": "An AI agent picks the department for each request; a clerk routes the ones it is unsure of. A dispatcher hands the job to a crew, and the resident is told when it is done.",
+      "category": "Government and public safety",
+      "tags": [
+        "AI",
+        "dispatcher",
+        "311"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "sr_where",
+          "label": "Location",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "sr_what",
+          "label": "What Is Wrong",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "sr_dept",
+          "label": "Department",
+          "type": "text",
+          "width": "half",
+          "system": true,
+          "summary": true
+        },
+        {
+          "id": "sr_conf",
+          "label": "AI Confidence",
+          "type": "number",
+          "width": "half",
+          "min": 0,
+          "max": 100,
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sr_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Request reported",
+            "trigger": "api"
+          }
+        },
+        {
+          "id": "sr_ai",
+          "type": "auto",
+          "position": {
+            "x": 325,
+            "y": 14
+          },
+          "data": {
+            "label": "AI picks the department",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_classifier",
+            "operationId": "op_classify",
+            "outputs": [
+              {
+                "key": "confidence",
+                "fieldId": "sr_conf"
+              },
+              {
+                "key": "category",
+                "fieldId": "sr_dept"
+              }
+            ],
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "sr_sure",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 0
+          },
+          "data": {
+            "label": "Sure of the department?"
+          }
+        },
+        {
+          "id": "sr_clerk",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Clerk routes it",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 3,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "sr_clerk_ok",
+                "label": "Routed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sr_dept": "edit",
+              "sr_what": "read"
+            }
+          }
+        },
+        {
+          "id": "sr_crew",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 4
+          },
+          "data": {
+            "label": "Crew does the work",
+            "distribution": "manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "sr_crew_ok",
+                "label": "Done",
+                "weight": 90,
+                "actions": []
+              },
+              {
+                "id": "sr_crew_no",
+                "label": "Not ours",
+                "weight": 10,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "sr_what": "read"
+            }
+          }
+        },
+        {
+          "id": "sr_tell",
+          "type": "auto",
+          "position": {
+            "x": 1565,
+            "y": 14
+          },
+          "data": {
+            "label": "Tell the resident",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "sr_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 34
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "sr_e1",
+          "source": "sr_s",
+          "target": "sr_ai",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sr_e2",
+          "source": "sr_ai",
+          "target": "sr_sure",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sr_e3",
+          "source": "sr_sure",
+          "target": "sr_crew",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "sr_r2_0",
+                  "fieldId": "sr_conf",
+                  "op": "gte",
+                  "value": 80
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "sr_e4",
+          "source": "sr_sure",
+          "target": "sr_clerk",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "sr_e5",
+          "source": "sr_clerk",
+          "target": "sr_crew",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "sr_clerk_ok"
+          }
+        },
+        {
+          "id": "sr_e6",
+          "source": "sr_crew",
+          "target": "sr_tell",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sr_crew_ok"
+          }
+        },
+        {
+          "id": "sr_e7",
+          "source": "sr_crew",
+          "target": "sr_clerk",
+          "sourceHandle": "b",
+          "targetHandle": "r",
+          "data": {
+            "outcomeId": "sr_crew_no"
+          }
+        },
+        {
+          "id": "sr_e8",
+          "source": "sr_tell",
+          "target": "sr_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Service request",
+        "many": "Service requests"
+      }
+    }
+  ]
+}

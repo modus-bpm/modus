@@ -1,0 +1,254 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_two_level",
+      "name": "Purchase request",
+      "description": "A manager approves the request; anything over $10,000 also needs a director. Ends as Approved or Rejected.",
+      "category": "Purchasing and contracts",
+      "tags": [
+        "threshold",
+        "requisition",
+        "approval"
+      ],
+      "createdAt": "2026-09-30T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "t2_amount",
+          "label": "Amount",
+          "type": "currency",
+          "width": "half",
+          "min": 100,
+          "max": 60000,
+          "required": true
+        },
+        {
+          "id": "t2_approver",
+          "label": "Approved By",
+          "type": "user",
+          "width": "half",
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "a_start",
+          "type": "start",
+          "position": {
+            "x": 0,
+            "y": 140
+          },
+          "data": {
+            "label": "Submitted"
+          }
+        },
+        {
+          "id": "a_mgr",
+          "type": "user",
+          "position": {
+            "x": 220,
+            "y": 110
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "a_m_ok",
+                "label": "Approve",
+                "weight": 90,
+                "actions": [
+                  {
+                    "id": "a_set",
+                    "kind": "setField",
+                    "fieldId": "t2_approver",
+                    "value": "{currentUser}"
+                  }
+                ]
+              },
+              {
+                "id": "a_m_no",
+                "label": "Reject",
+                "weight": 10,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "t2_amount": "read"
+            }
+          }
+        },
+        {
+          "id": "a_limit",
+          "type": "decision",
+          "position": {
+            "x": 580,
+            "y": 80
+          },
+          "data": {
+            "label": "Over the limit?"
+          }
+        },
+        {
+          "id": "a_dir",
+          "type": "user",
+          "position": {
+            "x": 760,
+            "y": 0
+          },
+          "data": {
+            "label": "Director approval",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "a_d_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": [
+                  {
+                    "id": "a_set2",
+                    "kind": "setField",
+                    "fieldId": "t2_approver",
+                    "value": "{currentUser}"
+                  }
+                ]
+              },
+              {
+                "id": "a_d_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "t2_amount": "read"
+            }
+          }
+        },
+        {
+          "id": "a_ok",
+          "type": "end",
+          "position": {
+            "x": 1120,
+            "y": 146
+          },
+          "data": {
+            "label": "Approved",
+            "result": "completed",
+            "outcome": "Approved"
+          }
+        },
+        {
+          "id": "a_no",
+          "type": "end",
+          "position": {
+            "x": 790,
+            "y": 300
+          },
+          "data": {
+            "label": "Rejected",
+            "result": "rejected",
+            "outcome": "Rejected"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "a_e1",
+          "source": "a_start",
+          "target": "a_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "a_e2",
+          "source": "a_mgr",
+          "target": "a_limit",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "a_m_ok"
+          }
+        },
+        {
+          "id": "a_e3",
+          "source": "a_mgr",
+          "target": "a_no",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "a_m_no"
+          }
+        },
+        {
+          "id": "a_e4",
+          "source": "a_limit",
+          "target": "a_dir",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "a_r1",
+                  "fieldId": "t2_amount",
+                  "op": "gt",
+                  "value": 10000
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "a_e5",
+          "source": "a_limit",
+          "target": "a_ok",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "isDefault": true,
+            "order": 1
+          }
+        },
+        {
+          "id": "a_e6",
+          "source": "a_dir",
+          "target": "a_ok",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "a_d_ok"
+          }
+        },
+        {
+          "id": "a_e7",
+          "source": "a_dir",
+          "target": "a_no",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "a_d_no"
+          }
+        }
+      ],
+      "item": {
+        "one": "Purchase request",
+        "many": "Purchase requests"
+      }
+    }
+  ]
+}

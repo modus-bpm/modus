@@ -1,0 +1,278 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_ref",
+      "name": "Refund or credit",
+      "description": "Customer service checks the request. Refunds of $250 or less are issued straight away; larger ones need a manager first.",
+      "category": "Finance and AP",
+      "tags": [
+        "threshold",
+        "customer",
+        "credit memo"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ref_customer",
+          "label": "Customer",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ref_order",
+          "label": "Order Number",
+          "type": "text",
+          "width": "half"
+        },
+        {
+          "id": "ref_amount",
+          "label": "Amount",
+          "type": "currency",
+          "width": "half",
+          "min": 10,
+          "max": 3000,
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ref_reason",
+          "label": "Reason",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ref_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Refund requested"
+          }
+        },
+        {
+          "id": "ref_chk",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Check the request",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ref_chk_ok",
+                "label": "Valid",
+                "weight": 88,
+                "actions": []
+              },
+              {
+                "id": "ref_chk_no",
+                "label": "Decline",
+                "weight": 12,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ref_amount": "edit",
+              "ref_reason": "edit"
+            }
+          }
+        },
+        {
+          "id": "ref_lim",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 170
+          },
+          "data": {
+            "label": "Over $250?"
+          }
+        },
+        {
+          "id": "ref_mgr",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ref_mgr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "ref_mgr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ref_amount": "read",
+              "ref_reason": "read"
+            }
+          }
+        },
+        {
+          "id": "ref_pay",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 184
+          },
+          "data": {
+            "label": "Issue the refund",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "ref_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 204
+          },
+          "data": {
+            "label": "Refunded",
+            "result": "completed",
+            "outcome": "Refunded"
+          }
+        },
+        {
+          "id": "ref_rej",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 374
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ref_e1",
+          "source": "ref_s",
+          "target": "ref_chk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ref_e2",
+          "source": "ref_chk",
+          "target": "ref_lim",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ref_chk_ok"
+          }
+        },
+        {
+          "id": "ref_e3",
+          "source": "ref_chk",
+          "target": "ref_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ref_chk_no"
+          }
+        },
+        {
+          "id": "ref_e4",
+          "source": "ref_lim",
+          "target": "ref_mgr",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "ref_r3_0",
+                  "fieldId": "ref_amount",
+                  "op": "gt",
+                  "value": 250
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ref_e5",
+          "source": "ref_lim",
+          "target": "ref_pay",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "ref_e6",
+          "source": "ref_mgr",
+          "target": "ref_pay",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ref_mgr_ok"
+          }
+        },
+        {
+          "id": "ref_e7",
+          "source": "ref_mgr",
+          "target": "ref_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ref_mgr_no"
+          }
+        },
+        {
+          "id": "ref_e8",
+          "source": "ref_pay",
+          "target": "ref_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Refund",
+        "many": "Refunds"
+      }
+    }
+  ]
+}

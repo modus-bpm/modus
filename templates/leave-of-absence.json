@@ -1,0 +1,322 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_loa",
+      "name": "Leave of absence",
+      "description": "HR checks eligibility and can ask the employee for documents. The leave then waits until the return date, when HR either confirms the return or extends it.",
+      "category": "People and HR",
+      "tags": [
+        "timer",
+        "return for changes",
+        "leave"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "loa_employee",
+          "label": "Employee",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "loa_start",
+          "label": "Leave Starts",
+          "type": "date",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "loa_back",
+          "label": "Expected Return",
+          "type": "date",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "loa_doc",
+          "label": "Supporting Document",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "loa_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Leave requested"
+          }
+        },
+        {
+          "id": "loa_hr",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Check eligibility",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "loa_hr_ok",
+                "label": "Eligible",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "loa_hr_more",
+                "label": "Ask for documents",
+                "weight": 14,
+                "actions": [],
+                "requireComment": true
+              },
+              {
+                "id": "loa_hr_no",
+                "label": "Not eligible",
+                "weight": 6,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "loa_doc": "read",
+              "loa_start": "read",
+              "loa_back": "read"
+            }
+          }
+        },
+        {
+          "id": "loa_emp",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Employee sends documents",
+            "distribution": "field",
+            "assigneeFieldId": "loa_employee",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "loa_emp_ok",
+                "label": "Sent",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "loa_doc": "edit"
+            }
+          }
+        },
+        {
+          "id": "loa_plan",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Manager plans cover",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "loa_plan_ok",
+                "label": "Cover arranged",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "loa_w",
+          "type": "wait",
+          "position": {
+            "x": 984,
+            "y": 34
+          },
+          "data": {
+            "label": "Until the return date",
+            "minutes": 43200
+          }
+        },
+        {
+          "id": "loa_ret",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 4
+          },
+          "data": {
+            "label": "Return-to-work check-in",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "loa_ret_ok",
+                "label": "Back at work",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "loa_ret_ext",
+                "label": "Extend the leave",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "loa_back": "edit"
+            }
+          }
+        },
+        {
+          "id": "loa_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 34
+          },
+          "data": {
+            "label": "Returned",
+            "result": "completed",
+            "outcome": "Returned"
+          }
+        },
+        {
+          "id": "loa_rej",
+          "type": "end",
+          "position": {
+            "x": 671,
+            "y": 204
+          },
+          "data": {
+            "label": "Not eligible",
+            "result": "rejected",
+            "outcome": "Not eligible"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "loa_e1",
+          "source": "loa_s",
+          "target": "loa_hr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "loa_e2",
+          "source": "loa_hr",
+          "target": "loa_plan",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "loa_hr_ok"
+          }
+        },
+        {
+          "id": "loa_e3",
+          "source": "loa_hr",
+          "target": "loa_emp",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "loa_hr_more"
+          }
+        },
+        {
+          "id": "loa_e4",
+          "source": "loa_emp",
+          "target": "loa_hr",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "loa_emp_ok"
+          }
+        },
+        {
+          "id": "loa_e5",
+          "source": "loa_hr",
+          "target": "loa_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "loa_hr_no"
+          }
+        },
+        {
+          "id": "loa_e6",
+          "source": "loa_plan",
+          "target": "loa_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "loa_plan_ok"
+          }
+        },
+        {
+          "id": "loa_e7",
+          "source": "loa_w",
+          "target": "loa_ret",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "loa_e8",
+          "source": "loa_ret",
+          "target": "loa_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "loa_ret_ok"
+          }
+        },
+        {
+          "id": "loa_e9",
+          "source": "loa_ret",
+          "target": "loa_w",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "loa_ret_ext"
+          }
+        }
+      ],
+      "item": {
+        "one": "Leave",
+        "many": "Leaves of absence"
+      }
+    }
+  ]
+}

@@ -12,6 +12,21 @@ your own. People steps arrive without a group, because who does the work is your
 steps marked *your system* call nothing until you point them at a service of your own; until then the
 step simply takes its time and passes the item on.
 
+## Templates are files
+
+A template is a JSON file. The fifty here are the files in [`templates/`](../templates) at the root of the
+repository, and a template you save yourself becomes the same kind of file when you export it.
+
+- **Export.** On the Templates page, the download button on a card saves that template to a file. **Export
+  all** saves the whole library to one file, or just what your search and filters show.
+- **Import.** **Import…** takes one file or several. A template your library already has (the same id) is
+  kept beside yours as a copy, replaces yours, or is skipped: you choose. A file that is not a template file,
+  or a template with a step or path missing, is refused with the reason.
+- **Your copy stays yours.** A library keeps the templates it has. Upgrading Modus does not change them, so
+  what you tweaked stays tweaked; to take a newer starter template, import its file.
+
+On a server, importing changes the design like any other edit: save it and every replica has the templates.
+
 ## Finance and AP
 
 | Template | What happens | Steps | Your systems |
@@ -104,6 +119,6 @@ way the people who own them name them, with more than the usual share for local 
 template galleries have little. Processes whose steps are set by law or that depend on an integration Modus
 does not have were left out on purpose.
 
-Every template is checked by the test suite: it has no unreachable step and no outcome without a path, an
+Every template is checked by the test suite: its file reads back as written, it has no unreachable step and no outcome without a path, an
 application started from it runs sample items to an end, and the designer's own check asks for nothing
 except who does the work.

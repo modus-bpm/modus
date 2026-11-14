@@ -1,0 +1,320 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_off",
+      "name": "Offboarding",
+      "description": "When someone leaves, access removal, equipment return, final pay and the handover all start at once. HR closes the file only when every one of them is done.",
+      "category": "People and HR",
+      "tags": [
+        "parallel",
+        "access removal",
+        "termination"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "off_employee",
+          "label": "Employee",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "off_manager",
+          "label": "Manager",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "off_last",
+          "label": "Last Day",
+          "type": "date",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "off_notes",
+          "label": "Notes",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "off_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 374
+          },
+          "data": {
+            "label": "Departure confirmed"
+          }
+        },
+        {
+          "id": "off_sp",
+          "type": "split",
+          "position": {
+            "x": 397,
+            "y": 358
+          },
+          "data": {
+            "label": "Start everything",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "off_acc",
+          "type": "auto",
+          "position": {
+            "x": 635,
+            "y": 14
+          },
+          "data": {
+            "label": "Remove access",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 2,
+            "actions": []
+          }
+        },
+        {
+          "id": "off_eq",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Collect equipment",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "off_eq_ok",
+                "label": "Returned",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "off_pay",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "Final pay and benefits",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "off_pay_ok",
+                "label": "Done",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "off_hand",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 514
+          },
+          "data": {
+            "label": "Hand over the work",
+            "distribution": "field",
+            "assigneeFieldId": "off_manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "off_hand_ok",
+                "label": "Handed over",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "off_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "off_jn",
+          "type": "join",
+          "position": {
+            "x": 1017,
+            "y": 358
+          },
+          "data": {
+            "label": "All done",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "off_hr",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 344
+          },
+          "data": {
+            "label": "HR closes the file",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "off_hr_ok",
+                "label": "Closed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "off_notes": "read"
+            }
+          }
+        },
+        {
+          "id": "off_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 374
+          },
+          "data": {
+            "label": "Offboarded",
+            "result": "completed",
+            "outcome": "Offboarded"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "off_e1",
+          "source": "off_s",
+          "target": "off_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "off_e2",
+          "source": "off_sp",
+          "target": "off_acc",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "off_e3",
+          "source": "off_sp",
+          "target": "off_eq",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "off_e4",
+          "source": "off_sp",
+          "target": "off_pay",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "off_e5",
+          "source": "off_sp",
+          "target": "off_hand",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "off_e6",
+          "source": "off_acc",
+          "target": "off_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {}
+        },
+        {
+          "id": "off_e7",
+          "source": "off_eq",
+          "target": "off_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "off_eq_ok"
+          }
+        },
+        {
+          "id": "off_e8",
+          "source": "off_pay",
+          "target": "off_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "off_pay_ok"
+          }
+        },
+        {
+          "id": "off_e9",
+          "source": "off_hand",
+          "target": "off_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "off_hand_ok"
+          }
+        },
+        {
+          "id": "off_e10",
+          "source": "off_jn",
+          "target": "off_hr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "off_e11",
+          "source": "off_hr",
+          "target": "off_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "off_hr_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Departure",
+        "many": "Departures"
+      }
+    }
+  ]
+}

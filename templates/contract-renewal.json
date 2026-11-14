@@ -1,0 +1,315 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_ren",
+      "name": "Contract renewal",
+      "description": "A timer wakes the contract’s owner ahead of the end date. They renew it, renegotiate it or let it end, and it escalates if they have not decided within three days.",
+      "category": "Purchasing and contracts",
+      "tags": [
+        "timer",
+        "deadline",
+        "contracts"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ren_contract",
+          "label": "Contract",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ren_owner",
+          "label": "Contract Owner",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "ren_value",
+          "label": "Annual Value",
+          "type": "currency",
+          "width": "half",
+          "min": 2000,
+          "max": 250000,
+          "summary": true
+        },
+        {
+          "id": "ren_vendor",
+          "label": "Vendor Contact",
+          "type": "email",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ren_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Contract on file",
+            "trigger": "schedule"
+          }
+        },
+        {
+          "id": "ren_w",
+          "type": "wait",
+          "position": {
+            "x": 364,
+            "y": 204
+          },
+          "data": {
+            "label": "Until 90 days before it ends",
+            "minutes": 43200
+          }
+        },
+        {
+          "id": "ren_own",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Owner decides",
+            "distribution": "field",
+            "assigneeFieldId": "ren_owner",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 120,
+            "escalateAfterHours": 72,
+            "escalation": {
+              "raisePriority": true,
+              "toDistributors": false,
+              "notifySupervisors": true
+            },
+            "outcomes": [
+              {
+                "id": "ren_own_renew",
+                "label": "Renew as it is",
+                "weight": 55,
+                "actions": []
+              },
+              {
+                "id": "ren_own_neg",
+                "label": "Renegotiate",
+                "weight": 30,
+                "actions": []
+              },
+              {
+                "id": "ren_own_lapse",
+                "label": "Let it end",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ren_value": "read"
+            }
+          }
+        },
+        {
+          "id": "ren_neg",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Negotiate new terms",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 240,
+            "outcomes": [
+              {
+                "id": "ren_neg_ok",
+                "label": "Terms agreed",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "ren_neg_no",
+                "label": "No agreement",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ren_value": "edit"
+            }
+          }
+        },
+        {
+          "id": "ren_sign",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 174
+          },
+          "data": {
+            "label": "Sign the renewal",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ren_sign_ok",
+                "label": "Signed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ren_note",
+          "type": "auto",
+          "position": {
+            "x": 945,
+            "y": 354
+          },
+          "data": {
+            "label": "Send notice of non-renewal",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "ren_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 204
+          },
+          "data": {
+            "label": "Renewed",
+            "result": "completed",
+            "outcome": "Renewed"
+          }
+        },
+        {
+          "id": "ren_ended",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 374
+          },
+          "data": {
+            "label": "Ended",
+            "result": "completed",
+            "outcome": "Ended"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ren_e1",
+          "source": "ren_s",
+          "target": "ren_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ren_e2",
+          "source": "ren_w",
+          "target": "ren_own",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ren_e3",
+          "source": "ren_own",
+          "target": "ren_sign",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ren_own_renew"
+          }
+        },
+        {
+          "id": "ren_e4",
+          "source": "ren_own",
+          "target": "ren_neg",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ren_own_neg"
+          }
+        },
+        {
+          "id": "ren_e5",
+          "source": "ren_own",
+          "target": "ren_note",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ren_own_lapse"
+          }
+        },
+        {
+          "id": "ren_e6",
+          "source": "ren_neg",
+          "target": "ren_sign",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ren_neg_ok"
+          }
+        },
+        {
+          "id": "ren_e7",
+          "source": "ren_neg",
+          "target": "ren_note",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ren_neg_no"
+          }
+        },
+        {
+          "id": "ren_e8",
+          "source": "ren_sign",
+          "target": "ren_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ren_sign_ok"
+          }
+        },
+        {
+          "id": "ren_e9",
+          "source": "ren_note",
+          "target": "ren_ended",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Contract",
+        "many": "Contracts"
+      }
+    }
+  ]
+}

@@ -1,0 +1,381 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_cap",
+      "name": "Capital expenditure request",
+      "description": "Finance and operations review the business case at the same time. The department head decides requests up to $100,000; anything larger goes to an executive.",
+      "category": "Finance and AP",
+      "tags": [
+        "parallel",
+        "threshold",
+        "capex"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "cap_project",
+          "label": "Project",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "cap_amount",
+          "label": "Amount",
+          "type": "currency",
+          "width": "half",
+          "min": 5000,
+          "max": 400000,
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "cap_case",
+          "label": "Business Case",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "cap_quote",
+          "label": "Quote",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "cap_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Request submitted"
+          }
+        },
+        {
+          "id": "cap_sp",
+          "type": "split",
+          "position": {
+            "x": 397,
+            "y": 188
+          },
+          "data": {
+            "label": "Review together",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "cap_fin",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Finance review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "cap_fin_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "cap_amount": "read",
+              "cap_case": "read",
+              "cap_quote": "read"
+            }
+          }
+        },
+        {
+          "id": "cap_ops",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "Operations review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "cap_ops_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "cap_case": "read"
+            }
+          }
+        },
+        {
+          "id": "cap_jn",
+          "type": "join",
+          "position": {
+            "x": 1017,
+            "y": 188
+          },
+          "data": {
+            "label": "Both reviews in",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "cap_lim",
+          "type": "decision",
+          "position": {
+            "x": 1309,
+            "y": 170
+          },
+          "data": {
+            "label": "Over $100,000?"
+          }
+        },
+        {
+          "id": "cap_exec",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Executive approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "cap_exec_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "cap_exec_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "cap_amount": "read",
+              "cap_case": "read"
+            }
+          }
+        },
+        {
+          "id": "cap_head",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 344
+          },
+          "data": {
+            "label": "Department head approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "cap_head_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "cap_head_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "cap_amount": "read",
+              "cap_case": "read"
+            }
+          }
+        },
+        {
+          "id": "cap_ok",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Approved",
+            "result": "completed",
+            "outcome": "Approved"
+          }
+        },
+        {
+          "id": "cap_rej",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 544
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "cap_e1",
+          "source": "cap_s",
+          "target": "cap_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "cap_e2",
+          "source": "cap_sp",
+          "target": "cap_fin",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "cap_e3",
+          "source": "cap_sp",
+          "target": "cap_ops",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "cap_e4",
+          "source": "cap_fin",
+          "target": "cap_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "cap_fin_ok"
+          }
+        },
+        {
+          "id": "cap_e5",
+          "source": "cap_ops",
+          "target": "cap_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "cap_ops_ok"
+          }
+        },
+        {
+          "id": "cap_e6",
+          "source": "cap_jn",
+          "target": "cap_lim",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "cap_e7",
+          "source": "cap_lim",
+          "target": "cap_exec",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "cap_r6_0",
+                  "fieldId": "cap_amount",
+                  "op": "gt",
+                  "value": 100000
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "cap_e8",
+          "source": "cap_lim",
+          "target": "cap_head",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "cap_e9",
+          "source": "cap_exec",
+          "target": "cap_ok",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "cap_exec_ok"
+          }
+        },
+        {
+          "id": "cap_e10",
+          "source": "cap_head",
+          "target": "cap_ok",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "cap_head_ok"
+          }
+        },
+        {
+          "id": "cap_e11",
+          "source": "cap_exec",
+          "target": "cap_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "cap_exec_no"
+          }
+        },
+        {
+          "id": "cap_e12",
+          "source": "cap_head",
+          "target": "cap_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "cap_head_no"
+          }
+        }
+      ],
+      "item": {
+        "one": "Capital request",
+        "many": "Capital requests"
+      }
+    }
+  ]
+}

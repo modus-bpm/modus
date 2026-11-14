@@ -1,0 +1,395 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_sw",
+      "name": "Software purchase",
+      "description": "Security, legal and budget look at a new tool at the same time, so the request waits on the slowest of the three and not on all of them in turn. The IT owner approves once all three agree.",
+      "category": "Purchasing and contracts",
+      "tags": [
+        "parallel",
+        "security review",
+        "software"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "sw_product",
+          "label": "Product",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "sw_requester",
+          "label": "Requested By",
+          "type": "user",
+          "width": "half"
+        },
+        {
+          "id": "sw_cost",
+          "label": "Annual Cost",
+          "type": "currency",
+          "width": "half",
+          "min": 500,
+          "max": 80000,
+          "summary": true
+        },
+        {
+          "id": "sw_data",
+          "label": "Handles Personal Data",
+          "type": "boolean",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sw_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Software requested"
+          }
+        },
+        {
+          "id": "sw_sp",
+          "type": "split",
+          "position": {
+            "x": 397,
+            "y": 188
+          },
+          "data": {
+            "label": "Three reviews",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "sw_sec",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Security review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "sw_sec_ok",
+                "label": "Acceptable",
+                "weight": 88,
+                "actions": []
+              },
+              {
+                "id": "sw_sec_no",
+                "label": "Not acceptable",
+                "weight": 12,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "sw_data": "read"
+            }
+          }
+        },
+        {
+          "id": "sw_leg",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Legal terms review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "sw_leg_ok",
+                "label": "Acceptable",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "sw_leg_no",
+                "label": "Not acceptable",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "sw_bud",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "Budget check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "sw_bud_ok",
+                "label": "In budget",
+                "weight": 90,
+                "actions": []
+              },
+              {
+                "id": "sw_bud_no",
+                "label": "Not in budget",
+                "weight": 10,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "sw_cost": "read"
+            }
+          }
+        },
+        {
+          "id": "sw_jn",
+          "type": "join",
+          "position": {
+            "x": 1017,
+            "y": 188
+          },
+          "data": {
+            "label": "All three agree",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "sw_own",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 174
+          },
+          "data": {
+            "label": "IT owner approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "sw_own_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "sw_own_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "sw_cost": "read",
+              "sw_data": "read"
+            }
+          }
+        },
+        {
+          "id": "sw_buy",
+          "type": "auto",
+          "position": {
+            "x": 1565,
+            "y": 184
+          },
+          "data": {
+            "label": "Place the order",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "sw_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Purchased",
+            "result": "completed",
+            "outcome": "Purchased"
+          }
+        },
+        {
+          "id": "sw_rej",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 544
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "sw_e1",
+          "source": "sw_s",
+          "target": "sw_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sw_e2",
+          "source": "sw_sp",
+          "target": "sw_sec",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sw_e3",
+          "source": "sw_sp",
+          "target": "sw_leg",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sw_e4",
+          "source": "sw_sp",
+          "target": "sw_bud",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sw_e5",
+          "source": "sw_sec",
+          "target": "sw_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sw_sec_ok"
+          }
+        },
+        {
+          "id": "sw_e6",
+          "source": "sw_leg",
+          "target": "sw_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sw_leg_ok"
+          }
+        },
+        {
+          "id": "sw_e7",
+          "source": "sw_bud",
+          "target": "sw_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "sw_bud_ok"
+          }
+        },
+        {
+          "id": "sw_e8",
+          "source": "sw_sec",
+          "target": "sw_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sw_sec_no"
+          }
+        },
+        {
+          "id": "sw_e9",
+          "source": "sw_leg",
+          "target": "sw_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sw_leg_no"
+          }
+        },
+        {
+          "id": "sw_e10",
+          "source": "sw_bud",
+          "target": "sw_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sw_bud_no"
+          }
+        },
+        {
+          "id": "sw_e11",
+          "source": "sw_jn",
+          "target": "sw_own",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sw_e12",
+          "source": "sw_own",
+          "target": "sw_buy",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sw_own_ok"
+          }
+        },
+        {
+          "id": "sw_e13",
+          "source": "sw_own",
+          "target": "sw_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sw_own_no"
+          }
+        },
+        {
+          "id": "sw_e14",
+          "source": "sw_buy",
+          "target": "sw_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Software request",
+        "many": "Software requests"
+      }
+    }
+  ]
+}

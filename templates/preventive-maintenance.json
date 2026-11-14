@@ -1,0 +1,279 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_pm",
+      "name": "Preventive maintenance",
+      "description": "A schedule opens the job and a dispatcher hands it to a technician. If the checklist turns up a problem, a supervisor decides whether to repair now or defer it, and the service is recorded either way.",
+      "category": "Facilities, fleet and safety",
+      "tags": [
+        "schedule",
+        "dispatcher",
+        "checklist"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "pm_asset",
+          "label": "Asset",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "pm_due",
+          "label": "Due",
+          "type": "date",
+          "width": "half",
+          "summary": true
+        },
+        {
+          "id": "pm_issue",
+          "label": "Problem Found",
+          "type": "boolean",
+          "width": "half"
+        },
+        {
+          "id": "pm_notes",
+          "label": "Findings",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "pm_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Maintenance due",
+            "trigger": "schedule"
+          }
+        },
+        {
+          "id": "pm_tech",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Do the checklist",
+            "distribution": "manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "pm_tech_ok",
+                "label": "Checklist done",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "pm_issue": "edit",
+              "pm_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "pm_prob",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 170
+          },
+          "data": {
+            "label": "Problem found?"
+          }
+        },
+        {
+          "id": "pm_sup",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Supervisor decides",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "pm_sup_fix",
+                "label": "Repair now",
+                "weight": 70,
+                "actions": []
+              },
+              {
+                "id": "pm_sup_defer",
+                "label": "Defer",
+                "weight": 30,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "pm_notes": "read"
+            }
+          }
+        },
+        {
+          "id": "pm_rep",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 4
+          },
+          "data": {
+            "label": "Repair",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "pm_rep_ok",
+                "label": "Repaired",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "pm_log",
+          "type": "auto",
+          "position": {
+            "x": 1565,
+            "y": 184
+          },
+          "data": {
+            "label": "Record the service",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "pm_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Serviced",
+            "result": "completed",
+            "outcome": "Serviced"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "pm_e1",
+          "source": "pm_s",
+          "target": "pm_tech",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "pm_e2",
+          "source": "pm_tech",
+          "target": "pm_prob",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "pm_tech_ok"
+          }
+        },
+        {
+          "id": "pm_e3",
+          "source": "pm_prob",
+          "target": "pm_sup",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "pm_r2_0",
+                  "fieldId": "pm_issue",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "pm_e4",
+          "source": "pm_prob",
+          "target": "pm_log",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "pm_e5",
+          "source": "pm_sup",
+          "target": "pm_rep",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "pm_sup_fix"
+          }
+        },
+        {
+          "id": "pm_e6",
+          "source": "pm_sup",
+          "target": "pm_log",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "pm_sup_defer"
+          }
+        },
+        {
+          "id": "pm_e7",
+          "source": "pm_rep",
+          "target": "pm_log",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "pm_rep_ok"
+          }
+        },
+        {
+          "id": "pm_e8",
+          "source": "pm_log",
+          "target": "pm_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Maintenance job",
+        "many": "Maintenance jobs"
+      }
+    }
+  ]
+}
