@@ -175,6 +175,30 @@ export interface ObjectType {
 /** A form as an administrator laid it out: sections, each a grid of fields, headings and text. */
 export interface FormLayout {
   sections: FormSection[]
+  /** How the whole form is drawn. */
+  style?: FormStyle
+}
+
+/** Choices about a whole form. Each is optional: absent means the plain form. */
+export interface FormStyle {
+  /** How wide the form may grow: `full` fills the room it has. */
+  width?: 'narrow' | 'medium' | 'wide' | 'full'
+  /** Where a field's label sits: above it, or beside it on the left where there is room. */
+  labels?: 'above' | 'beside'
+  /** Room between sections. */
+  spacing?: 'tight' | 'normal' | 'airy'
+}
+
+/** How one section is drawn. */
+export interface SectionStyle {
+  /** Plain; a card with a border and shadow; a tinted panel; or just an outline. */
+  look?: 'plain' | 'card' | 'tinted' | 'outlined'
+  /** A colour of the section's own (hex), for its title, its tint and its edge. Absent: the look's primary. */
+  accent?: string
+  /** How large the title is. */
+  title?: 'small' | 'medium' | 'large'
+  /** A rule under the title. */
+  rule?: boolean
 }
 
 export interface FormSection {
@@ -183,10 +207,11 @@ export interface FormSection {
   /** A sentence or two under the title. */
   description?: string
   /** How many columns the section's grid has. */
-  columns: 1 | 2 | 3
+  columns: 1 | 2 | 3 | 4
   items: FormItem[]
   /** Starts closed; people open it when they need it. Never applies to a section with a required field. */
   collapsed?: boolean
+  style?: SectionStyle
 }
 
 export type FormItem =
@@ -195,18 +220,22 @@ export type FormItem =
       kind: 'field'
       fieldId: Id
       /** Columns it takes; more than the section has means the whole row. Tables always take the row. */
-      span?: 1 | 2 | 3
+      span?: 1 | 2 | 3 | 4
       /** Shown on this form in place of the field's own label and guidance. */
       label?: string
       help?: string
       placeholder?: string
+      /** Drawn larger, for the one or two fields a form is about. */
+      emphasis?: boolean
     }
-  | { id: Id; kind: 'heading'; text: string }
-  /** A paragraph: instructions, a notice, the small print. */
-  | { id: Id; kind: 'text'; text: string }
+  | { id: Id; kind: 'heading'; text: string; size?: 'small' | 'medium' | 'large'; span?: 1 | 2 | 3 | 4 }
+  /** A paragraph: instructions, a notice, the small print. With a tone it is drawn as a callout. */
+  | { id: Id; kind: 'text'; text: string; tone?: 'plain' | 'note' | 'success' | 'warning'; span?: 1 | 2 | 3 | 4 }
   | { id: Id; kind: 'divider' }
+  /** Empty room, to set things apart or to leave a cell of the grid empty. */
+  | { id: Id; kind: 'spacer'; height?: number; span?: 1 | 2 | 3 | 4 }
   /** A picture, held in the design as a data URL. */
-  | { id: Id; kind: 'image'; url: string; alt?: string; height?: number }
+  | { id: Id; kind: 'image'; url: string; alt?: string; height?: number; align?: 'left' | 'center' | 'right'; span?: 1 | 2 | 3 | 4 }
 
 // ---------- Look (what the people doing the work see) ----------
 

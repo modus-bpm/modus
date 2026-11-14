@@ -1,5 +1,5 @@
 import { ChevronRight, Download, EyeOff, Lock, Paperclip, Sigma, Upload, X } from 'lucide-react'
-import { type CSSProperties, type ReactNode, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type HTMLAttributes, type ReactNode, useMemo, useRef, useState } from 'react'
 import { acceptedEndings, fileProblem } from '@modus-bpm/core/model/attachments'
 import { dependentFields, optionsForField } from '@modus-bpm/core/model/lists'
 import { type AttachmentValue, formatBytes, formatFieldValue } from '@modus-bpm/core/model/format'
@@ -13,6 +13,18 @@ import { cx, Input, Select, Textarea, Toggle } from './ui'
 // The UI is a by-product of the object type definition: this one component
 // renders the create form, the step forms (with per-step field access), the
 // designer preview, and the object detail view.
+
+/** What the forms designer attaches to a form it draws: every piece, laid bare, with nothing in it live. */
+export interface DesignHooks {
+  /** Attributes for the element around one thing on the form (handlers, state for styling). */
+  itemProps?: (item: PlannedItem, section: PlannedSection) => HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string | undefined>
+  /** Drawn inside that element, after the thing itself (a resize handle). */
+  itemExtras?: (item: PlannedItem, section: PlannedSection) => ReactNode
+  sectionProps?: (section: PlannedSection) => HTMLAttributes<HTMLElement> & Record<`data-${string}`, string | undefined>
+  /** Drawn first inside a section's element (a tag to pick the section up by). */
+  sectionExtras?: (section: PlannedSection) => ReactNode
+  gridProps?: (section: PlannedSection) => HTMLAttributes<HTMLDivElement> & Record<`data-${string}`, string | undefined>
+}
 
 interface Props {
   type: ObjectType
@@ -29,14 +41,16 @@ interface Props {
   /** Highlight a field (used by the designer when a field is selected). */
   highlightFieldId?: string
   onFieldClick?: (fieldId: string) => void
+  /** Draw the form for the forms designer: everything the layout holds, placeholders included. */
+  design?: DesignHooks
 }
 
-export function FormRenderer({ type, lists, users, values: given, onChange, access, includeSystem, errors, highlightFieldId, onFieldClick }: Props) {
+export function FormRenderer({ type, lists, users, values: given, onChange, access, includeSystem, errors, highlightFieldId, onFieldClick, design }: Props) {
   // While editing, show totals and calculated columns current even when the caller
   // keeps only the fields the person may change (a total is never one of them).
   const values = onChange ? normalizeData(type, given) : given
-  // Where everything goes: the type's layout (the forms builder's), or every field in order.
-  const plan = useMemo(() => formPlan(type, { includeSystem, access }), [type, includeSystem, access])
+  // Where everything goes: the type's layout (the forms designer's), or every field in order.
+  const plan = useMemo(() => formPlan(type, { includeSystem, access, design: !!design }), [type, includeSystem, access, design])
 
   const setValue = (field: FieldDef, v: unknown) => {
     if (!onChange) return
@@ -54,13 +68,8 @@ export function FormRenderer({ type, lists, users, values: given, onChange, acce
     const source = f.total ? type.fields.find((x) => x.id === f.total!.tableFieldId) : undefined
     const column = source?.columns?.find((c) => c.id === f.total!.columnId)
     return (
-      <div
-        key={item.id}
-        onClick={onFieldClick ? () => onFieldClick(f.id) : undefined}
-        style={{ '--span': item.span } as CSSProperties}
-        className={cx('form-item min-w-0', onFieldClick && 'cursor-pointer rounded-md p-1.5 -m-1.5 hover:bg-slate-50', highlightFieldId === f.id && 'bg-brand-50 ring-2 ring-brand-300 hover:bg-brand-50')}
-      >
-        <div className="form-label mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
+      <div className={cx('form-field', f.type === 'table' && 'form-field-wide')}>
+        <div className="form-label mb-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-slate-600">
           <span>{item.label}</span>
           {f.required && !readOnly && <span className="text-rose-500">*</span>}
           {readOnly && onChange && !computed && <Lock size={11} className="text-slate-400" aria-label="Read only at this step" />}
@@ -71,53 +80,86 @@ export function FormRenderer({ type, lists, users, values: given, onChange, acce
           )}
           {f.system && <span className="rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-500 normal-case">set by workflow</span>}
         </div>
-        <FieldControl field={f} type={type} lists={lists} users={users} values={values} readOnly={readOnly} error={errors?.[f.id]} placeholder={item.placeholder} onValue={(v) => setValue(f, v)} />
-        {errors?.[f.id] ? (
-          <p className="mt-1 text-[11px] text-rose-600">{errors[f.id]}</p>
-        ) : computed && onChange ? (
-          <p className="mt-1 text-[11px] leading-snug text-slate-500">
-            Adds up {column?.label ?? 'a column'} across {source?.label ?? 'a table'}.
-          </p>
-        ) : (
-          item.help && !readOnly && <p className="mt-1 text-[11px] leading-snug text-slate-500">{item.help}</p>
-        )}
+        <div className="min-w-0">
+          <FieldControl field={f} type={type} lists={lists} users={users} values={values} readOnly={readOnly} error={errors?.[f.id]} placeholder={item.placeholder} onValue={(v) => setValue(f, v)} />
+          {errors?.[f.id] ? (
+            <p className="mt-1 text-[11px] text-rose-600">{errors[f.id]}</p>
+          ) : computed && onChange ? (
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              Adds up {column?.label ?? 'a column'} across {source?.label ?? 'a table'}.
+            </p>
+          ) : (
+            item.help && !readOnly && <p className="mt-1 text-[11px] leading-snug text-slate-500">{item.help}</p>
+          )}
+        </div>
       </div>
     )
   }
 
-  const draw = (item: PlannedItem) => {
+  /** What is inside one item's element. In the designer, something not yet written or chosen shows what it will be. */
+  const inside = (item: PlannedItem): ReactNode => {
     switch (item.kind) {
       case 'field':
         return drawField(item)
       case 'heading':
         return (
-          <h4 key={item.id} className="form-item form-heading text-sm font-semibold text-slate-900" style={{ '--span': item.span } as CSSProperties}>
-            {item.text}
+          <h4 className={cx('form-heading font-semibold text-slate-900', !item.text && 'form-placeholder')} data-size={item.size}>
+            {item.text || 'Heading'}
           </h4>
         )
       case 'text':
         return (
-          <p key={item.id} className="form-item form-text text-xs leading-relaxed whitespace-pre-wrap text-slate-600" style={{ '--span': item.span } as CSSProperties}>
-            {item.text}
+          <p className={cx('form-text text-xs leading-relaxed whitespace-pre-wrap text-slate-600', !item.text && 'form-placeholder')} data-tone={item.tone}>
+            {item.text || (item.tone === 'plain' ? 'A paragraph: instructions, a notice, the small print.' : 'A callout: something people should not miss.')}
           </p>
         )
       case 'divider':
-        return <hr key={item.id} className="form-item border-slate-200" style={{ '--span': item.span } as CSSProperties} />
+        return <hr className="border-slate-200" />
+      case 'spacer':
+        return <div className="form-spacer" style={{ height: item.height }} aria-hidden />
       case 'image':
-        return (
-          <div key={item.id} className="form-item" style={{ '--span': item.span } as CSSProperties}>
-            <img src={item.url} alt={item.alt} className="form-image max-w-full rounded-md object-contain" style={{ maxHeight: item.height ?? 160 }} />
+        return item.url ? (
+          <div style={{ textAlign: item.align }}>
+            <img src={item.url} alt={item.alt} className="form-image inline-block max-w-full rounded-md object-contain" style={{ maxHeight: item.height ?? 160 }} />
           </div>
+        ) : (
+          <div className="form-placeholder flex h-20 items-center justify-center rounded-md border border-dashed border-slate-300 text-xs">A picture: choose one</div>
         )
     }
   }
 
+  const draw = (item: PlannedItem, section: PlannedSection) => {
+    const f = item.kind === 'field' ? item.field : undefined
+    const given = design?.itemProps?.(item, section)
+    const click = !design && f && onFieldClick ? () => onFieldClick(f.id) : undefined
+    return (
+      <div
+        key={item.id}
+        onClick={click}
+        {...given}
+        style={{ '--span': item.span, ...given?.style } as CSSProperties}
+        data-span={item.span}
+        className={cx(
+          'form-item min-w-0',
+          `form-item-${item.kind}`,
+          item.kind === 'field' && item.emphasis && 'form-item-emphasis',
+          click && 'cursor-pointer rounded-md p-1.5 -m-1.5 hover:bg-slate-50',
+          f && highlightFieldId === f.id && 'bg-brand-50 ring-2 ring-brand-300 hover:bg-brand-50',
+          given?.className,
+        )}
+      >
+        {inside(item)}
+        {design?.itemExtras?.(item, section)}
+      </div>
+    )
+  }
+
   return (
-    <div className="form">
+    <div className={cx('form', design && 'form-design')} data-form-width={plan.width} data-form-labels={plan.labels} data-form-spacing={plan.spacing}>
       <div className="form-sections space-y-5">
         {plan.sections.map((s) => (
-          <FormSectionView key={s.id} section={s} hasError={s.items.some((i) => i.kind === 'field' && !!errors?.[i.field.id])}>
-            {s.items.map(draw)}
+          <FormSectionView key={s.id} section={s} design={design} hasError={s.items.some((i) => i.kind === 'field' && !!errors?.[i.field.id])}>
+            {s.items.map((i) => draw(i, s))}
           </FormSectionView>
         ))}
       </div>
@@ -130,26 +172,42 @@ export function FormRenderer({ type, lists, users, values: given, onChange, acce
   )
 }
 
-/** One section of a form: its title, and its items on a grid that folds to one column where there is no room. */
-function FormSectionView({ section, hasError, children }: { section: PlannedSection; hasError: boolean; children: ReactNode }) {
+/** One section of a form: its title, and its items on a grid that folds to fewer columns where there is no room. */
+function FormSectionView({ section, hasError, design, children }: { section: PlannedSection; hasError: boolean; design?: DesignHooks; children: ReactNode }) {
   const [open, setOpen] = useState(!section.collapsed)
   // A section with a mistake in it opens, so the message is seen.
   const shown = open || hasError
-  const grid = <div className={cx('form-grid grid gap-x-4 gap-y-3.5', `form-cols-${section.columns}`)}>{children}</div>
-  if (!section.title && !section.description) return <section className="form-section">{grid}</section>
+  const given = design?.sectionProps?.(section)
+  const gridGiven = design?.gridProps?.(section)
+  const grid = (
+    <div {...gridGiven} className={cx('form-grid grid gap-x-4 gap-y-3.5', `form-cols-${section.columns}`, gridGiven?.className)}>
+      {children}
+    </div>
+  )
+  const titled = !!(section.title || section.description)
   return (
-    <section className="form-section">
-      <div className="form-section-head mb-3">
-        {section.collapsed ? (
-          <button type="button" onClick={() => setOpen(!shown)} aria-expanded={shown} className="form-section-title flex w-full items-center gap-1.5 text-left text-sm font-semibold text-slate-900">
-            <ChevronRight size={14} className={cx('shrink-0 text-slate-400 transition-transform', shown && 'rotate-90')} />
-            {section.title ?? 'More'}
-          </button>
-        ) : (
-          section.title && <h3 className="form-section-title text-sm font-semibold text-slate-900">{section.title}</h3>
-        )}
-        {section.description && shown && <p className="form-section-description mt-0.5 text-xs leading-relaxed text-slate-500">{section.description}</p>}
-      </div>
+    <section
+      {...given}
+      className={cx('form-section', given?.className)}
+      data-look={section.look}
+      data-title-size={section.titleSize}
+      data-rule={section.rule ? '' : undefined}
+      style={{ ...(section.accent ? ({ '--section-accent': section.accent } as CSSProperties) : {}), ...given?.style }}
+    >
+      {design?.sectionExtras?.(section)}
+      {titled && (
+        <div className="form-section-head mb-3">
+          {section.collapsed ? (
+            <button type="button" onClick={() => setOpen(!shown)} aria-expanded={shown} className="form-section-title flex w-full items-center gap-1.5 text-left font-semibold text-slate-900">
+              <ChevronRight size={14} className={cx('shrink-0 text-slate-400 transition-transform', shown && 'rotate-90')} />
+              {section.title ?? 'More'}
+            </button>
+          ) : (
+            section.title && <h3 className="form-section-title font-semibold text-slate-900">{section.title}</h3>
+          )}
+          {section.description && shown && <p className="form-section-description mt-0.5 text-xs leading-relaxed text-slate-500">{section.description}</p>}
+        </div>
+      )}
       {shown && grid}
     </section>
   )

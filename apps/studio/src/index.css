@@ -180,9 +180,9 @@ body {
   }
 }
 
-/* ---------- Forms (components/FormRenderer.tsx) ---------- */
+/* ---------- Forms (components/FormRenderer.tsx; the choices are core's model/forms.ts) ---------- */
 
-/* A section's grid goes by the room the form has, not the window's: one column where it is narrow. */
+/* A section's grid goes by the room the form has, not the window's: fewer columns where it is narrow. */
 .form-section {
   container-type: inline-size;
 }
@@ -196,21 +196,324 @@ body {
 }
 
 @container (min-width: 22rem) {
-  .form-cols-2 {
+  .form-cols-2,
+  .form-cols-3,
+  .form-cols-4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .form-cols-2 > .form-item {
     grid-column: span var(--span, 1);
   }
+  /* Three or four columns shown as two: what took one column still does, anything wider takes the row. */
+  :is(.form-cols-3, .form-cols-4) > .form-item[data-span='1'] {
+    grid-column: span 1;
+  }
 }
 
-@container (min-width: 38rem) {
+@container (min-width: 33rem) {
   .form-cols-3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .form-cols-3 > .form-item {
+  .form-cols-3 > .form-item,
+  .form-cols-3 > .form-item[data-span='1'] {
     grid-column: span var(--span, 1);
   }
+}
+
+@container (min-width: 46rem) {
+  .form-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .form-cols-4 > .form-item,
+  .form-cols-4 > .form-item[data-span='1'] {
+    grid-column: span var(--span, 1);
+  }
+}
+
+/* The whole form: how wide it may grow, and the room between its sections. */
+.form[data-form-width='narrow'] {
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
+.form[data-form-width='medium'] {
+  max-width: 44rem;
+  margin-inline: auto;
+}
+
+.form[data-form-width='wide'] {
+  max-width: 60rem;
+  margin-inline: auto;
+}
+
+.form[data-form-spacing='tight'] .form-sections > * + * {
+  margin-top: 0.75rem;
+}
+
+.form[data-form-spacing='airy'] .form-sections > * + * {
+  margin-top: 2.25rem;
+}
+
+/* Labels beside their fields, where the section has the room for it. */
+@container (min-width: 30rem) {
+  .form[data-form-labels='beside'] .form-field:not(.form-field-wide) {
+    display: grid;
+    grid-template-columns: minmax(6rem, 32%) minmax(0, 1fr);
+    column-gap: 0.75rem;
+    align-items: start;
+  }
+  .form[data-form-labels='beside'] .form-field:not(.form-field-wide) > .form-label {
+    margin-bottom: 0;
+    padding-top: 0.5rem;
+  }
+}
+
+/* A section's look. Its accent is its own colour when it has one, the look's primary otherwise. */
+.form-section[data-look='card'] {
+  border: 1px solid var(--color-slate-200);
+  border-radius: var(--radius-lg);
+  background: var(--color-white);
+  padding: 1rem 1.125rem 1.125rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.form-section[data-look='outlined'] {
+  border: 1px solid var(--color-slate-300);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.125rem 1.125rem;
+}
+
+.form-section[data-look='tinted'] {
+  border-left: 3px solid var(--section-accent, var(--color-brand-600));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--section-accent, var(--color-brand-600)) 7%, var(--color-white));
+  padding: 1rem 1.125rem 1.125rem;
+}
+
+.form-section .form-section-title {
+  font-size: 0.875rem;
+  color: var(--section-accent, var(--color-slate-900));
+}
+
+.form-section[data-title-size='small'] .form-section-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.form-section[data-title-size='large'] .form-section-title {
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+}
+
+.form-section[data-rule] .form-section-head {
+  border-bottom: 2px solid var(--section-accent, var(--color-slate-200));
+  padding-bottom: 0.375rem;
+}
+
+/* Headings, paragraphs and callouts. */
+.form-heading {
+  font-size: 0.875rem;
+}
+
+.form-heading[data-size='small'] {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-slate-600);
+}
+
+.form-heading[data-size='large'] {
+  font-size: 1.25rem;
+  letter-spacing: -0.015em;
+}
+
+.form-text:is([data-tone='note'], [data-tone='success'], [data-tone='warning']) {
+  --tone: var(--color-brand-600);
+  border-left: 3px solid var(--tone);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tone) 8%, var(--color-white));
+  padding: 0.5rem 0.75rem;
+  color: var(--color-slate-800);
+}
+
+.form-text[data-tone='success'] {
+  --tone: #059669;
+}
+
+.form-text[data-tone='warning'] {
+  --tone: #d97706;
+}
+
+/* A field the form is about: larger. */
+.form-item-emphasis .form-label {
+  font-size: 0.8125rem;
+  color: var(--color-slate-900);
+}
+
+.form-item-emphasis :is(input:not([type='checkbox'], [type='radio'], [type='file']), select) {
+  height: 2.75rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* ---------- The forms designer's canvas (features/types/FormDesigner.tsx) ---------- */
+/* The designer's own marks are the Studio's indigo whatever the look of the form under them. */
+
+.form-design .form-item {
+  position: relative;
+  border-radius: 6px;
+  outline: 1px dashed transparent;
+  outline-offset: 5px;
+  cursor: grab;
+}
+
+.form-design .form-item > :not(.design-handle) {
+  pointer-events: none;
+}
+
+.form-design .form-item:hover {
+  outline-color: #94a3b8;
+}
+
+.form-design .form-item[data-selected] {
+  outline: 2px solid #4f46e5;
+}
+
+.form-design .form-item[data-dragging] {
+  opacity: 0.35;
+}
+
+.form-design .form-item:is([data-drop='before'], [data-drop='after'], [data-drop='above'], [data-drop='below'])::before {
+  position: absolute;
+  z-index: 2;
+  border-radius: 2px;
+  background: #4f46e5;
+  content: '';
+}
+
+.form-design .form-item[data-drop='before']::before {
+  top: -4px;
+  bottom: -4px;
+  left: -10px;
+  width: 3px;
+}
+
+.form-design .form-item[data-drop='after']::before {
+  top: -4px;
+  right: -10px;
+  bottom: -4px;
+  width: 3px;
+}
+
+.form-design .form-item[data-drop='above']::before {
+  top: -9px;
+  right: -4px;
+  left: -4px;
+  height: 3px;
+}
+
+.form-design .form-item[data-drop='below']::before {
+  right: -4px;
+  bottom: -9px;
+  left: -4px;
+  height: 3px;
+}
+
+.form-design .form-section {
+  outline: 1px dashed #cbd5e1;
+  outline-offset: 7px;
+  cursor: pointer;
+}
+
+.form-design .form-section[data-selected] {
+  outline: 2px solid #4f46e5;
+}
+
+.form-design .form-section {
+  position: relative;
+  margin-top: 1.25rem;
+}
+
+.form-design .form-sections > * + * {
+  margin-top: 2.25rem;
+}
+
+/* The tag a section is picked by, on its outline. */
+.design-section-tag {
+  position: absolute;
+  top: -17px;
+  left: 4px;
+  z-index: 2;
+  max-width: 70%;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  background: #fff;
+  padding: 1px 8px;
+  font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+  color: #475569;
+  cursor: pointer;
+}
+
+.design-section-tag:hover,
+.form-design .form-section[data-selected] > .design-section-tag {
+  border-color: #4f46e5;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.form-design .form-grid {
+  min-height: 3.25rem;
+  border-radius: 6px;
+}
+
+.form-design .form-grid[data-drop] {
+  background: rgb(79 70 229 / 0.07);
+  box-shadow: inset 0 0 0 2px rgb(79 70 229 / 0.35);
+}
+
+.form-design .form-grid:empty::after {
+  display: flex;
+  height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  content: 'Drag a field or an element here';
+}
+
+.form-design .form-placeholder {
+  font-style: italic;
+  color: #94a3b8;
+}
+
+.form-design .form-spacer {
+  border: 1px dashed #cbd5e1;
+  border-radius: 4px;
+  background: repeating-linear-gradient(135deg, transparent 0 6px, rgb(148 163 184 / 0.14) 6px 12px);
+}
+
+.design-handle {
+  position: absolute;
+  top: 50%;
+  right: -11px;
+  z-index: 3;
+  width: 10px;
+  height: 30px;
+  transform: translateY(-50%);
+  border: 2px solid #fff;
+  border-radius: 5px;
+  background: #4f46e5;
+  cursor: ew-resize;
+  touch-action: none;
 }
 
 /* ---------- The Workspace's look (core: model/theme.ts; components/Themed.tsx) ---------- */

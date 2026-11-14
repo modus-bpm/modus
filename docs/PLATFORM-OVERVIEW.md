@@ -312,7 +312,7 @@ Everything else (configuration, TLS, backups, upgrades, air-gapped installs):
 | Inbound events | The API | Stream ingest (M5) |
 | Assistant | Built-in interpreter; Claude with read-only tools when a key is set | |
 | Attachments | Files uploaded to and served by the server, kept in PostgreSQL | S3-compatible storage for large files |
-| Forms and look | A forms builder per object type; the Workspace branded per organization or application | Per-step layouts |
+| Forms and look | A visual forms designer per object type; the Workspace branded per organization or application | Per-step layouts |
 | Tenancy | One organization per installation | Multi-tenancy (M6) |
 | Observability | JSON logs, live counts, OCEL 2.0 export | OpenTelemetry traces, Prometheus metrics |
 

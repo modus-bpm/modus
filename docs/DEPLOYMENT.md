@@ -29,7 +29,7 @@ today and what is planned.
 | Outbox | Every message is posted to configured webhook endpoints, signed, with retries, shared by all replicas ([Webhooks](#webhooks)) | Email from Modus, REST and MCP connectors (M4) |
 | Assistant | Claude through read-only tools when `ANTHROPIC_API_KEY` is set; the built-in interpreter otherwise | |
 | Attachments | Files are uploaded to the server and kept in PostgreSQL, or under `DATA_DIR/files` with the memory store ([Attachments](#attachments)) | S3-compatible storage for large files; virus scanning |
-| Forms and look | A form layout per object type and the Workspace's look are part of the design: saved, versioned by revision and sent to every replica like the rest of it | |
+| Forms and look | A form design per object type and the Workspace's look are part of the design: saved, versioned by revision and sent to every replica like the rest of it | |
 
 > **The default trusts whoever calls.** With `MODUS_AUTH=none` anyone who can reach the API can
 > act as anyone, administrators included. That is for a laptop or a closed network. Before
