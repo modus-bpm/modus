@@ -5,7 +5,7 @@
 // Versions, and which one is published, are the server's: a save never changes them.
 
 import { z } from 'zod'
-import { activeObjects, type Design, ensureVersions, type Id, runsIn, type ServiceDef, type SimState, type Workflow } from '@modus-bpm/core'
+import { activeObjects, type Design, ensureVersions, type Id, layoutProblems, runsIn, type ServiceDef, type SimState, themeProblems, type Workflow } from '@modus-bpm/core'
 
 /** A save the server won't take: 400 for a broken document, 403 for something the caller may not do, 409 for one that would strand work. */
 export class DesignRefused extends Error {
@@ -30,7 +30,7 @@ const app = z.looseObject({ id, name: z.string().max(500), lists: z.array(z.loos
 const user = z.looseObject({ id, name: z.string().max(500), roles: z.array(z.enum(['admin', 'designer', 'auditor'])).optional(), speed: z.number().positive(), available: z.boolean() })
 const group = z.looseObject({ id, name: z.string().max(500), memberIds: z.array(id) })
 const service = z.looseObject({ id, name: z.string().max(500), operations: z.array(z.looseObject({ id })).default([]) })
-const document = z.object({ apps: z.array(app).max(200), users: z.array(user).max(20_000), groups: z.array(group).max(5000), services: z.array(service).max(1000), templates: z.array(z.looseObject({ id })).max(1000) })
+const document = z.object({ apps: z.array(app).max(200), users: z.array(user).max(20_000), groups: z.array(group).max(5000), services: z.array(service).max(1000), templates: z.array(z.looseObject({ id })).max(1000), theme: z.looseObject({}).optional() })
 
 const repeated = (ids: string[]) => ids.find((x, i) => ids.indexOf(x) !== i)
 
@@ -53,6 +53,15 @@ export function parseDesign(raw: unknown): Design {
   if (shared) throw new DesignRefused(400, `Two people share the sign-in name “${shared}”.`)
   twice('groups', d.groups.map((g) => g.id))
   twice('services', d.services.map((s) => s.id))
+  // The look and the form layouts are drawn for everyone in the Workspace: only what the core knows how to draw safely.
+  const look = (what: string, problems: string[]) => {
+    if (problems.length) throw new DesignRefused(400, `${what}: ${problems[0]}`)
+  }
+  look('The organization’s look', themeProblems(d.theme))
+  for (const a of d.apps) {
+    look(`The look of ${a.name}`, themeProblems(a.theme))
+    for (const t of a.objectTypes) if (t.form !== undefined) look(`The form of ${t.name}`, layoutProblems(t.form))
+  }
   for (const a of d.apps) {
     twice(`workflows of ${a.name}`, a.workflows.map((w) => w.id))
     twice(`object types of ${a.name}`, a.objectTypes.map((t) => t.id))
@@ -163,6 +172,12 @@ export function takeDesign(have: Design, sent: Design, by: { admin: boolean }, u
     const workers = (d: Design) => new Map(d.services.map((s) => [s.id, [...(s.workers ?? [])].sort()]))
     const answered = workers(have)
     for (const [serviceId, now] of workers(sent)) if (!same(answered.get(serviceId) ?? [], now)) throw new DesignRefused(403, 'Only an administrator can change who may run a service’s jobs.')
+  }
+  if (!by.admin) {
+    // Style rules of the organization's own reach every screen in the Workspace.
+    const rules = (d: Design) => JSON.stringify([d.theme?.css ?? '', ...d.apps.map((a) => [a.id, a.theme?.css ?? ''])])
+    const hadRules = JSON.stringify([have.theme?.css ?? '', ...sent.apps.map((a) => [a.id, have.apps.find((x) => x.id === a.id)?.theme?.css ?? ''])])
+    if (rules(sent) !== hadRules) throw new DesignRefused(403, 'Only an administrator can change the Workspace’s own style rules.')
   }
   if (!sent.users.some((u) => u.roles?.includes('admin'))) throw new DesignRefused(409, 'A design needs at least one administrator.')
 

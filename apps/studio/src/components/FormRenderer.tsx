@@ -1,8 +1,9 @@
-import { Download, EyeOff, Lock, Paperclip, Sigma, Upload, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { ChevronRight, Download, EyeOff, Lock, Paperclip, Sigma, Upload, X } from 'lucide-react'
+import { type CSSProperties, type ReactNode, useMemo, useRef, useState } from 'react'
 import { acceptedEndings, fileProblem } from '@modus-bpm/core/model/attachments'
 import { dependentFields, optionsForField } from '@modus-bpm/core/model/lists'
 import { type AttachmentValue, formatBytes, formatFieldValue } from '@modus-bpm/core/model/format'
+import { formPlan, type PlannedItem, type PlannedSection } from '@modus-bpm/core/model/forms'
 import { isComputed, normalizeData } from '@modus-bpm/core/model/tables'
 import type { FieldAccess, FieldDef, ListDef, ObjectType, User } from '@modus-bpm/core/model/types'
 import { isPicked, useFiles } from './files'
@@ -34,8 +35,8 @@ export function FormRenderer({ type, lists, users, values: given, onChange, acce
   // While editing, show totals and calculated columns current even when the caller
   // keeps only the fields the person may change (a total is never one of them).
   const values = onChange ? normalizeData(type, given) : given
-  const fields = type.fields.filter((f) => (includeSystem || !f.system) && access?.[f.id] !== 'hidden')
-  const hiddenCount = access ? type.fields.filter((f) => (includeSystem || !f.system) && access[f.id] === 'hidden').length : 0
+  // Where everything goes: the type's layout (the forms builder's), or every field in order.
+  const plan = useMemo(() => formPlan(type, { includeSystem, access }), [type, includeSystem, access])
 
   const setValue = (field: FieldDef, v: unknown) => {
     if (!onChange) return
@@ -46,56 +47,111 @@ export function FormRenderer({ type, lists, users, values: given, onChange, acce
     onChange(normalizeData(type, next))
   }
 
-  return (
-    <div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-        {fields.map((f) => {
-          const computed = isComputed(f)
-          const readOnly = !onChange || access?.[f.id] === 'read' || computed
-          const source = f.total ? type.fields.find((x) => x.id === f.total!.tableFieldId) : undefined
-          const column = source?.columns?.find((c) => c.id === f.total!.columnId)
-          return (
-            <div
-              key={f.id}
-              onClick={onFieldClick ? () => onFieldClick(f.id) : undefined}
-              className={cx(
-                'min-w-0',
-                f.width === 'full' || f.type === 'table' ? 'col-span-2' : 'col-span-2 sm:col-span-1',
-                onFieldClick && 'cursor-pointer rounded-md p-1.5 -m-1.5 hover:bg-slate-50',
-                highlightFieldId === f.id && 'bg-brand-50 ring-2 ring-brand-300 hover:bg-brand-50',
-              )}
-            >
-              <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
-                <span>{f.label}</span>
-                {f.required && !readOnly && <span className="text-rose-500">*</span>}
-                {readOnly && onChange && !computed && <Lock size={11} className="text-slate-400" aria-label="Read only at this step" />}
-                {computed && (
-                  <span className="inline-flex items-center gap-0.5 rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-500" title="Calculated: it can’t be typed in">
-                    <Sigma size={9} /> calculated
-                  </span>
-                )}
-                {f.system && <span className="rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-500">set by workflow</span>}
-              </div>
-              <FieldControl field={f} type={type} lists={lists} users={users} values={values} readOnly={readOnly} error={errors?.[f.id]} onValue={(v) => setValue(f, v)} />
-              {errors?.[f.id] ? (
-                <p className="mt-1 text-[11px] text-rose-600">{errors[f.id]}</p>
-              ) : computed && onChange ? (
-                <p className="mt-1 text-[11px] leading-snug text-slate-500">
-                  Adds up {column?.label ?? 'a column'} across {source?.label ?? 'a table'}.
-                </p>
-              ) : (
-                f.helpText && !readOnly && <p className="mt-1 text-[11px] leading-snug text-slate-500">{f.helpText}</p>
-              )}
-            </div>
-          )
-        })}
+  const drawField = (item: Extract<PlannedItem, { kind: 'field' }>) => {
+    const f = item.field
+    const computed = isComputed(f)
+    const readOnly = !onChange || access?.[f.id] === 'read' || computed
+    const source = f.total ? type.fields.find((x) => x.id === f.total!.tableFieldId) : undefined
+    const column = source?.columns?.find((c) => c.id === f.total!.columnId)
+    return (
+      <div
+        key={item.id}
+        onClick={onFieldClick ? () => onFieldClick(f.id) : undefined}
+        style={{ '--span': item.span } as CSSProperties}
+        className={cx('form-item min-w-0', onFieldClick && 'cursor-pointer rounded-md p-1.5 -m-1.5 hover:bg-slate-50', highlightFieldId === f.id && 'bg-brand-50 ring-2 ring-brand-300 hover:bg-brand-50')}
+      >
+        <div className="form-label mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
+          <span>{item.label}</span>
+          {f.required && !readOnly && <span className="text-rose-500">*</span>}
+          {readOnly && onChange && !computed && <Lock size={11} className="text-slate-400" aria-label="Read only at this step" />}
+          {computed && (
+            <span className="inline-flex items-center gap-0.5 rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-500 normal-case" title="Calculated: it can’t be typed in">
+              <Sigma size={9} /> calculated
+            </span>
+          )}
+          {f.system && <span className="rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-500 normal-case">set by workflow</span>}
+        </div>
+        <FieldControl field={f} type={type} lists={lists} users={users} values={values} readOnly={readOnly} error={errors?.[f.id]} placeholder={item.placeholder} onValue={(v) => setValue(f, v)} />
+        {errors?.[f.id] ? (
+          <p className="mt-1 text-[11px] text-rose-600">{errors[f.id]}</p>
+        ) : computed && onChange ? (
+          <p className="mt-1 text-[11px] leading-snug text-slate-500">
+            Adds up {column?.label ?? 'a column'} across {source?.label ?? 'a table'}.
+          </p>
+        ) : (
+          item.help && !readOnly && <p className="mt-1 text-[11px] leading-snug text-slate-500">{item.help}</p>
+        )}
       </div>
-      {hiddenCount > 0 && (
+    )
+  }
+
+  const draw = (item: PlannedItem) => {
+    switch (item.kind) {
+      case 'field':
+        return drawField(item)
+      case 'heading':
+        return (
+          <h4 key={item.id} className="form-item form-heading text-sm font-semibold text-slate-900" style={{ '--span': item.span } as CSSProperties}>
+            {item.text}
+          </h4>
+        )
+      case 'text':
+        return (
+          <p key={item.id} className="form-item form-text text-xs leading-relaxed whitespace-pre-wrap text-slate-600" style={{ '--span': item.span } as CSSProperties}>
+            {item.text}
+          </p>
+        )
+      case 'divider':
+        return <hr key={item.id} className="form-item border-slate-200" style={{ '--span': item.span } as CSSProperties} />
+      case 'image':
+        return (
+          <div key={item.id} className="form-item" style={{ '--span': item.span } as CSSProperties}>
+            <img src={item.url} alt={item.alt} className="form-image max-w-full rounded-md object-contain" style={{ maxHeight: item.height ?? 160 }} />
+          </div>
+        )
+    }
+  }
+
+  return (
+    <div className="form">
+      <div className="form-sections space-y-5">
+        {plan.sections.map((s) => (
+          <FormSectionView key={s.id} section={s} hasError={s.items.some((i) => i.kind === 'field' && !!errors?.[i.field.id])}>
+            {s.items.map(draw)}
+          </FormSectionView>
+        ))}
+      </div>
+      {plan.hidden > 0 && (
         <p className="mt-4 flex items-center gap-1.5 text-[11px] text-slate-500">
-          <EyeOff size={12} /> {hiddenCount} field{hiddenCount === 1 ? '' : 's'} hidden at this step
+          <EyeOff size={12} /> {plan.hidden} field{plan.hidden === 1 ? '' : 's'} hidden at this step
         </p>
       )}
     </div>
+  )
+}
+
+/** One section of a form: its title, and its items on a grid that folds to one column where there is no room. */
+function FormSectionView({ section, hasError, children }: { section: PlannedSection; hasError: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(!section.collapsed)
+  // A section with a mistake in it opens, so the message is seen.
+  const shown = open || hasError
+  const grid = <div className={cx('form-grid grid gap-x-4 gap-y-3.5', `form-cols-${section.columns}`)}>{children}</div>
+  if (!section.title && !section.description) return <section className="form-section">{grid}</section>
+  return (
+    <section className="form-section">
+      <div className="form-section-head mb-3">
+        {section.collapsed ? (
+          <button type="button" onClick={() => setOpen(!shown)} aria-expanded={shown} className="form-section-title flex w-full items-center gap-1.5 text-left text-sm font-semibold text-slate-900">
+            <ChevronRight size={14} className={cx('shrink-0 text-slate-400 transition-transform', shown && 'rotate-90')} />
+            {section.title ?? 'More'}
+          </button>
+        ) : (
+          section.title && <h3 className="form-section-title text-sm font-semibold text-slate-900">{section.title}</h3>
+        )}
+        {section.description && shown && <p className="form-section-description mt-0.5 text-xs leading-relaxed text-slate-500">{section.description}</p>}
+      </div>
+      {shown && grid}
+    </section>
   )
 }
 
@@ -107,6 +163,7 @@ function FieldControl({
   values,
   readOnly,
   error,
+  placeholder,
   onValue,
 }: {
   field: FieldDef
@@ -116,6 +173,8 @@ function FieldControl({
   values: Record<string, unknown>
   readOnly: boolean
   error?: string
+  /** Shown in an empty text, number or email field. */
+  placeholder?: string
   onValue: (v: unknown) => void
 }) {
   const v = values[field.id]
@@ -133,9 +192,9 @@ function FieldControl({
   }
   switch (field.type) {
     case 'textarea':
-      return <Textarea value={(v as string) ?? ''} onChange={(e) => onValue(e.target.value)} />
+      return <Textarea value={(v as string) ?? ''} placeholder={placeholder} onChange={(e) => onValue(e.target.value)} />
     case 'number':
-      return <Input type="number" min={field.min} max={field.max} value={v === undefined ? '' : String(v)} onChange={(e) => onValue(e.target.value === '' ? undefined : Number(e.target.value))} />
+      return <Input type="number" placeholder={placeholder} min={field.min} max={field.max} value={v === undefined ? '' : String(v)} onChange={(e) => onValue(e.target.value === '' ? undefined : Number(e.target.value))} />
     case 'currency':
       return (
         <div className="relative">
@@ -159,7 +218,7 @@ function FieldControl({
         </div>
       )
     case 'email':
-      return <Input type="email" value={(v as string) ?? ''} onChange={(e) => onValue(e.target.value)} />
+      return <Input type="email" placeholder={placeholder} value={(v as string) ?? ''} onChange={(e) => onValue(e.target.value)} />
     case 'user':
       return (
         <Select value={(v as string) ?? ''} onChange={(e) => onValue(e.target.value || undefined)}>
@@ -190,7 +249,7 @@ function FieldControl({
     case 'attachment':
       return <AttachmentInput field={field} files={Array.isArray(v) ? (v as AttachmentValue[]) : []} onChange={onValue} />
     default:
-      return <Input value={(v as string) ?? ''} onChange={(e) => onValue(e.target.value)} />
+      return <Input placeholder={placeholder} value={(v as string) ?? ''} onChange={(e) => onValue(e.target.value)} />
   }
 }
 

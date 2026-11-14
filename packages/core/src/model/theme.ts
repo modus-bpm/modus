@@ -144,28 +144,43 @@ export function themeAttrs(theme: Theme): Record<string, string> {
   return { 'data-theme-density': theme.density, 'data-theme-fields': theme.fields, 'data-theme-labels': theme.labels, 'data-theme-header': theme.header }
 }
 
+/** Functions that can load something, whatever they are given. `url()` is handled on its own. */
+const LOADS = /(?:^|[^a-z0-9_-])(?:-webkit-)?(?:image-set|image|cross-fade|src|element|paint)\s*\(/i
+
 /**
  * The organization's own style rules, made safe to put in the page and kept to the Workspace.
- * Nothing in them may load anything (no @import, no url() but a picture held in the rules
- * themselves), so a style sheet can't send what is on the screen anywhere; nothing may close the
- * style element; and every rule is nested under `scope`, so it can't restyle the Studio.
+ *
+ * Nothing in them may load anything: no @import, no url() but a picture held in the rules
+ * themselves, and none of the other functions that fetch. So a style sheet can't send what is on
+ * the screen anywhere. Nothing may close the style element. And every rule is nested under
+ * `scope`, so it can't restyle the Studio: the rules are read the way a browser reads them
+ * (comments gone, no escapes, braces inside quoted text not counted), and a sheet whose braces
+ * don't balance, or that has a string left open, is dropped whole rather than guessed at.
  */
 export function scopedCss(css: string | undefined, scope = '.modus-themed'): string {
   if (!css?.trim()) return ''
   const safe = css
     .slice(0, MAX_CSS_CHARS)
-    .replace(/<\/?[a-z!][^>]*>?/gi, '')
+    // Comments first: one could hide a brace, or split a word such as u/**/rl( that is checked below.
+    .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, ' ')
+    // No escapes: what is written is what the browser reads.
     .replace(/\\/g, '')
+    .replace(/<\/?[a-z!][^>]*>?/gi, '')
     .replace(/@(import|charset|namespace)[^;{}]*;?/gi, '')
     .replace(/url\(\s*(?!['"]?data:image\/(?:png|jpeg|gif|webp);base64,)[^)]*\)/gi, 'none')
-    .replace(/expression\s*\(|-moz-binding|behavior\s*:/gi, 'blocked(')
-  // Braces must balance, or a stray one would close the scope and let the rest out.
+  if (LOADS.test(safe) || /expression\s*\(|-moz-binding|behavior\s*:/i.test(safe)) return ''
   let depth = 0
+  let quote = ''
   for (const ch of safe) {
-    if (ch === '{') depth++
+    if (quote) {
+      // A line break inside a string is an error a browser recovers from in its own way: don't guess.
+      if (ch === '\n' || ch === '\r' || ch === '\f') return ''
+      if (ch === quote) quote = ''
+    } else if (ch === '"' || ch === "'") quote = ch
+    else if (ch === '{') depth++
     else if (ch === '}' && --depth < 0) return ''
   }
-  if (depth !== 0) return ''
+  if (depth !== 0 || quote) return ''
   return `${scope} {\n${safe}\n}`
 }
 

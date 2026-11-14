@@ -179,3 +179,135 @@ body {
     display: none;
   }
 }
+
+/* ---------- Forms (components/FormRenderer.tsx) ---------- */
+
+/* A section's grid goes by the room the form has, not the window's: one column where it is narrow. */
+.form-section {
+  container-type: inline-size;
+}
+
+.form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.form-item {
+  grid-column: 1 / -1;
+}
+
+@container (min-width: 26rem) {
+  .form-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .form-cols-2 > .form-item {
+    grid-column: span var(--span, 1);
+  }
+}
+
+@container (min-width: 40rem) {
+  .form-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .form-cols-3 > .form-item {
+    grid-column: span var(--span, 1);
+  }
+}
+
+/* ---------- The Workspace's look (core: model/theme.ts; components/Themed.tsx) ---------- */
+
+/* A theme sets the palette's own properties on this element, so what is drawn with them follows. */
+.modus-themed {
+  font-family: var(--font-sans);
+  color: var(--color-slate-900);
+}
+
+/* Text on the primary colour reads on it, whatever colour was chosen. */
+.modus-themed :is(.bg-brand-500, .bg-brand-600, .bg-brand-700).text-white {
+  color: var(--theme-on-brand);
+}
+
+/* The side panel in the primary colour or dark: the same palette, mixed for that background. */
+.modus-themed:is([data-theme-header='brand'], [data-theme-header='dark']) .theme-side {
+  --color-white: var(--theme-side);
+  --color-slate-50: color-mix(in srgb, var(--theme-on-side) 8%, var(--theme-side));
+  --color-slate-100: color-mix(in srgb, var(--theme-on-side) 12%, var(--theme-side));
+  --color-slate-200: color-mix(in srgb, var(--theme-on-side) 18%, var(--theme-side));
+  --color-slate-300: color-mix(in srgb, var(--theme-on-side) 28%, var(--theme-side));
+  --color-slate-400: color-mix(in srgb, var(--theme-on-side) 55%, var(--theme-side));
+  --color-slate-500: color-mix(in srgb, var(--theme-on-side) 70%, var(--theme-side));
+  --color-slate-600: color-mix(in srgb, var(--theme-on-side) 82%, var(--theme-side));
+  --color-slate-700: color-mix(in srgb, var(--theme-on-side) 90%, var(--theme-side));
+  --color-slate-800: var(--theme-on-side);
+  --color-slate-900: var(--theme-on-side);
+  --color-brand-50: color-mix(in srgb, var(--theme-on-side) 16%, var(--theme-side));
+  --color-brand-100: color-mix(in srgb, var(--theme-on-side) 22%, var(--theme-side));
+  --color-brand-700: var(--theme-on-side);
+  --color-brand-800: var(--theme-on-side);
+  color: var(--theme-on-side);
+}
+
+/* How fields are drawn. */
+.modus-themed[data-theme-fields='filled'] :is(input:not([type='checkbox'], [type='radio'], [type='file'], [type='color']), select, textarea) {
+  border-color: transparent;
+  background-color: var(--color-slate-100);
+}
+
+.modus-themed[data-theme-fields='filled'] :is(input:not([type='checkbox'], [type='radio'], [type='file'], [type='color']), select, textarea):focus {
+  border-color: var(--color-brand-500);
+  background-color: var(--color-white);
+}
+
+.modus-themed[data-theme-fields='underlined'] :is(input:not([type='checkbox'], [type='radio'], [type='file'], [type='color']), select, textarea) {
+  border-width: 0 0 1.5px;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* How labels are drawn. */
+.modus-themed[data-theme-labels='bold'] .form-label {
+  font-weight: 600;
+  color: var(--color-slate-900);
+}
+
+.modus-themed[data-theme-labels='caps'] .form-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* How much room forms take. */
+.modus-themed[data-theme-density='compact'] .form-sections > * + * {
+  margin-top: 0.875rem;
+}
+
+.modus-themed[data-theme-density='compact'] .form-grid {
+  column-gap: 0.75rem;
+  row-gap: 0.5rem;
+}
+
+.modus-themed[data-theme-density='compact'] .form-grid :is(input:not([type='checkbox'], [type='radio'], [type='file']), select) {
+  height: 1.75rem;
+  font-size: 0.8125rem;
+}
+
+.modus-themed[data-theme-density='roomy'] .form-sections > * + * {
+  margin-top: 1.75rem;
+}
+
+.modus-themed[data-theme-density='roomy'] .form-grid {
+  column-gap: 1.5rem;
+  row-gap: 1.25rem;
+}
+
+.modus-themed[data-theme-density='roomy'] .form-grid :is(input:not([type='checkbox'], [type='radio'], [type='file']), select) {
+  height: 2.5rem;
+  padding-inline: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.modus-themed[data-theme-density='roomy'] .form-label {
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+}

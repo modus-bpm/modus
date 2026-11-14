@@ -149,6 +149,13 @@ const itemParams = z.object({ app: z.string(), itemId: z.string() })
 
 // ---------- Studio (static files with SPA fallback) ----------
 
+/**
+ * The Studio's pages load pictures and fonts only from the server itself or from the page (logos and
+ * form pictures are kept in the design). So a style rule or a picture address that got past the
+ * checks still has nowhere outside to send anything.
+ */
+const STUDIO_CSP = "img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'"
+
 function serveStudio(app: FastifyInstance, dir: string) {
   const root = resolve(dir)
   if (!existsSync(join(root, 'index.html'))) throw new Error(`STATIC_DIR=${dir} has no index.html. Build the studio (pnpm --filter @modus-bpm/studio build) or unset STATIC_DIR.`)
@@ -159,6 +166,7 @@ function serveStudio(app: FastifyInstance, dir: string) {
       // Vite fingerprints everything under assets/; the HTML must always be revalidated.
       reply.header('cache-control', path.includes(`${sep}assets${sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache')
       reply.header('x-content-type-options', 'nosniff')
+      if (path.endsWith('.html')) reply.header('content-security-policy', STUDIO_CSP)
     },
   })
 }
@@ -195,7 +203,7 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
     const api = path === '/api' || path.startsWith('/api/')
     // Client-side routes get the studio; missing files (anything with an extension) and API paths get a 404.
     if (opts.staticDir && !api && (req.method === 'GET' || req.method === 'HEAD') && !/\.[a-z0-9]+$/i.test(path)) {
-      return reply.header('cache-control', 'no-cache').sendFile('index.html')
+      return reply.header('cache-control', 'no-cache').header('content-security-policy', STUDIO_CSP).sendFile('index.html')
     }
     return reply.code(404).send({ ok: false, error: `No route ${req.method} ${path}` })
   })

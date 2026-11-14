@@ -112,6 +112,19 @@ describe('the look', () => {
     const out = scopedCss('@import url(https://evil.example/x.css); a { background: url(https://evil.example/?q=1) } b { background: url("data:image/png;base64,AAAA") } </style><script>alert(1)</script>')
     expect(out).not.toMatch(/@import|evil\.example|<|script>/)
     expect(out).toMatch(/data:image\/png;base64,AAAA/)
+    // Braces in quoted text and in comments are read as a browser reads them, so they can't close the scope early.
+    expect(scopedCss('a::before { content: "}" }')).toMatch(/content: "}"/)
+    expect(scopedCss('x { content: "{" } } body { display: none } y { content: "}" ')).toBe('')
+    expect(scopedCss('x { color: red } /* { */ } body { display: none } /* } */ y {')).toBe('')
+    expect(scopedCss('a { content: "open }')).toBe('')
+    // Nothing that loads: not through a comment-split word, an escape, or a function other than url().
+    // (What is left of a split or escaped word is not a function a browser knows, so it loads nothing.)
+    expect(scopedCss('a { background: u/**/rl(https://evil.example/x) }')).not.toMatch(/url\(/i)
+    expect(scopedCss('a { background: u\\72l(https://evil.example/x) }')).not.toMatch(/url\(/i)
+    expect(scopedCss('a { background: UR/**/L(https://evil.example/x) }')).not.toMatch(/url\(/i)
+    expect(scopedCss('a { background: image-set("https://evil.example/x" 1x) }')).toBe('')
+    expect(scopedCss('a { background: -webkit-image-set("https://evil.example/x" 1x) }')).toBe('')
+    expect(scopedCss('@font-face { font-family: x; src: url(https://evil.example/f.woff) }')).not.toMatch(/evil/)
     // A stray brace would close the scope and let the rest out: the whole sheet is dropped.
     expect(scopedCss('a { color: red } } body { display: none } .x {')).toBe('')
     expect(scopedCss('a { color: red')).toBe('')
