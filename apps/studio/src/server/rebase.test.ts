@@ -88,6 +88,21 @@ describe('carrying changes over to a design someone else saved', () => {
     expect(carryOver(base, base, theirs).design).toBe(theirs)
   })
 
+  it('treats the organization’s look as one part: mine when I changed it, theirs otherwise', () => {
+    const look = { primary: '#15803d', background: '#ffffff', surface: '#ffffff', text: '#000000', font: 'inter', radius: 'soft', density: 'comfortable', fields: 'outlined', labels: 'plain', header: 'light' } as const
+    const themed = edit(base, (d) => void (d.theme = { ...look }))
+    expect(changedParts(base, themed)).toEqual([{ key: 'look', kind: 'look', name: 'Workspace' }])
+    const theirs = edit(base, (d) => void (d.apps[0]!.name = 'Invoices'))
+    expect(carryOver(base, themed, theirs).design.theme).toEqual(look)
+    expect(carryOver(base, theirs, themed).design.theme).toEqual(look)
+    // Both changed it, differently: a conflict the caller decides.
+    const other = edit(base, (d) => void (d.theme = { ...look, primary: '#b91c1c' }))
+    const both = carryOver(base, themed, other)
+    expect(both.conflicts.map((c) => c.key)).toEqual(['look'])
+    expect(both.design.theme?.primary).toBe('#15803d')
+    expect(carryOver(base, themed, other, 'theirs').design.theme?.primary).toBe('#b91c1c')
+  })
+
   it('carries a new application and a removed one', () => {
     const added = edit(base, (d) => {
       d.apps.push({ ...structuredClone(d.apps[2]!), id: 'app_new', name: 'New' })

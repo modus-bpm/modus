@@ -77,6 +77,11 @@ export function App() {
       <Toaster />
     </>
   )
-  // The Workspace, and everything opened from it, is drawn in the organization's look. The Studio keeps the product's.
-  return <Shell>{mode === 'workspace' ? <Themed theme={look} className="contents">{content}</Themed> : content}</Shell>
+  // The Workspace, its top bar and everything opened from it are drawn in the organization's look. The Studio keeps the product's.
+  if (mode !== 'workspace') return <Shell>{content}</Shell>
+  return (
+    <Themed theme={look} className="contents">
+      <Shell>{content}</Shell>
+    </Themed>
+  )
 }

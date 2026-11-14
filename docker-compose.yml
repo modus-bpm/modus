@@ -52,6 +52,8 @@ services:
       MODUS_OIDC_ADMINS: ${MODUS_OIDC_ADMINS:-}
       MODUS_OIDC_TRUST_EMAIL: ${MODUS_OIDC_TRUST_EMAIL:-}
       MODUS_API_TOKENS: ${MODUS_API_TOKENS:-}
+      # Uploaded files: the largest one taken, in megabytes (docs/DEPLOYMENT.md, "Attachments").
+      ATTACHMENT_MAX_MB: ${ATTACHMENT_MAX_MB:-25}
     volumes:
       - modus-data:/data
     depends_on:

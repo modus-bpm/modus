@@ -36,6 +36,7 @@ import { isLive } from '../features/monitor/source'
 import { useLive } from '../server/useLive'
 import { SPEEDS, useSim, useSimView } from '../store/sim'
 import { type Mode, useUi, type View } from '../store/ui'
+import { useWorkspaceLook } from '../features/branding/look'
 import { Button, cx, Field, Input, Modal, Segmented, Textarea, Toggle } from './ui'
 
 const NAV: Array<{ view: View; label: string; icon: typeof GitBranch }> = [
@@ -88,18 +89,29 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 function TopBar() {
+  const mode = useUi((s) => s.mode)
+  const look = useWorkspaceLook()
+  // In the Workspace the organization's own name and logo stand where the product's do.
+  const branded = mode === 'workspace' && !!(look.name || look.logo)
+  const name = branded ? (look.name ?? '') : PRODUCT.name
   return (
     <header className="flex h-[52px] shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3">
-      <a href="#/" title={`${PRODUCT.name} home`} aria-label={`${PRODUCT.name} home`} className="flex items-center gap-3 rounded-lg">
-        <span className="flex w-[52px] items-center justify-center">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
-            <GitBranch size={17} strokeWidth={2.4} />
+      <a href="#/" title={`${name || PRODUCT.name} home`} aria-label={`${name || PRODUCT.name} home`} className="flex items-center gap-3 rounded-lg">
+        {branded && look.logo ? (
+          <img src={look.logo} alt="" className="ml-2 h-8 max-w-[140px] shrink-0 object-contain" />
+        ) : (
+          <span className="flex w-[52px] items-center justify-center">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
+              <GitBranch size={17} strokeWidth={2.4} />
+            </span>
           </span>
-        </span>
-        <span className="hidden leading-tight min-[1200px]:block">
-          <span className="block text-sm font-semibold text-slate-900">{PRODUCT.name}</span>
-          <span className="hidden text-[10.5px] font-medium tracking-wide text-slate-400 uppercase min-[1520px]:block">{PRODUCT.tagline}</span>
-        </span>
+        )}
+        {name && (
+          <span className="hidden leading-tight min-[1200px]:block">
+            <span className="block text-sm font-semibold text-slate-900">{name}</span>
+            {!branded && <span className="hidden text-[10.5px] font-medium tracking-wide text-slate-400 uppercase min-[1520px]:block">{PRODUCT.tagline}</span>}
+          </span>
+        )}
       </a>
       <div className="mx-2 hidden h-6 w-px bg-slate-200 min-[1200px]:block" />
       <ModeSwitch />

@@ -198,6 +198,53 @@ describe('saving the design', () => {
   })
 })
 
+describe('the look and the form layouts', () => {
+  const look = { primary: '#15803d', background: '#f4f7f2', surface: '#ffffff', text: '#14261a', font: 'system', radius: 'round', density: 'comfortable', fields: 'outlined', labels: 'plain', header: 'light', name: 'City of Riverton' } as const
+  const withLook = (d: Served, theme: object): Served => ({ ...structuredClone(d), theme: theme as Served['theme'] })
+
+  it('are saved by a designer and come back to everyone', async () => {
+    const d = await design()
+    const next = withLook(d, look)
+    const type = next.apps.find((a) => a.id === 'app_invoice')!.objectTypes[0]!
+    type.form = { sections: [{ id: 's1', title: 'The invoice', columns: 3, items: [{ id: 'i1', kind: 'field', fieldId: type.fields[0]!.id, span: 2 }, { id: 'i2', kind: 'text', text: 'Attach the scan.' }] }] }
+    next.apps[0]!.theme = { primary: '#b91c1c' }
+    expect((await save('u_noah', d.revision, next)).statusCode).toBe(200)
+    const got = await design('u_maya')
+    expect(got.theme).toMatchObject({ name: 'City of Riverton', primary: '#15803d' })
+    expect(got.apps[0]!.theme).toEqual({ primary: '#b91c1c' })
+    expect(got.apps.find((a) => a.id === 'app_invoice')!.objectTypes[0]!.form?.sections[0]?.title).toBe('The invoice')
+  })
+
+  it('are refused when they are not something the Workspace can draw safely', async () => {
+    const d = await design()
+    const bad = async (change: (x: Served) => void) => {
+      const next = structuredClone(d)
+      change(next)
+      const res = await save('u_avery', d.revision, next)
+      return [res.statusCode, res.json().error as string] as const
+    }
+    expect((await bad((x) => void (x.theme = { ...look, primary: 'red' } as never)))[0]).toBe(400)
+    expect((await bad((x) => void (x.theme = { ...look, logo: 'https://evil.example/logo.png' })))[1]).toMatch(/logo/)
+    expect((await bad((x) => void (x.theme = { ...look, css: 'a { background: url(https://evil.example/x) }' })))[1]).toMatch(/url\(\)/)
+    expect((await bad((x) => void (x.apps[0]!.theme = { radius: 'wavy' } as never)))[0]).toBe(400)
+    expect((await bad((x) => void (x.apps[0]!.objectTypes[0]!.form = { sections: [{ id: 's', columns: 2, items: [{ id: 'p', kind: 'image', url: 'https://evil.example/a.png' }] }] })))[1]).toMatch(/picture/)
+  })
+
+  it('lets only an administrator change the Workspace’s own style rules', async () => {
+    const d = await design()
+    const rules = withLook(d, { ...look, css: '.form-label { letter-spacing: 0.02em }' })
+    const refused = await save('u_noah', d.revision, rules)
+    expect(refused.statusCode).toBe(403)
+    expect(refused.json().error).toMatch(/administrator/)
+    const saved = await save('u_avery', d.revision, rules)
+    expect(saved.statusCode).toBe(200)
+    // A designer can still change the rest of the look, leaving the rules as they are.
+    const now = await design()
+    expect((await save('u_noah', now.revision, withLook(now, { ...now.theme, primary: '#1d4ed8' }))).statusCode).toBe(200)
+    expect((await save('u_noah', (await design()).revision, withLook(await design(), { ...look })))).toMatchObject({ statusCode: 403 })
+  })
+})
+
 describe('publishing a draft', () => {
   it('for new items: they start on the new version, and items in flight finish on theirs', async () => {
     const old = await invoice('P-1')
