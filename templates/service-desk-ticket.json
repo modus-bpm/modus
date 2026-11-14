@@ -1,0 +1,349 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_sd",
+      "name": "Service desk ticket",
+      "description": "An AI agent sorts each ticket. Sure ones go straight to the service desk queue; the rest are sorted by a person first. The desk resolves it, asks for more information, or passes it to a specialist.",
+      "category": "IT and security",
+      "tags": [
+        "AI",
+        "queue",
+        "help desk"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "sd_subject",
+          "label": "Subject",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "sd_details",
+          "label": "Details",
+          "type": "textarea",
+          "width": "full"
+        },
+        {
+          "id": "sd_cat",
+          "label": "Category",
+          "type": "text",
+          "width": "half",
+          "system": true
+        },
+        {
+          "id": "sd_conf",
+          "label": "AI Confidence",
+          "type": "number",
+          "width": "half",
+          "min": 0,
+          "max": 100,
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sd_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Ticket received",
+            "trigger": "email"
+          }
+        },
+        {
+          "id": "sd_ai",
+          "type": "auto",
+          "position": {
+            "x": 325,
+            "y": 184
+          },
+          "data": {
+            "label": "AI sorts the ticket",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_classifier",
+            "operationId": "op_classify",
+            "outputs": [
+              {
+                "key": "confidence",
+                "fieldId": "sd_conf"
+              },
+              {
+                "key": "category",
+                "fieldId": "sd_cat"
+              }
+            ],
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "sd_sure",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 170
+          },
+          "data": {
+            "label": "Sure of the category?"
+          }
+        },
+        {
+          "id": "sd_tri",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Sort by hand",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 3,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "sd_tri_ok",
+                "label": "Sorted",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sd_cat": "edit"
+            }
+          }
+        },
+        {
+          "id": "sd_t1",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 174
+          },
+          "data": {
+            "label": "Service desk",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 14,
+            "slaHours": 8,
+            "outcomes": [
+              {
+                "id": "sd_t1_ok",
+                "label": "Resolved",
+                "weight": 70,
+                "actions": []
+              },
+              {
+                "id": "sd_t1_up",
+                "label": "Pass to a specialist",
+                "weight": 20,
+                "actions": []
+              },
+              {
+                "id": "sd_t1_more",
+                "label": "Ask for more information",
+                "weight": 10,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "sd_cat": "read",
+              "sd_details": "read"
+            }
+          }
+        },
+        {
+          "id": "sd_info",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 344
+          },
+          "data": {
+            "label": "Requester replies",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "sd_info_ok",
+                "label": "Replied",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sd_details": "edit"
+            }
+          }
+        },
+        {
+          "id": "sd_t2",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Specialist",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "sd_t2_ok",
+                "label": "Resolved",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "sd_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Resolved",
+            "result": "completed",
+            "outcome": "Resolved"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "sd_e1",
+          "source": "sd_s",
+          "target": "sd_ai",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sd_e2",
+          "source": "sd_ai",
+          "target": "sd_sure",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sd_e3",
+          "source": "sd_sure",
+          "target": "sd_t1",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "sd_r2_0",
+                  "fieldId": "sd_conf",
+                  "op": "gte",
+                  "value": 80
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "sd_e4",
+          "source": "sd_sure",
+          "target": "sd_tri",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "sd_e5",
+          "source": "sd_tri",
+          "target": "sd_t1",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sd_tri_ok"
+          }
+        },
+        {
+          "id": "sd_e6",
+          "source": "sd_t1",
+          "target": "sd_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sd_t1_ok"
+          }
+        },
+        {
+          "id": "sd_e7",
+          "source": "sd_t1",
+          "target": "sd_t2",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sd_t1_up"
+          }
+        },
+        {
+          "id": "sd_e8",
+          "source": "sd_t1",
+          "target": "sd_info",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sd_t1_more"
+          }
+        },
+        {
+          "id": "sd_e9",
+          "source": "sd_info",
+          "target": "sd_t1",
+          "sourceHandle": "r",
+          "targetHandle": "r",
+          "data": {
+            "outcomeId": "sd_info_ok"
+          }
+        },
+        {
+          "id": "sd_e10",
+          "source": "sd_t2",
+          "target": "sd_done",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sd_t2_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Ticket",
+        "many": "Tickets"
+      }
+    }
+  ]
+}

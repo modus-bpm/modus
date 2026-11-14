@@ -1,0 +1,232 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_lic",
+      "name": "License and certification renewal",
+      "description": "A timer starts the renewal ahead of the expiry date. The employee uploads proof, HR verifies it or sends it back, and it escalates if the date is getting close.",
+      "category": "People and HR",
+      "tags": [
+        "timer",
+        "expiry",
+        "return for changes"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "lic_employee",
+          "label": "Employee",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "lic_name",
+          "label": "License or Certification",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "lic_expires",
+          "label": "Expires",
+          "type": "date",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "lic_proof",
+          "label": "Proof of Renewal",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "lic_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "License on file",
+            "trigger": "schedule"
+          }
+        },
+        {
+          "id": "lic_w",
+          "type": "wait",
+          "position": {
+            "x": 364,
+            "y": 34
+          },
+          "data": {
+            "label": "Until 60 days before it expires",
+            "minutes": 43200
+          }
+        },
+        {
+          "id": "lic_emp",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Employee renews and uploads proof",
+            "distribution": "field",
+            "assigneeFieldId": "lic_employee",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 720,
+            "escalateAfterHours": 480,
+            "escalation": {
+              "raisePriority": true,
+              "toDistributors": false,
+              "notifySupervisors": true
+            },
+            "outcomes": [
+              {
+                "id": "lic_emp_ok",
+                "label": "Uploaded",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "lic_proof": "edit",
+              "lic_expires": "edit"
+            }
+          }
+        },
+        {
+          "id": "lic_hr",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Verify the renewal",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "lic_hr_ok",
+                "label": "Verified",
+                "weight": 88,
+                "actions": []
+              },
+              {
+                "id": "lic_hr_back",
+                "label": "Not acceptable",
+                "weight": 12,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "lic_proof": "read",
+              "lic_expires": "read"
+            }
+          }
+        },
+        {
+          "id": "lic_upd",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 14
+          },
+          "data": {
+            "label": "Update the record",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "lic_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 34
+          },
+          "data": {
+            "label": "Current",
+            "result": "completed",
+            "outcome": "Current"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "lic_e1",
+          "source": "lic_s",
+          "target": "lic_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "lic_e2",
+          "source": "lic_w",
+          "target": "lic_emp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "lic_e3",
+          "source": "lic_emp",
+          "target": "lic_hr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "lic_emp_ok"
+          }
+        },
+        {
+          "id": "lic_e4",
+          "source": "lic_hr",
+          "target": "lic_upd",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "lic_hr_ok"
+          }
+        },
+        {
+          "id": "lic_e5",
+          "source": "lic_hr",
+          "target": "lic_emp",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "lic_hr_back"
+          }
+        },
+        {
+          "id": "lic_e6",
+          "source": "lic_upd",
+          "target": "lic_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "License",
+        "many": "Licenses"
+      }
+    }
+  ]
+}

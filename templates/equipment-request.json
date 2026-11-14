@@ -1,0 +1,330 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_eqp",
+      "name": "Equipment request",
+      "description": "After the manager approves, IT checks stock. What is on the shelf is handed over the same day; anything else is ordered and waits for delivery first.",
+      "category": "IT and security",
+      "tags": [
+        "in stock or order",
+        "hardware",
+        "timer"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "eqp_for",
+          "label": "For",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "eqp_item",
+          "label": "Item",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "eqp_cost",
+          "label": "Cost",
+          "type": "currency",
+          "width": "half",
+          "min": 100,
+          "max": 4000
+        },
+        {
+          "id": "eqp_stock",
+          "label": "In Stock",
+          "type": "boolean",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "eqp_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Equipment requested"
+          }
+        },
+        {
+          "id": "eqp_mgr",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 3,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "eqp_mgr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "eqp_mgr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "eqp_item": "read",
+              "eqp_cost": "read"
+            }
+          }
+        },
+        {
+          "id": "eqp_chk",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Check stock",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "eqp_chk_ok",
+                "label": "Checked",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "eqp_stock": "edit"
+            }
+          }
+        },
+        {
+          "id": "eqp_st",
+          "type": "decision",
+          "position": {
+            "x": 999,
+            "y": 0
+          },
+          "data": {
+            "label": "In stock?"
+          }
+        },
+        {
+          "id": "eqp_buy",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 174
+          },
+          "data": {
+            "label": "Order it",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "eqp_buy_ok",
+                "label": "Ordered",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "eqp_cost": "edit"
+            }
+          }
+        },
+        {
+          "id": "eqp_w",
+          "type": "wait",
+          "position": {
+            "x": 1604,
+            "y": 204
+          },
+          "data": {
+            "label": "Until it is delivered",
+            "minutes": 5760
+          }
+        },
+        {
+          "id": "eqp_give",
+          "type": "user",
+          "position": {
+            "x": 1860,
+            "y": 4
+          },
+          "data": {
+            "label": "Set up and hand over",
+            "distribution": "field",
+            "assigneeFieldId": "eqp_for",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "eqp_give_ok",
+                "label": "Received",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "eqp_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 34
+          },
+          "data": {
+            "label": "Delivered",
+            "result": "completed",
+            "outcome": "Delivered"
+          }
+        },
+        {
+          "id": "eqp_rej",
+          "type": "end",
+          "position": {
+            "x": 671,
+            "y": 204
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "eqp_e1",
+          "source": "eqp_s",
+          "target": "eqp_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "eqp_e2",
+          "source": "eqp_mgr",
+          "target": "eqp_chk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "eqp_mgr_ok"
+          }
+        },
+        {
+          "id": "eqp_e3",
+          "source": "eqp_mgr",
+          "target": "eqp_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "eqp_mgr_no"
+          }
+        },
+        {
+          "id": "eqp_e4",
+          "source": "eqp_chk",
+          "target": "eqp_st",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "eqp_chk_ok"
+          }
+        },
+        {
+          "id": "eqp_e5",
+          "source": "eqp_st",
+          "target": "eqp_give",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "eqp_r4_0",
+                  "fieldId": "eqp_stock",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "eqp_e6",
+          "source": "eqp_st",
+          "target": "eqp_buy",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "eqp_e7",
+          "source": "eqp_buy",
+          "target": "eqp_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "eqp_buy_ok"
+          }
+        },
+        {
+          "id": "eqp_e8",
+          "source": "eqp_w",
+          "target": "eqp_give",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {}
+        },
+        {
+          "id": "eqp_e9",
+          "source": "eqp_give",
+          "target": "eqp_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "eqp_give_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Equipment request",
+        "many": "Equipment requests"
+      }
+    }
+  ]
+}

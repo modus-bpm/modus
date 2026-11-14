@@ -1,0 +1,343 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_trn",
+      "name": "Training request",
+      "description": "The employee’s manager approves; courses over $1,500 also go to HR. After the course the employee confirms they finished it, so the record is complete.",
+      "category": "People and HR",
+      "tags": [
+        "threshold",
+        "timer",
+        "development"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "trn_employee",
+          "label": "Employee",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "trn_manager",
+          "label": "Manager",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "trn_course",
+          "label": "Course",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "trn_cost",
+          "label": "Cost",
+          "type": "currency",
+          "width": "half",
+          "min": 100,
+          "max": 5000
+        },
+        {
+          "id": "trn_cert",
+          "label": "Certificate",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "trn_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Training requested"
+          }
+        },
+        {
+          "id": "trn_mgr",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "field",
+            "assigneeFieldId": "trn_manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 4,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "trn_mgr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "trn_mgr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "trn_course": "read",
+              "trn_cost": "read"
+            }
+          }
+        },
+        {
+          "id": "trn_lim",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 170
+          },
+          "data": {
+            "label": "Over $1,500?"
+          }
+        },
+        {
+          "id": "trn_hr",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "HR approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "trn_hr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "trn_hr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "trn_cost": "read"
+            }
+          }
+        },
+        {
+          "id": "trn_enr",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 184
+          },
+          "data": {
+            "label": "Enroll",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "trn_w",
+          "type": "wait",
+          "position": {
+            "x": 1604,
+            "y": 204
+          },
+          "data": {
+            "label": "Until the course ends",
+            "minutes": 14400
+          }
+        },
+        {
+          "id": "trn_conf",
+          "type": "user",
+          "position": {
+            "x": 1860,
+            "y": 174
+          },
+          "data": {
+            "label": "Employee confirms completion",
+            "distribution": "field",
+            "assigneeFieldId": "trn_employee",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "trn_conf_ok",
+                "label": "Completed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "trn_cert": "edit"
+            }
+          }
+        },
+        {
+          "id": "trn_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Completed",
+            "result": "completed",
+            "outcome": "Completed"
+          }
+        },
+        {
+          "id": "trn_rej",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 374
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "trn_e1",
+          "source": "trn_s",
+          "target": "trn_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "trn_e2",
+          "source": "trn_mgr",
+          "target": "trn_lim",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "trn_mgr_ok"
+          }
+        },
+        {
+          "id": "trn_e3",
+          "source": "trn_mgr",
+          "target": "trn_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "trn_mgr_no"
+          }
+        },
+        {
+          "id": "trn_e4",
+          "source": "trn_lim",
+          "target": "trn_hr",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "trn_r3_0",
+                  "fieldId": "trn_cost",
+                  "op": "gt",
+                  "value": 1500
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "trn_e5",
+          "source": "trn_lim",
+          "target": "trn_enr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "trn_e6",
+          "source": "trn_hr",
+          "target": "trn_enr",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "trn_hr_ok"
+          }
+        },
+        {
+          "id": "trn_e7",
+          "source": "trn_hr",
+          "target": "trn_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "trn_hr_no"
+          }
+        },
+        {
+          "id": "trn_e8",
+          "source": "trn_enr",
+          "target": "trn_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "trn_e9",
+          "source": "trn_w",
+          "target": "trn_conf",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "trn_e10",
+          "source": "trn_conf",
+          "target": "trn_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "trn_conf_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Training request",
+        "many": "Training requests"
+      }
+    }
+  ]
+}

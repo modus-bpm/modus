@@ -1,0 +1,388 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_sec",
+      "name": "Security incident",
+      "description": "An analyst confirms the report or closes it as a false alarm. Containing it and preserving evidence then run at the same time, and legal is brought in only when personal data is involved.",
+      "category": "IT and security",
+      "tags": [
+        "parallel",
+        "triage",
+        "security"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "sec_what",
+          "label": "What Happened",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "sec_data",
+          "label": "Personal Data Involved",
+          "type": "boolean",
+          "width": "half"
+        },
+        {
+          "id": "sec_notes",
+          "label": "Notes",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sec_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Incident reported"
+          }
+        },
+        {
+          "id": "sec_tri",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Assess the report",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 2,
+            "outcomes": [
+              {
+                "id": "sec_tri_ok",
+                "label": "Confirmed",
+                "weight": 65,
+                "actions": []
+              },
+              {
+                "id": "sec_tri_none",
+                "label": "False alarm",
+                "weight": 35,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "sec_data": "edit",
+              "sec_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "sec_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Contain and preserve",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "sec_con",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Contain it",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 4,
+            "escalateAfterHours": 2,
+            "escalation": {
+              "raisePriority": true,
+              "toDistributors": false,
+              "notifySupervisors": true
+            },
+            "outcomes": [
+              {
+                "id": "sec_con_ok",
+                "label": "Contained",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "sec_ev",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Preserve the evidence",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 8,
+            "outcomes": [
+              {
+                "id": "sec_ev_ok",
+                "label": "Preserved",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sec_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "sec_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "Both done",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "sec_pd",
+          "type": "decision",
+          "position": {
+            "x": 1619,
+            "y": 170
+          },
+          "data": {
+            "label": "Personal data involved?"
+          }
+        },
+        {
+          "id": "sec_leg",
+          "type": "user",
+          "position": {
+            "x": 1860,
+            "y": 4
+          },
+          "data": {
+            "label": "Legal decides on notification",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "sec_leg_ok",
+                "label": "Decided",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sec_notes": "edit"
+            }
+          }
+        },
+        {
+          "id": "sec_rec",
+          "type": "user",
+          "position": {
+            "x": 2170,
+            "y": 174
+          },
+          "data": {
+            "label": "Recover and review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "sec_rec_ok",
+                "label": "Closed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "sec_done",
+          "type": "end",
+          "position": {
+            "x": 2531,
+            "y": 204
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        },
+        {
+          "id": "sec_fa",
+          "type": "end",
+          "position": {
+            "x": 671,
+            "y": 374
+          },
+          "data": {
+            "label": "False alarm",
+            "result": "completed",
+            "outcome": "False alarm"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "sec_e1",
+          "source": "sec_s",
+          "target": "sec_tri",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sec_e2",
+          "source": "sec_tri",
+          "target": "sec_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sec_tri_ok"
+          }
+        },
+        {
+          "id": "sec_e3",
+          "source": "sec_tri",
+          "target": "sec_fa",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sec_tri_none"
+          }
+        },
+        {
+          "id": "sec_e4",
+          "source": "sec_sp",
+          "target": "sec_con",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sec_e5",
+          "source": "sec_sp",
+          "target": "sec_ev",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sec_e6",
+          "source": "sec_con",
+          "target": "sec_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sec_con_ok"
+          }
+        },
+        {
+          "id": "sec_e7",
+          "source": "sec_ev",
+          "target": "sec_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "sec_ev_ok"
+          }
+        },
+        {
+          "id": "sec_e8",
+          "source": "sec_jn",
+          "target": "sec_pd",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sec_e9",
+          "source": "sec_pd",
+          "target": "sec_leg",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "sec_r8_0",
+                  "fieldId": "sec_data",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "sec_e10",
+          "source": "sec_pd",
+          "target": "sec_rec",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "sec_e11",
+          "source": "sec_leg",
+          "target": "sec_rec",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sec_leg_ok"
+          }
+        },
+        {
+          "id": "sec_e12",
+          "source": "sec_rec",
+          "target": "sec_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sec_rec_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Security incident",
+        "many": "Security incidents"
+      }
+    }
+  ]
+}

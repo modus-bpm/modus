@@ -1,0 +1,423 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_gr",
+      "name": "Grant application review",
+      "description": "After an eligibility check, three reviewers score the application independently. The panel decides as soon as two scores are in, and funded applicants get an award letter.",
+      "category": "Government and public safety",
+      "tags": [
+        "two of three",
+        "scoring",
+        "grants"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "gr_applicant",
+          "label": "Applicant",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "gr_asked",
+          "label": "Amount Requested",
+          "type": "currency",
+          "width": "half",
+          "min": 5000,
+          "max": 250000,
+          "summary": true
+        },
+        {
+          "id": "gr_app",
+          "label": "Application",
+          "type": "attachment",
+          "width": "half"
+        },
+        {
+          "id": "gr_score",
+          "label": "Average Score",
+          "type": "number",
+          "width": "half",
+          "min": 0,
+          "max": 100
+        }
+      ],
+      "nodes": [
+        {
+          "id": "gr_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Application received"
+          }
+        },
+        {
+          "id": "gr_elig",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Eligibility check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "gr_elig_ok",
+                "label": "Eligible",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "gr_elig_no",
+                "label": "Not eligible",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "gr_app": "read"
+            }
+          }
+        },
+        {
+          "id": "gr_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "To three reviewers",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "gr_r1",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "First reviewer scores",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 168,
+            "outcomes": [
+              {
+                "id": "gr_r1_ok",
+                "label": "Scored",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "gr_app": "read"
+            }
+          }
+        },
+        {
+          "id": "gr_r2",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Second reviewer scores",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 168,
+            "outcomes": [
+              {
+                "id": "gr_r2_ok",
+                "label": "Scored",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "gr_app": "read"
+            }
+          }
+        },
+        {
+          "id": "gr_r3",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Third reviewer scores",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 168,
+            "outcomes": [
+              {
+                "id": "gr_r3_ok",
+                "label": "Scored",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "gr_app": "read"
+            }
+          }
+        },
+        {
+          "id": "gr_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "Two scores in",
+            "mode": "count",
+            "count": 2,
+            "cancelRemaining": true
+          }
+        },
+        {
+          "id": "gr_panel",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Panel decision",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "gr_panel_ok",
+                "label": "Fund",
+                "weight": 40,
+                "actions": []
+              },
+              {
+                "id": "gr_panel_part",
+                "label": "Fund in part",
+                "weight": 20,
+                "actions": []
+              },
+              {
+                "id": "gr_panel_no",
+                "label": "Decline",
+                "weight": 40,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "gr_score": "edit",
+              "gr_asked": "read"
+            }
+          }
+        },
+        {
+          "id": "gr_letter",
+          "type": "auto",
+          "position": {
+            "x": 1875,
+            "y": 184
+          },
+          "data": {
+            "label": "Send the award letter",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "gr_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Funded",
+            "result": "completed",
+            "outcome": "Funded"
+          }
+        },
+        {
+          "id": "gr_rej",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 374
+          },
+          "data": {
+            "label": "Not funded",
+            "result": "rejected",
+            "outcome": "Not funded"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "gr_e1",
+          "source": "gr_s",
+          "target": "gr_elig",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "gr_e2",
+          "source": "gr_elig",
+          "target": "gr_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "gr_elig_ok"
+          }
+        },
+        {
+          "id": "gr_e3",
+          "source": "gr_elig",
+          "target": "gr_rej",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "gr_elig_no"
+          }
+        },
+        {
+          "id": "gr_e4",
+          "source": "gr_sp",
+          "target": "gr_r1",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "gr_e5",
+          "source": "gr_sp",
+          "target": "gr_r2",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "gr_e6",
+          "source": "gr_sp",
+          "target": "gr_r3",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "gr_e7",
+          "source": "gr_r1",
+          "target": "gr_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "gr_r1_ok"
+          }
+        },
+        {
+          "id": "gr_e8",
+          "source": "gr_r2",
+          "target": "gr_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "gr_r2_ok"
+          }
+        },
+        {
+          "id": "gr_e9",
+          "source": "gr_r3",
+          "target": "gr_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "gr_r3_ok"
+          }
+        },
+        {
+          "id": "gr_e10",
+          "source": "gr_jn",
+          "target": "gr_panel",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "gr_e11",
+          "source": "gr_panel",
+          "target": "gr_letter",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "gr_panel_ok"
+          }
+        },
+        {
+          "id": "gr_e12",
+          "source": "gr_panel",
+          "target": "gr_letter",
+          "sourceHandle": "t",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "gr_panel_part"
+          }
+        },
+        {
+          "id": "gr_e13",
+          "source": "gr_panel",
+          "target": "gr_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "gr_panel_no"
+          }
+        },
+        {
+          "id": "gr_e14",
+          "source": "gr_letter",
+          "target": "gr_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Grant application",
+        "many": "Grant applications"
+      }
+    }
+  ]
+}

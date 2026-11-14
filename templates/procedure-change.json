@@ -1,0 +1,364 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_sop",
+      "name": "Procedure change",
+      "description": "Operations and quality review the draft at the same time. The process owner approves it or sends it back to the author; once approved it is published and team leads acknowledge it.",
+      "category": "Customers and operations",
+      "tags": [
+        "parallel",
+        "return for changes",
+        "policy"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "sop_proc",
+          "label": "Procedure",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "sop_change",
+          "label": "What Changes",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "sop_draft",
+          "label": "Draft",
+          "type": "attachment",
+          "width": "half"
+        },
+        {
+          "id": "sop_comments",
+          "label": "Review Comments",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "sop_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Change drafted"
+          }
+        },
+        {
+          "id": "sop_sp",
+          "type": "split",
+          "position": {
+            "x": 397,
+            "y": 188
+          },
+          "data": {
+            "label": "Two reviews",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "sop_r1",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Operations review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "sop_r1_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sop_draft": "read",
+              "sop_comments": "edit"
+            }
+          }
+        },
+        {
+          "id": "sop_r2",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "Quality review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "sop_r2_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sop_draft": "read",
+              "sop_comments": "edit"
+            }
+          }
+        },
+        {
+          "id": "sop_jn",
+          "type": "join",
+          "position": {
+            "x": 1017,
+            "y": 188
+          },
+          "data": {
+            "label": "Both reviews in",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "sop_own",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 174
+          },
+          "data": {
+            "label": "Process owner decides",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "sop_own_ok",
+                "label": "Approve",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "sop_own_back",
+                "label": "Revise",
+                "weight": 20,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "sop_comments": "read",
+              "sop_draft": "read"
+            }
+          }
+        },
+        {
+          "id": "sop_auth",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 344
+          },
+          "data": {
+            "label": "Author revises",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "sop_auth_ok",
+                "label": "Revised",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "sop_draft": "edit",
+              "sop_comments": "read"
+            }
+          }
+        },
+        {
+          "id": "sop_pub",
+          "type": "auto",
+          "position": {
+            "x": 1565,
+            "y": 184
+          },
+          "data": {
+            "label": "Publish and notify staff",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "sop_ack",
+          "type": "user",
+          "position": {
+            "x": 1860,
+            "y": 174
+          },
+          "data": {
+            "label": "Team leads acknowledge",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "sop_ack_ok",
+                "label": "Acknowledged",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "sop_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "In effect",
+            "result": "completed",
+            "outcome": "In effect"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "sop_e1",
+          "source": "sop_s",
+          "target": "sop_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sop_e2",
+          "source": "sop_sp",
+          "target": "sop_r1",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sop_e3",
+          "source": "sop_sp",
+          "target": "sop_r2",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sop_e4",
+          "source": "sop_r1",
+          "target": "sop_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sop_r1_ok"
+          }
+        },
+        {
+          "id": "sop_e5",
+          "source": "sop_r2",
+          "target": "sop_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "sop_r2_ok"
+          }
+        },
+        {
+          "id": "sop_e6",
+          "source": "sop_jn",
+          "target": "sop_own",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sop_e7",
+          "source": "sop_own",
+          "target": "sop_pub",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sop_own_ok"
+          }
+        },
+        {
+          "id": "sop_e8",
+          "source": "sop_own",
+          "target": "sop_auth",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "sop_own_back"
+          }
+        },
+        {
+          "id": "sop_e9",
+          "source": "sop_auth",
+          "target": "sop_sp",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "sop_auth_ok"
+          }
+        },
+        {
+          "id": "sop_e10",
+          "source": "sop_pub",
+          "target": "sop_ack",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "sop_e11",
+          "source": "sop_ack",
+          "target": "sop_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "sop_ack_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Procedure change",
+        "many": "Procedure changes"
+      }
+    }
+  ]
+}

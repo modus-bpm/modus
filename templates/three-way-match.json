@@ -1,0 +1,304 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_three_way",
+      "name": "Three-way match",
+      "description": "Fetch the purchase order and the goods receipt in parallel, then match them against the invoice. Only mismatches go to a person. The two fetch steps call the sample ERP: point them at your own purchasing system.",
+      "category": "Finance and AP",
+      "tags": [
+        "parallel",
+        "accounts payable",
+        "ERP"
+      ],
+      "createdAt": "2026-09-30T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "tw_po",
+          "label": "PO Number",
+          "type": "text",
+          "width": "half"
+        },
+        {
+          "id": "tw_found",
+          "label": "PO Found",
+          "type": "boolean",
+          "width": "half",
+          "system": true
+        },
+        {
+          "id": "tw_received",
+          "label": "Goods Received",
+          "type": "boolean",
+          "width": "half",
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "tw_s",
+          "type": "start",
+          "position": {
+            "x": 0,
+            "y": 206
+          },
+          "data": {
+            "label": "Invoice captured"
+          }
+        },
+        {
+          "id": "tw_split",
+          "type": "split",
+          "position": {
+            "x": 200,
+            "y": 190
+          },
+          "data": {
+            "label": "Fetch both",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "tw_po_get",
+          "type": "auto",
+          "position": {
+            "x": 370,
+            "y": 70
+          },
+          "data": {
+            "label": "Fetch purchase order",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_erp",
+            "operationId": "op_erp_po",
+            "outputs": [
+              {
+                "key": "found",
+                "fieldId": "tw_found"
+              }
+            ],
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "tw_gr_get",
+          "type": "auto",
+          "position": {
+            "x": 370,
+            "y": 320
+          },
+          "data": {
+            "label": "Fetch goods receipt",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_erp",
+            "operationId": "op_erp_receipt",
+            "outputs": [
+              {
+                "key": "received",
+                "fieldId": "tw_received"
+              }
+            ],
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "tw_join",
+          "type": "join",
+          "position": {
+            "x": 680,
+            "y": 190
+          },
+          "data": {
+            "label": "Both fetched",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "tw_dec",
+          "type": "decision",
+          "position": {
+            "x": 840,
+            "y": 172
+          },
+          "data": {
+            "label": "Matched?"
+          }
+        },
+        {
+          "id": "tw_ok",
+          "type": "end",
+          "position": {
+            "x": 1100,
+            "y": 70
+          },
+          "data": {
+            "label": "Matched",
+            "result": "completed",
+            "outcome": "Matched"
+          }
+        },
+        {
+          "id": "tw_fix",
+          "type": "user",
+          "position": {
+            "x": 1060,
+            "y": 300
+          },
+          "data": {
+            "label": "Resolve mismatch",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "tw_f_ok",
+                "label": "Resolved",
+                "weight": 75,
+                "actions": []
+              },
+              {
+                "id": "tw_f_no",
+                "label": "Reject",
+                "weight": 25,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "tw_po": "edit"
+            }
+          }
+        },
+        {
+          "id": "tw_no",
+          "type": "end",
+          "position": {
+            "x": 1420,
+            "y": 326
+          },
+          "data": {
+            "label": "Mismatch",
+            "result": "rejected",
+            "outcome": "Rejected"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "tw_e1",
+          "source": "tw_s",
+          "target": "tw_split",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "tw_e2",
+          "source": "tw_split",
+          "target": "tw_po_get",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "tw_e3",
+          "source": "tw_split",
+          "target": "tw_gr_get",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "tw_e4",
+          "source": "tw_po_get",
+          "target": "tw_join",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {}
+        },
+        {
+          "id": "tw_e5",
+          "source": "tw_gr_get",
+          "target": "tw_join",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {}
+        },
+        {
+          "id": "tw_e6",
+          "source": "tw_join",
+          "target": "tw_dec",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "tw_e7",
+          "source": "tw_dec",
+          "target": "tw_ok",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "tw_r1",
+                  "fieldId": "tw_found",
+                  "op": "isTrue"
+                },
+                {
+                  "id": "tw_r2",
+                  "fieldId": "tw_received",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "tw_e8",
+          "source": "tw_dec",
+          "target": "tw_fix",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "isDefault": true,
+            "order": 1
+          }
+        },
+        {
+          "id": "tw_e9",
+          "source": "tw_fix",
+          "target": "tw_ok",
+          "sourceHandle": "t",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "tw_f_ok"
+          }
+        },
+        {
+          "id": "tw_e10",
+          "source": "tw_fix",
+          "target": "tw_no",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "tw_f_no"
+          }
+        }
+      ],
+      "item": {
+        "one": "Invoice",
+        "many": "Invoices"
+      }
+    }
+  ]
+}

@@ -60,6 +60,7 @@ per item, several organizations on one deployment, and the M5 load targets.
 | Timers | Prototype |
 | Templates: save a workflow, stamp it into any app with field mapping | Prototype |
 | Starter library: fifty templates by department ([list](TEMPLATES.md)); start a new application from one | Prototype |
+| Templates as files: export one or many, import with keep both / replace / skip; the starter library is the files in `templates/` | Prototype |
 | Event-stream, API, schedule and inbox start triggers (modeled; simulated arrivals) | Prototype (ingest planned M5) |
 | DMN decision tables bound to object fields | Planned |
 | Case handling: stages, milestones, ad-hoc tasks | Planned |

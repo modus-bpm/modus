@@ -1,0 +1,465 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_nvs",
+      "name": "New vendor setup",
+      "description": "Accounts payable checks the paperwork and waits for anything missing. Tax, insurance and bank details are then checked at the same time, and the controller signs off before the vendor can be paid.",
+      "category": "Finance and AP",
+      "tags": [
+        "parallel",
+        "return for changes",
+        "accounts payable"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "nvs_name",
+          "label": "Vendor Name",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "nvs_contact",
+          "label": "Vendor Contact",
+          "type": "email",
+          "width": "half"
+        },
+        {
+          "id": "nvs_tax",
+          "label": "Tax Form",
+          "type": "attachment",
+          "width": "half"
+        },
+        {
+          "id": "nvs_ins",
+          "label": "Insurance Certificate",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "nvs_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Vendor requested"
+          }
+        },
+        {
+          "id": "nvs_chk",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Check the paperwork",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "nvs_chk_ok",
+                "label": "Complete",
+                "weight": 75,
+                "actions": []
+              },
+              {
+                "id": "nvs_chk_back",
+                "label": "Ask the vendor for what is missing",
+                "weight": 25,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "nvs_tax": "edit",
+              "nvs_ins": "edit",
+              "nvs_contact": "edit"
+            }
+          }
+        },
+        {
+          "id": "nvs_hold",
+          "type": "wait",
+          "position": {
+            "x": 364,
+            "y": 374
+          },
+          "data": {
+            "label": "Wait for the vendor",
+            "minutes": 4320
+          }
+        },
+        {
+          "id": "nvs_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Three checks",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "nvs_tax",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Tax ID check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "nvs_tax_ok",
+                "label": "Verified",
+                "weight": 96,
+                "actions": []
+              },
+              {
+                "id": "nvs_tax_no",
+                "label": "Does not match",
+                "weight": 4,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "nvs_tax": "read"
+            }
+          }
+        },
+        {
+          "id": "nvs_ins",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Insurance check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "nvs_ins_ok",
+                "label": "Verified",
+                "weight": 96,
+                "actions": []
+              },
+              {
+                "id": "nvs_ins_no",
+                "label": "Not acceptable",
+                "weight": 4,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "nvs_ins": "read"
+            }
+          }
+        },
+        {
+          "id": "nvs_bank",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Bank details check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "nvs_bank_ok",
+                "label": "Verified",
+                "weight": 96,
+                "actions": []
+              },
+              {
+                "id": "nvs_bank_no",
+                "label": "Could not verify",
+                "weight": 4,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "nvs_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "All three verified",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "nvs_appr",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Controller sign-off",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "nvs_appr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "nvs_appr_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "nvs_add",
+          "type": "auto",
+          "position": {
+            "x": 1875,
+            "y": 184
+          },
+          "data": {
+            "label": "Create the vendor record",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "nvs_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Vendor active",
+            "result": "completed",
+            "outcome": "Vendor active"
+          }
+        },
+        {
+          "id": "nvs_rej",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 544
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "nvs_e1",
+          "source": "nvs_s",
+          "target": "nvs_chk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nvs_e2",
+          "source": "nvs_chk",
+          "target": "nvs_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nvs_chk_ok"
+          }
+        },
+        {
+          "id": "nvs_e3",
+          "source": "nvs_chk",
+          "target": "nvs_hold",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "nvs_chk_back"
+          }
+        },
+        {
+          "id": "nvs_e4",
+          "source": "nvs_hold",
+          "target": "nvs_chk",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {}
+        },
+        {
+          "id": "nvs_e5",
+          "source": "nvs_sp",
+          "target": "nvs_tax",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nvs_e6",
+          "source": "nvs_sp",
+          "target": "nvs_ins",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nvs_e7",
+          "source": "nvs_sp",
+          "target": "nvs_bank",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nvs_e8",
+          "source": "nvs_tax",
+          "target": "nvs_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "nvs_tax_ok"
+          }
+        },
+        {
+          "id": "nvs_e9",
+          "source": "nvs_ins",
+          "target": "nvs_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nvs_ins_ok"
+          }
+        },
+        {
+          "id": "nvs_e10",
+          "source": "nvs_bank",
+          "target": "nvs_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "nvs_bank_ok"
+          }
+        },
+        {
+          "id": "nvs_e11",
+          "source": "nvs_tax",
+          "target": "nvs_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "nvs_tax_no"
+          }
+        },
+        {
+          "id": "nvs_e12",
+          "source": "nvs_ins",
+          "target": "nvs_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "nvs_ins_no"
+          }
+        },
+        {
+          "id": "nvs_e13",
+          "source": "nvs_bank",
+          "target": "nvs_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nvs_bank_no"
+          }
+        },
+        {
+          "id": "nvs_e14",
+          "source": "nvs_jn",
+          "target": "nvs_appr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nvs_e15",
+          "source": "nvs_appr",
+          "target": "nvs_add",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nvs_appr_ok"
+          }
+        },
+        {
+          "id": "nvs_e16",
+          "source": "nvs_appr",
+          "target": "nvs_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "nvs_appr_no"
+          }
+        },
+        {
+          "id": "nvs_e17",
+          "source": "nvs_add",
+          "target": "nvs_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Vendor",
+        "many": "Vendors"
+      }
+    }
+  ]
+}

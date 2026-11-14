@@ -1,0 +1,501 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_bp",
+      "name": "Building permit review",
+      "description": "After a completeness check, zoning, fire and engineering review the plans at the same time. The building official then issues the permit, denies it, or sends the plans back to the applicant for corrections and another round.",
+      "category": "Government and public safety",
+      "tags": [
+        "parallel",
+        "corrections",
+        "permits"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "bp_address",
+          "label": "Site Address",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "bp_applicant",
+          "label": "Applicant",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "bp_value",
+          "label": "Project Value",
+          "type": "currency",
+          "width": "half",
+          "min": 5000,
+          "max": 900000
+        },
+        {
+          "id": "bp_plans",
+          "label": "Plans",
+          "type": "attachment",
+          "width": "half"
+        },
+        {
+          "id": "bp_comments",
+          "label": "Review Comments",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bp_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Application filed"
+          }
+        },
+        {
+          "id": "bp_in",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Completeness check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "bp_in_ok",
+                "label": "Complete",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "bp_in_back",
+                "label": "Incomplete",
+                "weight": 20,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "bp_plans": "read"
+            }
+          }
+        },
+        {
+          "id": "bp_app",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 344
+          },
+          "data": {
+            "label": "Applicant resubmits",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 240,
+            "outcomes": [
+              {
+                "id": "bp_app_ok",
+                "label": "Resubmitted",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "bp_plans": "edit"
+            }
+          }
+        },
+        {
+          "id": "bp_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Three reviews",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "bp_zon",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Zoning review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "bp_zon_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "bp_plans": "read",
+              "bp_comments": "edit"
+            }
+          }
+        },
+        {
+          "id": "bp_fire",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Fire review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "bp_fire_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "bp_plans": "read",
+              "bp_comments": "edit"
+            }
+          }
+        },
+        {
+          "id": "bp_eng",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Engineering review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 50,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "bp_eng_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "bp_plans": "read",
+              "bp_comments": "edit"
+            }
+          }
+        },
+        {
+          "id": "bp_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "All reviews in",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "bp_off",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Building official decides",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "bp_off_ok",
+                "label": "Issue the permit",
+                "weight": 68,
+                "actions": []
+              },
+              {
+                "id": "bp_off_fix",
+                "label": "Corrections needed",
+                "weight": 27,
+                "actions": [],
+                "requireComment": true
+              },
+              {
+                "id": "bp_off_no",
+                "label": "Deny",
+                "weight": 5,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "bp_comments": "read"
+            }
+          }
+        },
+        {
+          "id": "bp_corr",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 344
+          },
+          "data": {
+            "label": "Applicant corrects the plans",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 480,
+            "outcomes": [
+              {
+                "id": "bp_corr_ok",
+                "label": "Corrected",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "bp_plans": "edit",
+              "bp_comments": "read"
+            }
+          }
+        },
+        {
+          "id": "bp_iss",
+          "type": "auto",
+          "position": {
+            "x": 1875,
+            "y": 184
+          },
+          "data": {
+            "label": "Issue the permit",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "bp_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Permit issued",
+            "result": "completed",
+            "outcome": "Permit issued"
+          }
+        },
+        {
+          "id": "bp_rej",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 374
+          },
+          "data": {
+            "label": "Denied",
+            "result": "rejected",
+            "outcome": "Denied"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "bp_e1",
+          "source": "bp_s",
+          "target": "bp_in",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "bp_e2",
+          "source": "bp_in",
+          "target": "bp_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bp_in_ok"
+          }
+        },
+        {
+          "id": "bp_e3",
+          "source": "bp_in",
+          "target": "bp_app",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "bp_in_back"
+          }
+        },
+        {
+          "id": "bp_e4",
+          "source": "bp_app",
+          "target": "bp_in",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "bp_app_ok"
+          }
+        },
+        {
+          "id": "bp_e5",
+          "source": "bp_sp",
+          "target": "bp_zon",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "bp_e6",
+          "source": "bp_sp",
+          "target": "bp_fire",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "bp_e7",
+          "source": "bp_sp",
+          "target": "bp_eng",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "bp_e8",
+          "source": "bp_zon",
+          "target": "bp_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "bp_zon_ok"
+          }
+        },
+        {
+          "id": "bp_e9",
+          "source": "bp_fire",
+          "target": "bp_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bp_fire_ok"
+          }
+        },
+        {
+          "id": "bp_e10",
+          "source": "bp_eng",
+          "target": "bp_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "bp_eng_ok"
+          }
+        },
+        {
+          "id": "bp_e11",
+          "source": "bp_jn",
+          "target": "bp_off",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "bp_e12",
+          "source": "bp_off",
+          "target": "bp_iss",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bp_off_ok"
+          }
+        },
+        {
+          "id": "bp_e13",
+          "source": "bp_off",
+          "target": "bp_corr",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "bp_off_fix"
+          }
+        },
+        {
+          "id": "bp_e14",
+          "source": "bp_off",
+          "target": "bp_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bp_off_no"
+          }
+        },
+        {
+          "id": "bp_e15",
+          "source": "bp_corr",
+          "target": "bp_sp",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "bp_corr_ok"
+          }
+        },
+        {
+          "id": "bp_e16",
+          "source": "bp_iss",
+          "target": "bp_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Permit application",
+        "many": "Permit applications"
+      }
+    }
+  ]
+}

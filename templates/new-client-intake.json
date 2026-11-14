@@ -1,0 +1,319 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_nc",
+      "name": "New client intake",
+      "description": "A conflict and credit check comes first. Then the engagement letter, billing setup and the kickoff all start together, and the client is active once the three are done.",
+      "category": "Customers and operations",
+      "tags": [
+        "parallel",
+        "onboarding",
+        "professional services"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "nc_client",
+          "label": "Client",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "nc_service",
+          "label": "Service",
+          "type": "text",
+          "width": "half",
+          "summary": true
+        },
+        {
+          "id": "nc_value",
+          "label": "Estimated Value",
+          "type": "currency",
+          "width": "half",
+          "min": 5000,
+          "max": 300000
+        },
+        {
+          "id": "nc_lead",
+          "label": "Engagement Lead",
+          "type": "user",
+          "width": "half",
+          "required": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "nc_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Client won"
+          }
+        },
+        {
+          "id": "nc_chk",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Conflict and credit check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "nc_chk_ok",
+                "label": "Clear",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "nc_chk_no",
+                "label": "Decline the work",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "nc_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Set up together",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "nc_let",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Engagement letter",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "nc_let_ok",
+                "label": "Signed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "nc_bill",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Set up billing",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "nc_bill_ok",
+                "label": "Set up",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "nc_value": "read"
+            }
+          }
+        },
+        {
+          "id": "nc_kick",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Schedule the kickoff",
+            "distribution": "field",
+            "assigneeFieldId": "nc_lead",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "nc_kick_ok",
+                "label": "Scheduled",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "nc_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "All set",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "nc_done",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 204
+          },
+          "data": {
+            "label": "Client active",
+            "result": "completed",
+            "outcome": "Client active"
+          }
+        },
+        {
+          "id": "nc_rej",
+          "type": "end",
+          "position": {
+            "x": 671,
+            "y": 374
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "nc_e1",
+          "source": "nc_s",
+          "target": "nc_chk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nc_e2",
+          "source": "nc_chk",
+          "target": "nc_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nc_chk_ok"
+          }
+        },
+        {
+          "id": "nc_e3",
+          "source": "nc_chk",
+          "target": "nc_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nc_chk_no"
+          }
+        },
+        {
+          "id": "nc_e4",
+          "source": "nc_sp",
+          "target": "nc_let",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nc_e5",
+          "source": "nc_sp",
+          "target": "nc_bill",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nc_e6",
+          "source": "nc_sp",
+          "target": "nc_kick",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "nc_e7",
+          "source": "nc_let",
+          "target": "nc_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "nc_let_ok"
+          }
+        },
+        {
+          "id": "nc_e8",
+          "source": "nc_bill",
+          "target": "nc_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "nc_bill_ok"
+          }
+        },
+        {
+          "id": "nc_e9",
+          "source": "nc_kick",
+          "target": "nc_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "nc_kick_ok"
+          }
+        },
+        {
+          "id": "nc_e10",
+          "source": "nc_jn",
+          "target": "nc_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Client",
+        "many": "Clients"
+      }
+    }
+  ]
+}

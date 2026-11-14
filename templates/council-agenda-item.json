@@ -1,0 +1,340 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_ag",
+      "name": "Council agenda item",
+      "description": "The department head forwards the item, legal and finance review it at the same time, and the manager approves it or returns it to the department before the clerk places it on the agenda.",
+      "category": "Government and public safety",
+      "tags": [
+        "parallel",
+        "return for changes",
+        "clerk"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ag_title",
+          "label": "Item Title",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ag_meeting",
+          "label": "Meeting Date",
+          "type": "date",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ag_impact",
+          "label": "Fiscal Impact",
+          "type": "currency",
+          "width": "half",
+          "min": 0,
+          "max": 500000
+        },
+        {
+          "id": "ag_report",
+          "label": "Staff Report",
+          "type": "attachment",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ag_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Item drafted"
+          }
+        },
+        {
+          "id": "ag_head",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Department head review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "ag_head_ok",
+                "label": "Forward",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ag_report": "edit"
+            }
+          }
+        },
+        {
+          "id": "ag_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Legal and finance",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "ag_leg",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Legal review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "ag_leg_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ag_report": "read"
+            }
+          }
+        },
+        {
+          "id": "ag_fin",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Finance review",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "ag_fin_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ag_impact": "edit",
+              "ag_report": "read"
+            }
+          }
+        },
+        {
+          "id": "ag_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "Both reviews in",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "ag_mgr",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "ag_mgr_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "ag_mgr_back",
+                "label": "Return to the department",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ag_report": "read",
+              "ag_impact": "read"
+            }
+          }
+        },
+        {
+          "id": "ag_clerk",
+          "type": "user",
+          "position": {
+            "x": 1860,
+            "y": 174
+          },
+          "data": {
+            "label": "Clerk places it on the agenda",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ag_clerk_ok",
+                "label": "Placed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ag_done",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "On the agenda",
+            "result": "completed",
+            "outcome": "On the agenda"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ag_e1",
+          "source": "ag_s",
+          "target": "ag_head",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ag_e2",
+          "source": "ag_head",
+          "target": "ag_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ag_head_ok"
+          }
+        },
+        {
+          "id": "ag_e3",
+          "source": "ag_sp",
+          "target": "ag_leg",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ag_e4",
+          "source": "ag_sp",
+          "target": "ag_fin",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ag_e5",
+          "source": "ag_leg",
+          "target": "ag_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ag_leg_ok"
+          }
+        },
+        {
+          "id": "ag_e6",
+          "source": "ag_fin",
+          "target": "ag_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "ag_fin_ok"
+          }
+        },
+        {
+          "id": "ag_e7",
+          "source": "ag_jn",
+          "target": "ag_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ag_e8",
+          "source": "ag_mgr",
+          "target": "ag_clerk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ag_mgr_ok"
+          }
+        },
+        {
+          "id": "ag_e9",
+          "source": "ag_mgr",
+          "target": "ag_head",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "ag_mgr_back"
+          }
+        },
+        {
+          "id": "ag_e10",
+          "source": "ag_clerk",
+          "target": "ag_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ag_clerk_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Agenda item",
+        "many": "Agenda items"
+      }
+    }
+  ]
+}

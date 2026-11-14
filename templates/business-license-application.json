@@ -1,0 +1,361 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_bl",
+      "name": "Business license application",
+      "description": "The clerk checks the application and sends incomplete ones back. A zoning check decides whether the business is allowed at that address; if it is, the fee is collected and the license issued.",
+      "category": "Government and public safety",
+      "tags": [
+        "return for changes",
+        "licensing",
+        "zoning"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "bl_business",
+          "label": "Business Name",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "bl_owner",
+          "label": "Owner",
+          "type": "text",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "bl_address",
+          "label": "Address",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "bl_zone",
+          "label": "Zoning Allows It",
+          "type": "boolean",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "bl_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Application filed"
+          }
+        },
+        {
+          "id": "bl_clerk",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Check the application",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "bl_clerk_ok",
+                "label": "Complete",
+                "weight": 82,
+                "actions": []
+              },
+              {
+                "id": "bl_clerk_back",
+                "label": "Incomplete",
+                "weight": 18,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "bl_app",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 344
+          },
+          "data": {
+            "label": "Applicant completes it",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 240,
+            "outcomes": [
+              {
+                "id": "bl_app_ok",
+                "label": "Resubmitted",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "bl_zon",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Zoning check",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "bl_zon_ok",
+                "label": "Checked",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "bl_address": "read",
+              "bl_zone": "edit"
+            }
+          }
+        },
+        {
+          "id": "bl_ok",
+          "type": "decision",
+          "position": {
+            "x": 999,
+            "y": 170
+          },
+          "data": {
+            "label": "Allowed at this address?"
+          }
+        },
+        {
+          "id": "bl_fee",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 14
+          },
+          "data": {
+            "label": "Collect the fee",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "bl_iss",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Issue the license",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 5,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "bl_iss_ok",
+                "label": "Issued",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "bl_den",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 344
+          },
+          "data": {
+            "label": "Send the denial letter",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "bl_den_ok",
+                "label": "Sent",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "bl_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 34
+          },
+          "data": {
+            "label": "Licensed",
+            "result": "completed",
+            "outcome": "Licensed"
+          }
+        },
+        {
+          "id": "bl_rej",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 374
+          },
+          "data": {
+            "label": "Denied",
+            "result": "rejected",
+            "outcome": "Denied"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "bl_e1",
+          "source": "bl_s",
+          "target": "bl_clerk",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "bl_e2",
+          "source": "bl_clerk",
+          "target": "bl_zon",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bl_clerk_ok"
+          }
+        },
+        {
+          "id": "bl_e3",
+          "source": "bl_clerk",
+          "target": "bl_app",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "bl_clerk_back"
+          }
+        },
+        {
+          "id": "bl_e4",
+          "source": "bl_app",
+          "target": "bl_clerk",
+          "sourceHandle": "l",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "bl_app_ok"
+          }
+        },
+        {
+          "id": "bl_e5",
+          "source": "bl_zon",
+          "target": "bl_ok",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bl_zon_ok"
+          }
+        },
+        {
+          "id": "bl_e6",
+          "source": "bl_ok",
+          "target": "bl_fee",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "bl_r5_0",
+                  "fieldId": "bl_zone",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "bl_e7",
+          "source": "bl_ok",
+          "target": "bl_den",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "bl_e8",
+          "source": "bl_fee",
+          "target": "bl_iss",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "bl_e9",
+          "source": "bl_iss",
+          "target": "bl_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bl_iss_ok"
+          }
+        },
+        {
+          "id": "bl_e10",
+          "source": "bl_den",
+          "target": "bl_rej",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "bl_den_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "License application",
+        "many": "License applications"
+      }
+    }
+  ]
+}

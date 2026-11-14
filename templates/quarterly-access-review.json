@@ -1,0 +1,259 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_qar",
+      "name": "Quarterly access review",
+      "description": "Each manager confirms who still needs access. A 14-day timer runs beside the review: if the manager has not answered when it ends, the access is removed.",
+      "category": "IT and security",
+      "tags": [
+        "timer",
+        "deadline",
+        "audit"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "qar_holder",
+          "label": "Account Holder",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "qar_manager",
+          "label": "Manager",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "qar_system",
+          "label": "System",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "qar_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 374
+          },
+          "data": {
+            "label": "Quarter begins",
+            "trigger": "schedule"
+          }
+        },
+        {
+          "id": "qar_sp",
+          "type": "split",
+          "position": {
+            "x": 397,
+            "y": 358
+          },
+          "data": {
+            "label": "Ask, and start the clock",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "qar_mgr",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Manager confirms access",
+            "distribution": "field",
+            "assigneeFieldId": "qar_manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 3,
+            "slaHours": 336,
+            "outcomes": [
+              {
+                "id": "qar_mgr_keep",
+                "label": "Still needed",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "qar_mgr_rev",
+                "label": "Remove it",
+                "weight": 15,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "qar_system": "read"
+            }
+          }
+        },
+        {
+          "id": "qar_kept",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 34
+          },
+          "data": {
+            "label": "Kept",
+            "result": "completed",
+            "outcome": "Kept",
+            "terminate": true
+          }
+        },
+        {
+          "id": "qar_rm",
+          "type": "auto",
+          "position": {
+            "x": 945,
+            "y": 184
+          },
+          "data": {
+            "label": "Remove access",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "qar_gone",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 204
+          },
+          "data": {
+            "label": "Removed",
+            "result": "completed",
+            "outcome": "Removed",
+            "terminate": true
+          }
+        },
+        {
+          "id": "qar_w",
+          "type": "wait",
+          "position": {
+            "x": 674,
+            "y": 544
+          },
+          "data": {
+            "label": "14 days to answer",
+            "minutes": 20160
+          }
+        },
+        {
+          "id": "qar_rm2",
+          "type": "auto",
+          "position": {
+            "x": 945,
+            "y": 524
+          },
+          "data": {
+            "label": "Remove access: no answer",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "qar_late",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 544
+          },
+          "data": {
+            "label": "Removed, no answer",
+            "result": "completed",
+            "outcome": "Removed, no answer",
+            "terminate": true
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "qar_e1",
+          "source": "qar_s",
+          "target": "qar_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "qar_e2",
+          "source": "qar_sp",
+          "target": "qar_mgr",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "qar_e3",
+          "source": "qar_sp",
+          "target": "qar_w",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "qar_e4",
+          "source": "qar_mgr",
+          "target": "qar_kept",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "qar_mgr_keep"
+          }
+        },
+        {
+          "id": "qar_e5",
+          "source": "qar_mgr",
+          "target": "qar_rm",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "qar_mgr_rev"
+          }
+        },
+        {
+          "id": "qar_e6",
+          "source": "qar_rm",
+          "target": "qar_gone",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "qar_e7",
+          "source": "qar_w",
+          "target": "qar_rm2",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "qar_e8",
+          "source": "qar_rm2",
+          "target": "qar_late",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Access review",
+        "many": "Access reviews"
+      }
+    }
+  ]
+}

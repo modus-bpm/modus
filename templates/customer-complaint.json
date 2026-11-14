@@ -1,0 +1,268 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_cc",
+      "name": "Customer complaint",
+      "description": "A draft reply is prepared automatically and a person always reviews it before anything is sent. Hard cases go to a manager, and a follow-up three days later reopens it if the customer is still unhappy.",
+      "category": "Customers and operations",
+      "tags": [
+        "AI",
+        "follow-up",
+        "customer service"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "cc_customer",
+          "label": "Customer",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "cc_complaint",
+          "label": "Complaint",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "cc_reply",
+          "label": "Reply",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "cc_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Complaint received",
+            "trigger": "email"
+          }
+        },
+        {
+          "id": "cc_draft",
+          "type": "auto",
+          "position": {
+            "x": 325,
+            "y": 184
+          },
+          "data": {
+            "label": "Draft a reply",
+            "description": "A placeholder for your own AI agent. Left as it is, the reviewer writes the reply.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "cc_rev",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Review and send",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "cc_rev_ok",
+                "label": "Send",
+                "weight": 75,
+                "actions": []
+              },
+              {
+                "id": "cc_rev_up",
+                "label": "Pass to a manager",
+                "weight": 25,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "cc_complaint": "read",
+              "cc_reply": "edit"
+            }
+          }
+        },
+        {
+          "id": "cc_mgr",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Manager handles it",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "cc_mgr_ok",
+                "label": "Replied",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "cc_complaint": "read",
+              "cc_reply": "edit"
+            }
+          }
+        },
+        {
+          "id": "cc_w",
+          "type": "wait",
+          "position": {
+            "x": 1294,
+            "y": 204
+          },
+          "data": {
+            "label": "Three days",
+            "minutes": 4320
+          }
+        },
+        {
+          "id": "cc_fu",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Follow up with the customer",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "cc_fu_ok",
+                "label": "Satisfied",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "cc_fu_no",
+                "label": "Still unhappy",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "cc_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Resolved",
+            "result": "completed",
+            "outcome": "Resolved"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "cc_e1",
+          "source": "cc_s",
+          "target": "cc_draft",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "cc_e2",
+          "source": "cc_draft",
+          "target": "cc_rev",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "cc_e3",
+          "source": "cc_rev",
+          "target": "cc_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "cc_rev_ok"
+          }
+        },
+        {
+          "id": "cc_e4",
+          "source": "cc_rev",
+          "target": "cc_mgr",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "cc_rev_up"
+          }
+        },
+        {
+          "id": "cc_e5",
+          "source": "cc_mgr",
+          "target": "cc_w",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "cc_mgr_ok"
+          }
+        },
+        {
+          "id": "cc_e6",
+          "source": "cc_w",
+          "target": "cc_fu",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "cc_e7",
+          "source": "cc_fu",
+          "target": "cc_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "cc_fu_ok"
+          }
+        },
+        {
+          "id": "cc_e8",
+          "source": "cc_fu",
+          "target": "cc_mgr",
+          "sourceHandle": "t",
+          "targetHandle": "r",
+          "data": {
+            "outcomeId": "cc_fu_no"
+          }
+        }
+      ],
+      "item": {
+        "one": "Complaint",
+        "many": "Complaints"
+      }
+    }
+  ]
+}

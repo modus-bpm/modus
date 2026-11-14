@@ -1,0 +1,299 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_mi",
+      "name": "Major incident",
+      "description": "The first on-call engineer to claim it leads. Restoring service and keeping people informed run side by side against a four-hour clock that escalates at two, and a review follows.",
+      "category": "IT and security",
+      "tags": [
+        "claim",
+        "parallel",
+        "escalation"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "mi_service",
+          "label": "Service Affected",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "mi_impact",
+          "label": "Impact",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "mi_lead",
+          "label": "Incident Lead",
+          "type": "user",
+          "width": "half",
+          "system": true
+        },
+        {
+          "id": "mi_cause",
+          "label": "Cause and Fix",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "mi_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Incident declared",
+            "trigger": "api"
+          }
+        },
+        {
+          "id": "mi_lead",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Take the lead",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 2,
+            "slaHours": 1,
+            "outcomes": [
+              {
+                "id": "mi_lead_ok",
+                "label": "I have it",
+                "weight": 100,
+                "actions": [
+                  {
+                    "id": "mi_lead_ok_set",
+                    "kind": "setField",
+                    "fieldId": "mi_lead",
+                    "value": "{currentUser}"
+                  }
+                ]
+              }
+            ],
+            "fieldAccess": {
+              "mi_impact": "read"
+            }
+          }
+        },
+        {
+          "id": "mi_sp",
+          "type": "split",
+          "position": {
+            "x": 707,
+            "y": 188
+          },
+          "data": {
+            "label": "Fix and inform",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "mi_fix",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Restore service",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 55,
+            "slaHours": 4,
+            "escalateAfterHours": 2,
+            "escalation": {
+              "raisePriority": true,
+              "toDistributors": false,
+              "notifySupervisors": true
+            },
+            "outcomes": [
+              {
+                "id": "mi_fix_ok",
+                "label": "Restored",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "mi_cause": "edit"
+            }
+          }
+        },
+        {
+          "id": "mi_com",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Post status updates",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 4,
+            "outcomes": [
+              {
+                "id": "mi_com_ok",
+                "label": "Everyone told",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "mi_impact": "read"
+            }
+          }
+        },
+        {
+          "id": "mi_jn",
+          "type": "join",
+          "position": {
+            "x": 1327,
+            "y": 188
+          },
+          "data": {
+            "label": "Service is back",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "mi_rev",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Post-incident review",
+            "distribution": "field",
+            "assigneeFieldId": "mi_lead",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "mi_rev_ok",
+                "label": "Reviewed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "mi_cause": "edit"
+            }
+          }
+        },
+        {
+          "id": "mi_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "mi_e1",
+          "source": "mi_s",
+          "target": "mi_lead",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "mi_e2",
+          "source": "mi_lead",
+          "target": "mi_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "mi_lead_ok"
+          }
+        },
+        {
+          "id": "mi_e3",
+          "source": "mi_sp",
+          "target": "mi_fix",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "mi_e4",
+          "source": "mi_sp",
+          "target": "mi_com",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "mi_e5",
+          "source": "mi_fix",
+          "target": "mi_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "mi_fix_ok"
+          }
+        },
+        {
+          "id": "mi_e6",
+          "source": "mi_com",
+          "target": "mi_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "mi_com_ok"
+          }
+        },
+        {
+          "id": "mi_e7",
+          "source": "mi_jn",
+          "target": "mi_rev",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "mi_e8",
+          "source": "mi_rev",
+          "target": "mi_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "mi_rev_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Incident",
+        "many": "Incidents"
+      }
+    }
+  ]
+}

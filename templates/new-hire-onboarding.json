@@ -1,0 +1,303 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_onboarding",
+      "name": "New hire onboarding",
+      "description": "Accounts are created automatically while IT, Facilities and Payroll work in parallel; the hiring manager welcomes the new hire once everything is ready.",
+      "category": "People and HR",
+      "tags": [
+        "parallel",
+        "onboarding",
+        "MCP"
+      ],
+      "createdAt": "2026-09-30T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ob_start",
+          "label": "Start Date",
+          "type": "date",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "ob_manager",
+          "label": "Hiring Manager",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "ob_email",
+          "label": "Work Email",
+          "type": "email",
+          "width": "half",
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ob_s",
+          "type": "start",
+          "position": {
+            "x": 0,
+            "y": 266
+          },
+          "data": {
+            "label": "Offer accepted"
+          }
+        },
+        {
+          "id": "ob_split",
+          "type": "split",
+          "position": {
+            "x": 200,
+            "y": 250
+          },
+          "data": {
+            "label": "Kick off",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "ob_acct",
+          "type": "auto",
+          "position": {
+            "x": 370,
+            "y": 20
+          },
+          "data": {
+            "label": "Create accounts",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_identity",
+            "operationId": "op_id_create",
+            "retries": 2,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "ob_laptop",
+          "type": "user",
+          "position": {
+            "x": 370,
+            "y": 170
+          },
+          "data": {
+            "label": "Prepare laptop",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 45,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "ob_l_ok",
+                "label": "Ready",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ob_badge",
+          "type": "user",
+          "position": {
+            "x": 370,
+            "y": 320
+          },
+          "data": {
+            "label": "Issue badge",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 48,
+            "outcomes": [
+              {
+                "id": "ob_b_ok",
+                "label": "Issued",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ob_pay",
+          "type": "user",
+          "position": {
+            "x": 370,
+            "y": 470
+          },
+          "data": {
+            "label": "Payroll setup",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 25,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "ob_p_ok",
+                "label": "Done",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ob_join",
+          "type": "join",
+          "position": {
+            "x": 770,
+            "y": 250
+          },
+          "data": {
+            "label": "Ready for day one",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "ob_welcome",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 236
+          },
+          "data": {
+            "label": "Manager welcome",
+            "distribution": "field",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ob_w_ok",
+                "label": "Welcomed",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {},
+            "assigneeFieldId": "ob_manager"
+          }
+        },
+        {
+          "id": "ob_end",
+          "type": "end",
+          "position": {
+            "x": 1290,
+            "y": 262
+          },
+          "data": {
+            "label": "Onboarded",
+            "result": "completed",
+            "outcome": "Onboarded"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ob_e1",
+          "source": "ob_s",
+          "target": "ob_split",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e2",
+          "source": "ob_split",
+          "target": "ob_acct",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e3",
+          "source": "ob_split",
+          "target": "ob_laptop",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e4",
+          "source": "ob_split",
+          "target": "ob_badge",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e5",
+          "source": "ob_split",
+          "target": "ob_pay",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e6",
+          "source": "ob_acct",
+          "target": "ob_join",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {}
+        },
+        {
+          "id": "ob_e7",
+          "source": "ob_laptop",
+          "target": "ob_join",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e8",
+          "source": "ob_badge",
+          "target": "ob_join",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e9",
+          "source": "ob_pay",
+          "target": "ob_join",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {}
+        },
+        {
+          "id": "ob_e10",
+          "source": "ob_join",
+          "target": "ob_welcome",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ob_e11",
+          "source": "ob_welcome",
+          "target": "ob_end",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "New hire",
+        "many": "New hires"
+      }
+    }
+  ]
+}

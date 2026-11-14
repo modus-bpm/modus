@@ -1,0 +1,327 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_ce",
+      "name": "Code enforcement complaint",
+      "description": "An officer inspects. If there is a violation, a notice goes out and the case waits 30 days; a re-inspection then closes it or leads to a citation.",
+      "category": "Government and public safety",
+      "tags": [
+        "timer",
+        "inspection",
+        "re-inspect"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ce_address",
+          "label": "Address",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ce_complaint",
+          "label": "Complaint",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "ce_violation",
+          "label": "Violation Found",
+          "type": "boolean",
+          "width": "half"
+        },
+        {
+          "id": "ce_findings",
+          "label": "Findings",
+          "type": "textarea",
+          "width": "full"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ce_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Complaint received"
+          }
+        },
+        {
+          "id": "ce_insp",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Inspect",
+            "distribution": "manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 40,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "ce_insp_ok",
+                "label": "Inspected",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ce_violation": "edit",
+              "ce_findings": "edit"
+            }
+          }
+        },
+        {
+          "id": "ce_v",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 0
+          },
+          "data": {
+            "label": "Violation?"
+          }
+        },
+        {
+          "id": "ce_none",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 204
+          },
+          "data": {
+            "label": "No violation",
+            "result": "completed",
+            "outcome": "No violation"
+          }
+        },
+        {
+          "id": "ce_notice",
+          "type": "auto",
+          "position": {
+            "x": 945,
+            "y": 14
+          },
+          "data": {
+            "label": "Send the notice of violation",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "ce_w",
+          "type": "wait",
+          "position": {
+            "x": 1294,
+            "y": 34
+          },
+          "data": {
+            "label": "30 days to correct it",
+            "minutes": 43200
+          }
+        },
+        {
+          "id": "ce_re",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Re-inspect",
+            "distribution": "manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "ce_re_ok",
+                "label": "Corrected",
+                "weight": 70,
+                "actions": []
+              },
+              {
+                "id": "ce_re_no",
+                "label": "Not corrected",
+                "weight": 30,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ce_findings": "edit"
+            }
+          }
+        },
+        {
+          "id": "ce_cite",
+          "type": "user",
+          "position": {
+            "x": 1860,
+            "y": 174
+          },
+          "data": {
+            "label": "Issue a citation",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ce_cite_ok",
+                "label": "Cited",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ce_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 34
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        },
+        {
+          "id": "ce_cited",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Cited",
+            "result": "completed",
+            "outcome": "Cited"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ce_e1",
+          "source": "ce_s",
+          "target": "ce_insp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ce_e2",
+          "source": "ce_insp",
+          "target": "ce_v",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ce_insp_ok"
+          }
+        },
+        {
+          "id": "ce_e3",
+          "source": "ce_v",
+          "target": "ce_notice",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "ce_r2_0",
+                  "fieldId": "ce_violation",
+                  "op": "isTrue"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "ce_e4",
+          "source": "ce_v",
+          "target": "ce_none",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "ce_e5",
+          "source": "ce_notice",
+          "target": "ce_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ce_e6",
+          "source": "ce_w",
+          "target": "ce_re",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ce_e7",
+          "source": "ce_re",
+          "target": "ce_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ce_re_ok"
+          }
+        },
+        {
+          "id": "ce_e8",
+          "source": "ce_re",
+          "target": "ce_cite",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ce_re_no"
+          }
+        },
+        {
+          "id": "ce_e9",
+          "source": "ce_cite",
+          "target": "ce_cited",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ce_cite_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Complaint",
+        "many": "Complaints"
+      }
+    }
+  ]
+}

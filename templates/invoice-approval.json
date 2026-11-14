@@ -1,0 +1,447 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_inv",
+      "name": "Invoice approval",
+      "description": "A clerk codes the invoice, then the amount decides who approves: a manager under $5,000, a department head above that, and the controller as well over $25,000.",
+      "category": "Finance and AP",
+      "tags": [
+        "accounts payable",
+        "threshold",
+        "approval"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "inv_vendor",
+          "label": "Vendor",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "inv_amount",
+          "label": "Amount",
+          "type": "currency",
+          "width": "half",
+          "min": 200,
+          "max": 60000,
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "inv_po",
+          "label": "PO Number",
+          "type": "text",
+          "width": "half"
+        },
+        {
+          "id": "inv_approver",
+          "label": "Approved By",
+          "type": "user",
+          "width": "half",
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "inv_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Invoice received"
+          }
+        },
+        {
+          "id": "inv_code",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 174
+          },
+          "data": {
+            "label": "Code and check",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 8,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "inv_code_ok",
+                "label": "Ready for approval",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "inv_code_no",
+                "label": "Return to vendor",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "inv_vendor": "edit",
+              "inv_amount": "edit",
+              "inv_po": "edit"
+            }
+          }
+        },
+        {
+          "id": "inv_tier",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 170
+          },
+          "data": {
+            "label": "$5,000 or more?"
+          }
+        },
+        {
+          "id": "inv_head",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Department head approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 12,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "inv_head_ok",
+                "label": "Approve",
+                "weight": 90,
+                "actions": [
+                  {
+                    "id": "inv_head_ok_set",
+                    "kind": "setField",
+                    "fieldId": "inv_approver",
+                    "value": "{currentUser}"
+                  }
+                ]
+              },
+              {
+                "id": "inv_head_no",
+                "label": "Reject",
+                "weight": 10,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "inv_amount": "read"
+            }
+          }
+        },
+        {
+          "id": "inv_mgr",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Manager approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "inv_mgr_ok",
+                "label": "Approve",
+                "weight": 94,
+                "actions": [
+                  {
+                    "id": "inv_mgr_ok_set",
+                    "kind": "setField",
+                    "fieldId": "inv_approver",
+                    "value": "{currentUser}"
+                  }
+                ]
+              },
+              {
+                "id": "inv_mgr_no",
+                "label": "Reject",
+                "weight": 6,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "inv_amount": "read"
+            }
+          }
+        },
+        {
+          "id": "inv_big",
+          "type": "decision",
+          "position": {
+            "x": 1309,
+            "y": 0
+          },
+          "data": {
+            "label": "Over $25,000?"
+          }
+        },
+        {
+          "id": "inv_ctrl",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Controller approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 15,
+            "slaHours": 24,
+            "separateFrom": [
+              "inv_head"
+            ],
+            "outcomes": [
+              {
+                "id": "inv_ctrl_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "inv_ctrl_no",
+                "label": "Reject",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "inv_amount": "read"
+            }
+          }
+        },
+        {
+          "id": "inv_pay",
+          "type": "auto",
+          "position": {
+            "x": 1875,
+            "y": 184
+          },
+          "data": {
+            "label": "Schedule payment",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "inv_paid",
+          "type": "end",
+          "position": {
+            "x": 2221,
+            "y": 204
+          },
+          "data": {
+            "label": "Paid",
+            "result": "completed",
+            "outcome": "Paid"
+          }
+        },
+        {
+          "id": "inv_rej",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 544
+          },
+          "data": {
+            "label": "Rejected",
+            "result": "rejected",
+            "outcome": "Rejected"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "inv_e1",
+          "source": "inv_s",
+          "target": "inv_code",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "inv_e2",
+          "source": "inv_code",
+          "target": "inv_tier",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "inv_code_ok"
+          }
+        },
+        {
+          "id": "inv_e3",
+          "source": "inv_code",
+          "target": "inv_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "inv_code_no"
+          }
+        },
+        {
+          "id": "inv_e4",
+          "source": "inv_tier",
+          "target": "inv_head",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "inv_r3_0",
+                  "fieldId": "inv_amount",
+                  "op": "gte",
+                  "value": 5000
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "inv_e5",
+          "source": "inv_tier",
+          "target": "inv_mgr",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "inv_e6",
+          "source": "inv_head",
+          "target": "inv_big",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "inv_head_ok"
+          }
+        },
+        {
+          "id": "inv_e7",
+          "source": "inv_head",
+          "target": "inv_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "inv_head_no"
+          }
+        },
+        {
+          "id": "inv_e8",
+          "source": "inv_mgr",
+          "target": "inv_pay",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "inv_mgr_ok"
+          }
+        },
+        {
+          "id": "inv_e9",
+          "source": "inv_mgr",
+          "target": "inv_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "inv_mgr_no"
+          }
+        },
+        {
+          "id": "inv_e10",
+          "source": "inv_big",
+          "target": "inv_ctrl",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "inv_r9_0",
+                  "fieldId": "inv_amount",
+                  "op": "gt",
+                  "value": 25000
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "inv_e11",
+          "source": "inv_big",
+          "target": "inv_pay",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "inv_e12",
+          "source": "inv_ctrl",
+          "target": "inv_pay",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "inv_ctrl_ok"
+          }
+        },
+        {
+          "id": "inv_e13",
+          "source": "inv_ctrl",
+          "target": "inv_rej",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "inv_ctrl_no"
+          }
+        },
+        {
+          "id": "inv_e14",
+          "source": "inv_pay",
+          "target": "inv_paid",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Invoice",
+        "many": "Invoices"
+      }
+    }
+  ]
+}

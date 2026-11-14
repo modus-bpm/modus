@@ -1,0 +1,196 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_pto",
+      "name": "Time-off request",
+      "description": "The request goes to the employee’s own manager. If nobody has answered in 48 hours it is escalated; once approved, the team calendar is updated.",
+      "category": "People and HR",
+      "tags": [
+        "PTO",
+        "vacation",
+        "escalation"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "pto_employee",
+          "label": "Employee",
+          "type": "user",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "pto_manager",
+          "label": "Manager",
+          "type": "user",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "pto_from",
+          "label": "First Day Off",
+          "type": "date",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "pto_to",
+          "label": "Last Day Off",
+          "type": "date",
+          "width": "half",
+          "required": true
+        },
+        {
+          "id": "pto_days",
+          "label": "Working Days",
+          "type": "number",
+          "width": "half",
+          "min": 1,
+          "max": 15
+        }
+      ],
+      "nodes": [
+        {
+          "id": "pto_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Request submitted"
+          }
+        },
+        {
+          "id": "pto_mgr",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Manager decides",
+            "distribution": "field",
+            "assigneeFieldId": "pto_manager",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 3,
+            "slaHours": 48,
+            "escalateAfterHours": 48,
+            "escalation": {
+              "raisePriority": true,
+              "toDistributors": false,
+              "notifySupervisors": true
+            },
+            "outcomes": [
+              {
+                "id": "pto_mgr_ok",
+                "label": "Approve",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "pto_mgr_no",
+                "label": "Decline",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "pto_from": "read",
+              "pto_to": "read",
+              "pto_days": "read"
+            }
+          }
+        },
+        {
+          "id": "pto_cal",
+          "type": "auto",
+          "position": {
+            "x": 635,
+            "y": 14
+          },
+          "data": {
+            "label": "Update the team calendar",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "pto_ok",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 34
+          },
+          "data": {
+            "label": "Approved",
+            "result": "completed",
+            "outcome": "Approved"
+          }
+        },
+        {
+          "id": "pto_rej",
+          "type": "end",
+          "position": {
+            "x": 671,
+            "y": 204
+          },
+          "data": {
+            "label": "Declined",
+            "result": "rejected",
+            "outcome": "Declined"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "pto_e1",
+          "source": "pto_s",
+          "target": "pto_mgr",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "pto_e2",
+          "source": "pto_mgr",
+          "target": "pto_cal",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "pto_mgr_ok"
+          }
+        },
+        {
+          "id": "pto_e3",
+          "source": "pto_mgr",
+          "target": "pto_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "pto_mgr_no"
+          }
+        },
+        {
+          "id": "pto_e4",
+          "source": "pto_cal",
+          "target": "pto_ok",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Time-off request",
+        "many": "Time-off requests"
+      }
+    }
+  ]
+}

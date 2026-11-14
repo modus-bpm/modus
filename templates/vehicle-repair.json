@@ -1,0 +1,355 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_veh",
+      "name": "Vehicle repair",
+      "description": "A mechanic inspects and estimates. Repairs over $1,500 need the fleet manager, who can decide the vehicle is not worth repairing. A road test releases it back into service.",
+      "category": "Facilities, fleet and safety",
+      "tags": [
+        "threshold",
+        "fleet",
+        "waiting on parts"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "veh_unit",
+          "label": "Vehicle",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "veh_problem",
+          "label": "Problem",
+          "type": "textarea",
+          "width": "full",
+          "required": true
+        },
+        {
+          "id": "veh_est",
+          "label": "Estimate",
+          "type": "currency",
+          "width": "half",
+          "min": 100,
+          "max": 6000,
+          "summary": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "veh_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 374
+          },
+          "data": {
+            "label": "Repair requested"
+          }
+        },
+        {
+          "id": "veh_diag",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 344
+          },
+          "data": {
+            "label": "Inspect and estimate",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "veh_diag_ok",
+                "label": "Estimated",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "veh_est": "edit",
+              "veh_problem": "read"
+            }
+          }
+        },
+        {
+          "id": "veh_lim",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 340
+          },
+          "data": {
+            "label": "Over $1,500?"
+          }
+        },
+        {
+          "id": "veh_appr",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 174
+          },
+          "data": {
+            "label": "Fleet manager approval",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 6,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "veh_appr_ok",
+                "label": "Repair it",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "veh_appr_no",
+                "label": "Not worth repairing",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "veh_est": "read"
+            }
+          }
+        },
+        {
+          "id": "veh_fix",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 344
+          },
+          "data": {
+            "label": "Repair",
+            "distribution": "load-balance",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 120,
+            "slaHours": 72,
+            "outcomes": [
+              {
+                "id": "veh_fix_ok",
+                "label": "Repaired",
+                "weight": 82,
+                "actions": []
+              },
+              {
+                "id": "veh_fix_parts",
+                "label": "Waiting on parts",
+                "weight": 18,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "veh_w",
+          "type": "wait",
+          "position": {
+            "x": 1294,
+            "y": 544
+          },
+          "data": {
+            "label": "Until the parts arrive",
+            "minutes": 2880
+          }
+        },
+        {
+          "id": "veh_qa",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 344
+          },
+          "data": {
+            "label": "Road test and release",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "veh_qa_ok",
+                "label": "Released",
+                "weight": 95,
+                "actions": []
+              },
+              {
+                "id": "veh_qa_back",
+                "label": "Not right yet",
+                "weight": 5,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "veh_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 374
+          },
+          "data": {
+            "label": "Back in service",
+            "result": "completed",
+            "outcome": "Back in service"
+          }
+        },
+        {
+          "id": "veh_rej",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 34
+          },
+          "data": {
+            "label": "Not repaired",
+            "result": "rejected",
+            "outcome": "Not repaired"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "veh_e1",
+          "source": "veh_s",
+          "target": "veh_diag",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "veh_e2",
+          "source": "veh_diag",
+          "target": "veh_lim",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "veh_diag_ok"
+          }
+        },
+        {
+          "id": "veh_e3",
+          "source": "veh_lim",
+          "target": "veh_appr",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "veh_r2_0",
+                  "fieldId": "veh_est",
+                  "op": "gt",
+                  "value": 1500
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "veh_e4",
+          "source": "veh_lim",
+          "target": "veh_fix",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "veh_e5",
+          "source": "veh_appr",
+          "target": "veh_fix",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "veh_appr_ok"
+          }
+        },
+        {
+          "id": "veh_e6",
+          "source": "veh_appr",
+          "target": "veh_rej",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "veh_appr_no"
+          }
+        },
+        {
+          "id": "veh_e7",
+          "source": "veh_fix",
+          "target": "veh_qa",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "veh_fix_ok"
+          }
+        },
+        {
+          "id": "veh_e8",
+          "source": "veh_fix",
+          "target": "veh_w",
+          "sourceHandle": "b",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "veh_fix_parts"
+          }
+        },
+        {
+          "id": "veh_e9",
+          "source": "veh_w",
+          "target": "veh_fix",
+          "sourceHandle": "l",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "veh_e10",
+          "source": "veh_qa",
+          "target": "veh_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "veh_qa_ok"
+          }
+        },
+        {
+          "id": "veh_e11",
+          "source": "veh_qa",
+          "target": "veh_fix",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "veh_qa_back"
+          }
+        }
+      ],
+      "item": {
+        "one": "Repair",
+        "many": "Repairs"
+      }
+    }
+  ]
+}

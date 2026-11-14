@@ -47,6 +47,7 @@ packages/core     the model and the engine — no UI, no I/O, deterministic
 apps/studio       React app: Studio (design + administer) and Workspace (do the work)
 apps/server       the engine live behind a REST API, worker job protocol, live stream,
                   search, assistant, supervision; serves the built studio
+templates         the starter library: fifty template files, the format the Studio exports and imports
 deploy/helm       Helm chart (Dockerfile and docker-compose.yml at the root)
 docs              architecture, tech stack, deployment, concepts, roadmap, demo, research
 ```

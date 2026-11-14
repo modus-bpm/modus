@@ -1,0 +1,310 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_al",
+      "name": "Alarm screening",
+      "description": "An AI agent screens every alarm and dismisses the ones it is sure are false. An operator verifies the rest and the responder is told only about real ones.",
+      "category": "Facilities, fleet and safety",
+      "tags": [
+        "AI",
+        "human in the loop",
+        "security operations"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "al_site",
+          "label": "Site",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "al_point",
+          "label": "Alarm Point",
+          "type": "text",
+          "width": "half",
+          "summary": true
+        },
+        {
+          "id": "al_score",
+          "label": "AI Confidence",
+          "type": "number",
+          "width": "half",
+          "min": 0,
+          "max": 100,
+          "system": true
+        },
+        {
+          "id": "al_label",
+          "label": "AI Label",
+          "type": "text",
+          "width": "half",
+          "system": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "al_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Alarm received",
+            "trigger": "event"
+          }
+        },
+        {
+          "id": "al_ai",
+          "type": "auto",
+          "position": {
+            "x": 325,
+            "y": 184
+          },
+          "data": {
+            "label": "AI screens the alarm",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_classifier",
+            "operationId": "op_classify",
+            "outputs": [
+              {
+                "key": "confidence",
+                "fieldId": "al_score"
+              },
+              {
+                "key": "category",
+                "fieldId": "al_label"
+              }
+            ],
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "al_sure",
+          "type": "decision",
+          "position": {
+            "x": 689,
+            "y": 170
+          },
+          "data": {
+            "label": "Sure it is false?"
+          }
+        },
+        {
+          "id": "al_auto",
+          "type": "end",
+          "position": {
+            "x": 981,
+            "y": 34
+          },
+          "data": {
+            "label": "Dismissed by AI",
+            "result": "completed",
+            "outcome": "Dismissed by AI"
+          }
+        },
+        {
+          "id": "al_op",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 344
+          },
+          "data": {
+            "label": "Operator verifies",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 2,
+            "slaHours": 1,
+            "outcomes": [
+              {
+                "id": "al_op_real",
+                "label": "Real",
+                "weight": 30,
+                "actions": []
+              },
+              {
+                "id": "al_op_false",
+                "label": "False alarm",
+                "weight": 70,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "al_score": "read",
+              "al_label": "read"
+            }
+          }
+        },
+        {
+          "id": "al_tell",
+          "type": "auto",
+          "position": {
+            "x": 1255,
+            "y": 184
+          },
+          "data": {
+            "label": "Notify the responder",
+            "avgMinutes": 1,
+            "actions": [],
+            "serviceId": "svc_mail",
+            "operationId": "op_mail_send",
+            "retries": 1,
+            "onFailure": "manual"
+          }
+        },
+        {
+          "id": "al_close",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 174
+          },
+          "data": {
+            "label": "Operator logs the result",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 3,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "al_close_ok",
+                "label": "Logged",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "al_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Handled",
+            "result": "completed",
+            "outcome": "Handled"
+          }
+        },
+        {
+          "id": "al_fa",
+          "type": "end",
+          "position": {
+            "x": 1291,
+            "y": 544
+          },
+          "data": {
+            "label": "False alarm",
+            "result": "completed",
+            "outcome": "False alarm"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "al_e1",
+          "source": "al_s",
+          "target": "al_ai",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "al_e2",
+          "source": "al_ai",
+          "target": "al_sure",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "al_e3",
+          "source": "al_sure",
+          "target": "al_auto",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {
+            "order": 0,
+            "condition": {
+              "match": "all",
+              "rules": [
+                {
+                  "id": "al_r2_0",
+                  "fieldId": "al_score",
+                  "op": "gte",
+                  "value": 90
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "al_e4",
+          "source": "al_sure",
+          "target": "al_op",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "order": 1,
+            "isDefault": true
+          }
+        },
+        {
+          "id": "al_e5",
+          "source": "al_op",
+          "target": "al_tell",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "al_op_real"
+          }
+        },
+        {
+          "id": "al_e6",
+          "source": "al_op",
+          "target": "al_fa",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "al_op_false"
+          }
+        },
+        {
+          "id": "al_e7",
+          "source": "al_tell",
+          "target": "al_close",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "al_e8",
+          "source": "al_close",
+          "target": "al_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "al_close_ok"
+          }
+        }
+      ],
+      "item": {
+        "one": "Alarm",
+        "many": "Alarms"
+      }
+    }
+  ]
+}

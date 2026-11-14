@@ -1,0 +1,293 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_ca",
+      "name": "Corrective action",
+      "description": "Find the root cause, get the plan approved, and carry it out. Thirty days later someone checks whether it worked; if it did not, the case goes back to the root cause.",
+      "category": "Customers and operations",
+      "tags": [
+        "timer",
+        "verify",
+        "quality"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "ca_problem",
+          "label": "Problem",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "ca_cause",
+          "label": "Root Cause",
+          "type": "textarea",
+          "width": "full"
+        },
+        {
+          "id": "ca_action",
+          "label": "Action",
+          "type": "textarea",
+          "width": "full"
+        },
+        {
+          "id": "ca_owner",
+          "label": "Action Owner",
+          "type": "user",
+          "width": "half",
+          "required": true
+        }
+      ],
+      "nodes": [
+        {
+          "id": "ca_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 34
+          },
+          "data": {
+            "label": "Problem logged"
+          }
+        },
+        {
+          "id": "ca_rc",
+          "type": "user",
+          "position": {
+            "x": 310,
+            "y": 4
+          },
+          "data": {
+            "label": "Find the root cause",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 60,
+            "slaHours": 120,
+            "outcomes": [
+              {
+                "id": "ca_rc_ok",
+                "label": "Cause and plan written",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ca_cause": "edit",
+              "ca_action": "edit"
+            }
+          }
+        },
+        {
+          "id": "ca_plan",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Approve the plan",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 10,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "ca_plan_ok",
+                "label": "Approve",
+                "weight": 85,
+                "actions": []
+              },
+              {
+                "id": "ca_plan_back",
+                "label": "Dig deeper",
+                "weight": 15,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "ca_cause": "read",
+              "ca_action": "read"
+            }
+          }
+        },
+        {
+          "id": "ca_do",
+          "type": "user",
+          "position": {
+            "x": 930,
+            "y": 4
+          },
+          "data": {
+            "label": "Carry out the action",
+            "distribution": "field",
+            "assigneeFieldId": "ca_owner",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 90,
+            "slaHours": 240,
+            "outcomes": [
+              {
+                "id": "ca_do_ok",
+                "label": "Done",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {
+              "ca_action": "read"
+            }
+          }
+        },
+        {
+          "id": "ca_w",
+          "type": "wait",
+          "position": {
+            "x": 1294,
+            "y": 34
+          },
+          "data": {
+            "label": "30 days",
+            "minutes": 43200
+          }
+        },
+        {
+          "id": "ca_ver",
+          "type": "user",
+          "position": {
+            "x": 1550,
+            "y": 4
+          },
+          "data": {
+            "label": "Check that it worked",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "separateFrom": [
+              "ca_do"
+            ],
+            "outcomes": [
+              {
+                "id": "ca_ver_ok",
+                "label": "It worked",
+                "weight": 80,
+                "actions": []
+              },
+              {
+                "id": "ca_ver_no",
+                "label": "It did not",
+                "weight": 20,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "ca_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 34
+          },
+          "data": {
+            "label": "Closed",
+            "result": "completed",
+            "outcome": "Closed"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "ca_e1",
+          "source": "ca_s",
+          "target": "ca_rc",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ca_e2",
+          "source": "ca_rc",
+          "target": "ca_plan",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ca_rc_ok"
+          }
+        },
+        {
+          "id": "ca_e3",
+          "source": "ca_plan",
+          "target": "ca_do",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ca_plan_ok"
+          }
+        },
+        {
+          "id": "ca_e4",
+          "source": "ca_plan",
+          "target": "ca_rc",
+          "sourceHandle": "b",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "ca_plan_back"
+          }
+        },
+        {
+          "id": "ca_e5",
+          "source": "ca_do",
+          "target": "ca_w",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ca_do_ok"
+          }
+        },
+        {
+          "id": "ca_e6",
+          "source": "ca_w",
+          "target": "ca_ver",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "ca_e7",
+          "source": "ca_ver",
+          "target": "ca_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "ca_ver_ok"
+          }
+        },
+        {
+          "id": "ca_e8",
+          "source": "ca_ver",
+          "target": "ca_rc",
+          "sourceHandle": "t",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "ca_ver_no"
+          }
+        }
+      ],
+      "item": {
+        "one": "Corrective action",
+        "many": "Corrective actions"
+      }
+    }
+  ]
+}

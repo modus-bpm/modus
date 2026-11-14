@@ -1,0 +1,343 @@
+{
+  "format": "modus-template",
+  "version": 1,
+  "templates": [
+    {
+      "id": "tpl_q3",
+      "name": "Three quotes",
+      "description": "Three suppliers are asked for a quote at the same time. The buyer compares as soon as two have answered, and the third is no longer waited for.",
+      "category": "Purchasing and contracts",
+      "tags": [
+        "two of three",
+        "competitive quotes",
+        "purchasing"
+      ],
+      "createdAt": "2026-11-13T12:00:00.000Z",
+      "fields": [
+        {
+          "id": "q3_item",
+          "label": "What Is Needed",
+          "type": "text",
+          "width": "half",
+          "required": true,
+          "summary": true
+        },
+        {
+          "id": "q3_est",
+          "label": "Estimated Cost",
+          "type": "currency",
+          "width": "half",
+          "min": 1000,
+          "max": 50000,
+          "summary": true
+        },
+        {
+          "id": "q3_best",
+          "label": "Chosen Quote",
+          "type": "currency",
+          "width": "half"
+        },
+        {
+          "id": "q3_supplier",
+          "label": "Chosen Supplier",
+          "type": "text",
+          "width": "half"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "q3_s",
+          "type": "start",
+          "position": {
+            "x": 37,
+            "y": 204
+          },
+          "data": {
+            "label": "Purchase needed"
+          }
+        },
+        {
+          "id": "q3_sp",
+          "type": "split",
+          "position": {
+            "x": 397,
+            "y": 188
+          },
+          "data": {
+            "label": "Ask three suppliers",
+            "mode": "all"
+          }
+        },
+        {
+          "id": "q3_qa",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 4
+          },
+          "data": {
+            "label": "Quote from supplier A",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "q3_qa_ok",
+                "label": "Quote in",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "q3_qb",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 174
+          },
+          "data": {
+            "label": "Quote from supplier B",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "q3_qb_ok",
+                "label": "Quote in",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "q3_qc",
+          "type": "user",
+          "position": {
+            "x": 620,
+            "y": 344
+          },
+          "data": {
+            "label": "Quote from supplier C",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 30,
+            "slaHours": 96,
+            "outcomes": [
+              {
+                "id": "q3_qc_ok",
+                "label": "Quote in",
+                "weight": 100,
+                "actions": []
+              }
+            ],
+            "fieldAccess": {}
+          }
+        },
+        {
+          "id": "q3_jn",
+          "type": "join",
+          "position": {
+            "x": 1017,
+            "y": 188
+          },
+          "data": {
+            "label": "Two quotes back",
+            "mode": "count",
+            "count": 2,
+            "cancelRemaining": true
+          }
+        },
+        {
+          "id": "q3_pick",
+          "type": "user",
+          "position": {
+            "x": 1240,
+            "y": 174
+          },
+          "data": {
+            "label": "Compare and choose",
+            "distribution": "queue",
+            "autoDistribute": true,
+            "distributeEveryMinutes": 30,
+            "avgMinutes": 20,
+            "slaHours": 24,
+            "outcomes": [
+              {
+                "id": "q3_pick_ok",
+                "label": "Award",
+                "weight": 92,
+                "actions": []
+              },
+              {
+                "id": "q3_pick_no",
+                "label": "Do not buy",
+                "weight": 8,
+                "actions": [],
+                "requireComment": true
+              }
+            ],
+            "fieldAccess": {
+              "q3_best": "edit",
+              "q3_supplier": "edit",
+              "q3_est": "read"
+            }
+          }
+        },
+        {
+          "id": "q3_po",
+          "type": "auto",
+          "position": {
+            "x": 1565,
+            "y": 184
+          },
+          "data": {
+            "label": "Create the purchase order",
+            "description": "A placeholder: point it at your own system, or leave it and the step simply takes this long.",
+            "avgMinutes": 1,
+            "actions": []
+          }
+        },
+        {
+          "id": "q3_done",
+          "type": "end",
+          "position": {
+            "x": 1911,
+            "y": 204
+          },
+          "data": {
+            "label": "Ordered",
+            "result": "completed",
+            "outcome": "Ordered"
+          }
+        },
+        {
+          "id": "q3_rej",
+          "type": "end",
+          "position": {
+            "x": 1601,
+            "y": 374
+          },
+          "data": {
+            "label": "Not awarded",
+            "result": "cancelled",
+            "outcome": "Not awarded"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "q3_e1",
+          "source": "q3_s",
+          "target": "q3_sp",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "q3_e2",
+          "source": "q3_sp",
+          "target": "q3_qa",
+          "sourceHandle": "t",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "q3_e3",
+          "source": "q3_sp",
+          "target": "q3_qb",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "q3_e4",
+          "source": "q3_sp",
+          "target": "q3_qc",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "q3_e5",
+          "source": "q3_qa",
+          "target": "q3_jn",
+          "sourceHandle": "r",
+          "targetHandle": "t",
+          "data": {
+            "outcomeId": "q3_qa_ok"
+          }
+        },
+        {
+          "id": "q3_e6",
+          "source": "q3_qb",
+          "target": "q3_jn",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "q3_qb_ok"
+          }
+        },
+        {
+          "id": "q3_e7",
+          "source": "q3_qc",
+          "target": "q3_jn",
+          "sourceHandle": "r",
+          "targetHandle": "b",
+          "data": {
+            "outcomeId": "q3_qc_ok"
+          }
+        },
+        {
+          "id": "q3_e8",
+          "source": "q3_jn",
+          "target": "q3_pick",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        },
+        {
+          "id": "q3_e9",
+          "source": "q3_pick",
+          "target": "q3_po",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "q3_pick_ok"
+          }
+        },
+        {
+          "id": "q3_e10",
+          "source": "q3_pick",
+          "target": "q3_rej",
+          "sourceHandle": "b",
+          "targetHandle": "l",
+          "data": {
+            "outcomeId": "q3_pick_no"
+          }
+        },
+        {
+          "id": "q3_e11",
+          "source": "q3_po",
+          "target": "q3_done",
+          "sourceHandle": "r",
+          "targetHandle": "l",
+          "data": {}
+        }
+      ],
+      "item": {
+        "one": "Purchase",
+        "many": "Purchases"
+      }
+    }
+  ]
+}
