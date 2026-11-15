@@ -94,12 +94,12 @@ const RADIUS: Record<Theme['radius'], [sm: string, md: string, lg: string, xl: s
 
 /**
  * The custom properties a theme sets on the Workspace. They take the place of the product's own
- * palette there (brand shades, greys, white, the page), so everything drawn with it follows.
+ * palette there (brand shades, grays, white, the page), so everything drawn with it follows.
  */
 export function themeVars(theme: Theme): Record<string, string> {
   const t = { ...theme, primary: isHex(theme.primary) ? theme.primary : DEFAULT_THEME.primary, background: isHex(theme.background) ? theme.background : DEFAULT_THEME.background, surface: isHex(theme.surface) ? theme.surface : DEFAULT_THEME.surface, text: isHex(theme.text) ? theme.text : DEFAULT_THEME.text }
-  // Greys run from the surface towards the text, so they stay greys of this theme, light or dark.
-  const grey = (amount: number) => mix(t.surface, t.text, amount)
+  // Grays run from the surface towards the text, so they stay grays of this theme, light or dark.
+  const gray = (amount: number) => mix(t.surface, t.text, amount)
   const dark = luminance(t.surface) < 0.2
   // Shades of the primary: tints towards the surface, and a deeper one for hover and text on tints.
   const tint = (amount: number) => mix(t.primary, t.surface, amount)
@@ -119,15 +119,15 @@ export function themeVars(theme: Theme): Record<string, string> {
     '--theme-on-brand': onColor(t.primary),
     '--color-canvas': t.background,
     '--color-white': t.surface,
-    '--color-slate-50': grey(0.03),
-    '--color-slate-100': grey(0.07),
-    '--color-slate-200': grey(0.13),
-    '--color-slate-300': grey(0.22),
-    '--color-slate-400': grey(0.42),
-    '--color-slate-500': grey(0.58),
-    '--color-slate-600': grey(0.72),
-    '--color-slate-700': grey(0.84),
-    '--color-slate-800': grey(0.93),
+    '--color-slate-50': gray(0.03),
+    '--color-slate-100': gray(0.07),
+    '--color-slate-200': gray(0.13),
+    '--color-slate-300': gray(0.22),
+    '--color-slate-400': gray(0.42),
+    '--color-slate-500': gray(0.58),
+    '--color-slate-600': gray(0.72),
+    '--color-slate-700': gray(0.84),
+    '--color-slate-800': gray(0.93),
     '--color-slate-900': t.text,
     '--theme-side': side,
     '--theme-on-side': t.header === 'light' ? t.text : onColor(side),

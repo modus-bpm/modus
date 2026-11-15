@@ -27,7 +27,7 @@ const COLORS: Array<{ key: 'primary' | 'background' | 'surface' | 'text'; label:
   { key: 'primary', label: 'Primary', hint: 'Buttons, links and what is selected.' },
   { key: 'background', label: 'Page', hint: 'Behind everything.' },
   { key: 'surface', label: 'Surface', hint: 'Cards, forms and fields.' },
-  { key: 'text', label: 'Text', hint: 'Greys and borders are mixed from it.' },
+  { key: 'text', label: 'Text', hint: 'Grays and borders are mixed from it.' },
 ]
 
 type Scope = 'org' | 'app'

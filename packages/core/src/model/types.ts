@@ -256,7 +256,7 @@ export interface Theme {
   background: string
   /** Cards, forms and fields. */
   surface: string
-  /** Text. Greys and borders are mixed from it and the surface, so a dark surface with light text works. */
+  /** Text. Grays and borders are mixed from it and the surface, so a dark surface with light text works. */
   text: string
   font: ThemeFont
   /** Corners: of fields, buttons and cards. */
