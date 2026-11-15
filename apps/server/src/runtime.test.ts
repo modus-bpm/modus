@@ -114,6 +114,54 @@ describe('runtime', () => {
     await rt.stop()
   })
 
+  it('catches the clock up piece by piece after a long time away, and runs the command once it is there', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const storage = memoryStorage()
+    // No budget: each transaction moves the clock one piece (an hour) and commits.
+    const rt = await Runtime.create({ storage, catchUpBudgetMs: 0 })
+    await make(rt, 'A-1')
+    const before = (await storage.state.load('app_invoice'))!
+    const heard: number[] = []
+    rt.subscribe((c) => void heard.push(c.clock))
+    // The server was away five and a half hours.
+    vi.setSystemTime(Date.now() + 5.5 * 60 * 60_000)
+    await make(rt, 'A-2')
+    const after = (await storage.state.load('app_invoice'))!
+    // Five whole hours each in a commit of their own, then the last half hour with the command.
+    expect(after.version - before.version).toBe(6)
+    expect(after.state.clock - before.state.clock).toBeCloseTo(330, 6)
+    expect(after.tickedAt).toBe(Date.now())
+    expect(heard.map((c) => Math.round(c - before.state.clock))).toEqual([60, 120, 180, 240, 300, 330])
+    // The command ran once, at the end: one new item, created at the caught-up time.
+    const made = Object.values(after.state.objects).filter((o) => o.data.f_invno === 'A-2')
+    expect(made).toHaveLength(1)
+    expect(made[0]!.createdAt).toBeCloseTo(after.state.clock, 6)
+    // A short gap is still one transaction.
+    vi.setSystemTime(Date.now() + 20 * 60_000)
+    await make(rt, 'A-3')
+    expect((await storage.state.load('app_invoice'))!.version - after.version).toBe(1)
+    await rt.stop()
+  })
+
+  it('stops catching up when the server is stopping, with what it committed kept', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const storage = memoryStorage()
+    const rt = await Runtime.create({ storage, catchUpBudgetMs: 0 })
+    await make(rt, 'A-1')
+    const before = (await storage.state.load('app_invoice'))!
+    vi.setSystemTime(Date.now() + 10 * 60 * 60_000)
+    let pieces = 0
+    rt.subscribe(() => {
+      if (++pieces === 2) void rt.stop()
+    })
+    await expect(make(rt, 'A-2')).rejects.toBeInstanceOf(StorageUnavailable)
+    const after = (await storage.state.load('app_invoice'))!
+    expect(after.state.clock - before.state.clock).toBeGreaterThanOrEqual(120)
+    expect(Object.values(after.state.objects).some((o) => o.data.f_invno === 'A-2')).toBe(false)
+    // Whoever starts next carries on from the stored clock time.
+    expect(after.tickedAt).toBeLessThan(Date.now())
+  })
+
   it('doesn’t move the clock of a state stored before clock times were kept; the commit starts keeping one', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     // A data directory from before versions: a state file and no meta file (version 1, no clock time).

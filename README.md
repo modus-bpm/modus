@@ -42,7 +42,7 @@ they changed something.
   Make → Model).
 - A **forms designer**: the form is the canvas. Drag fields onto it, pull an edge to resize,
   style each section, add headings, callouts and pictures, and check it at tablet and phone width.
-- **Branding**: give the Workspace your organization's name, logo, colours, type and field style,
+- **Branding**: give the Workspace your organization's name, logo, colors, type and field style,
   for everyone or per application, with your own style rules for the rest.
 - A **visual workflow designer**: people steps, automated steps, decisions on field values and
   line items ("any line where Category is Software"), **parallel split / join** (all, first one

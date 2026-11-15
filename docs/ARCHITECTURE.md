@@ -66,8 +66,8 @@ also serves the studio.
 | **Application** | A bundle of object types, lists and workflows (e.g. Invoice Processing). |
 | **Object type** | A dynamically defined record: fields (text, number, currency, date, yes/no, choice, person, email, attachment, and **tables** of rows such as invoice line items), numbering, title, priority field, permissions per group, and *sensitive* fields visible only to some groups. Forms are generated from it. |
 | **Table field** | Multi-row data inside an item: typed columns, formula columns (`Quantity × Unit Price`), row limits, and **total fields** that sum a column. Calculated values are kept by the engine and are read-only everywhere. |
-| **Form design** | How an object type's form looks: sections of one to four columns, each with a look of its own (plain, card, tinted, outlined, an accent colour, a title size), fields at a chosen width with their own label and guidance, headings, paragraphs, callouts, dividers, space and pictures between them, and choices for the whole form (how wide, labels above or beside, spacing). Made in the forms designer, where the canvas is the form drawn by the code the Workspace uses. Without one, the form is every field in order. It only arranges: field security still decides who sees and changes what, and a field the layout leaves out is still shown at the end. |
-| **Look** | How the Workspace is drawn for the people working in it: a name and logo, four colours every other shade is mixed from, typeface, corners, room, how fields and labels are drawn, the side panel, and style rules of the organization's own. Set for the organization; an application can differ. |
+| **Form design** | How an object type's form looks: sections of one to four columns, each with a look of its own (plain, card, tinted, outlined, an accent color, a title size), fields at a chosen width with their own label and guidance, headings, paragraphs, callouts, dividers, space and pictures between them, and choices for the whole form (how wide, labels above or beside, spacing). Made in the forms designer, where the canvas is the form drawn by the code the Workspace uses. Without one, the form is every field in order. It only arranges: field security still decides who sees and changes what, and a field the layout leaves out is still shown at the end. |
+| **Look** | How the Workspace is drawn for the people working in it: a name and logo, four colors every other shade is mixed from, typeface, corners, room, how fields and labels are drawn, the side panel, and style rules of the organization's own. Set for the organization; an application can differ. |
 | **List** | Flat or linked (cascading) reference data: Model Year → Make → Model. |
 | **Workflow** | A graph of steps and paths for one object type. `process` workflows start when an item is created; `subflow` workflows run inside a subflow step. Has a target time (due dates), workflow-wide field locks, **process supervisors**, and an **expedite policy** (who may expedite, how much faster, whether a reason is required). |
 | **Step types** | Start (form, API, event stream, schedule, inbox) · User step · Automated step · Decision · Parallel split · Join · Subflow · Timer · End. |
@@ -269,7 +269,11 @@ Every change to an application goes through `Storage.transact`. On PostgreSQL:
    another server committed since this one's cached version, what it changed comes back with
    the lock: the rest of the state and the items written since, applied to the cached state.
 3. The runtime catches the clock up from the stored clock time, then runs the command on a copy
-   of the state.
+   of the state. After a long time away (over an hour of clock), the catch-up is done first, in
+   transactions of its own that each move the clock for about two seconds and commit, so none is
+   held open and a stop part way loses only the last piece. The engine's live clock keeps every
+   item's next time (a timer, an escalation, a built-in step) in order and touches only the items
+   that are due, so a quiet week costs next to nothing however many items are waiting.
 4. Pure core functions compare the state before and after: `changesBetween` finds the new audit
    entries and outbox messages (`job.ready` for a service job that became ready, `notify` for
    notifications and escalations), and `changedItems` the items that changed in any way. The
@@ -638,7 +642,7 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
   ones the item already holds, and what the data says about a file comes from storage. A file is
   sent only to someone who can read the field it is in, on that item, as it stands; always as a
   download or a sandboxed view, never as a page of the server's origin.
-- **The look**: colours, logos and form pictures are data the core checks (hex colours, images
+- **The look**: colors, logos and form pictures are data the core checks (hex colors, images
   kept in the design as data URLs). Style rules of the organization's own are used exactly as
   written or not at all: they are read as a browser reads them, refused if they could close the
   Workspace's scope or load anything from elsewhere, and nested under the Workspace so they can't

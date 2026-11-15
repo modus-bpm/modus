@@ -44,7 +44,7 @@ export interface PlannedSection {
   description?: string
   columns: 1 | 2 | 3 | 4
   collapsed: boolean
-  /** How it is drawn: every choice filled in, the accent only when it is a colour. */
+  /** How it is drawn: every choice filled in, the accent only when it is a color. */
   look: NonNullable<SectionStyle['look']>
   accent?: string
   titleSize: NonNullable<SectionStyle['title']>

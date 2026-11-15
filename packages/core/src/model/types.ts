@@ -193,7 +193,7 @@ export interface FormStyle {
 export interface SectionStyle {
   /** Plain; a card with a border and shadow; a tinted panel; or just an outline. */
   look?: 'plain' | 'card' | 'tinted' | 'outlined'
-  /** A colour of the section's own (hex), for its title, its tint and its edge. Absent: the look's primary. */
+  /** A color of the section's own (hex), for its title, its tint and its edge. Absent: the look's primary. */
   accent?: string
   /** How large the title is. */
   title?: 'small' | 'medium' | 'large'
@@ -250,7 +250,7 @@ export interface Theme {
   name?: string
   /** A logo, held in the design as a data URL. */
   logo?: string
-  /** Buttons, links, the selected thing. A hex colour (`#4f46e5`). */
+  /** Buttons, links, the selected thing. A hex color (`#4f46e5`). */
   primary: string
   /** The page behind everything. */
   background: string
@@ -267,7 +267,7 @@ export interface Theme {
   fields: 'outlined' | 'filled' | 'underlined'
   /** How a field's label is drawn. */
   labels: 'plain' | 'bold' | 'caps'
-  /** The Workspace's side panel: light like the page, in the primary colour, or dark. */
+  /** The Workspace's side panel: light like the page, in the primary color, or dark. */
   header: 'light' | 'brand' | 'dark'
   /** Style sheet rules of the organization's own, applied inside the Workspace only. */
   css?: string

@@ -149,7 +149,7 @@ describe('the look', () => {
     expect(isDefaultTheme(t)).toBe(false)
   })
 
-  it('mixes colours and knows what reads on them', () => {
+  it('mixes colors and knows what reads on them', () => {
     expect(mix('#000000', '#ffffff', 0.5)).toBe('#808080')
     expect(mix('#fff', '#000', 0)).toBe('#ffffff')
     expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 0)
@@ -170,7 +170,7 @@ describe('the look', () => {
     // Greys still read on the surface they sit on.
     expect(contrast(dark['--color-slate-600']!, dark['--color-white']!)).toBeGreaterThan(4.5)
     expect(contrast(themeVars(DEFAULT_THEME)['--color-slate-600']!, '#ffffff')).toBeGreaterThan(4.5)
-    // A colour that is not one falls back, so a bad value can't blank the page.
+    // A color that is not one falls back, so a bad value can't blank the page.
     expect(themeVars({ ...DEFAULT_THEME, primary: 'red; background: url(x)' })['--color-brand-600']).toBe(DEFAULT_THEME.primary)
   })
 

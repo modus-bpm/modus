@@ -495,7 +495,7 @@ function Choice<T extends string | number>({ label, value, onChange, options }: 
 
 function FormSettings({ style, onPatch }: { style: FormStyle; onPatch: (fn: (s: FormStyle) => void) => void }) {
   return (
-    <Panel title="The whole form" about="Click a section or anything in it to style that. Colours, type and how fields are drawn are set once for every form, under Branding.">
+    <Panel title="The whole form" about="Click a section or anything in it to style that. Colors, type and how fields are drawn are set once for every form, under Branding.">
       <Choice label="How wide it may grow" value={style.width ?? 'full'} onChange={(v) => onPatch((s) => void (s.width = v))} options={[['narrow', 'Narrow'], ['medium', 'Medium'], ['wide', 'Wide'], ['full', 'Full']]} />
       <Choice label="Labels" value={style.labels ?? 'above'} onChange={(v) => onPatch((s) => void (s.labels = v))} options={[['above', 'Above the field'], ['beside', 'Beside it']]} />
       <Choice label="Room between sections" value={style.spacing ?? 'normal'} onChange={(v) => onPatch((s) => void (s.spacing = v))} options={[['tight', 'Tight'], ['normal', 'Normal'], ['airy', 'Airy']]} />
@@ -521,9 +521,9 @@ function SectionSettings({ section, first, last, onPatch, onMove, onRemove }: { 
       <Choice<Span> label="Columns" value={section.columns} onChange={(v) => onPatch((s) => void (s.columns = v))} options={[[1, '1'], [2, '2'], [3, '3'], [4, '4']]} />
       <Choice label="Look" value={style.look ?? 'plain'} onChange={(v) => setStyle((s) => void (s.look = v))} options={[['plain', 'Plain'], ['card', 'Card'], ['tinted', 'Tinted'], ['outlined', 'Outlined']]} />
       <div>
-        <div className="mb-1 text-xs font-medium text-slate-600">Its own colour</div>
+        <div className="mb-1 text-xs font-medium text-slate-600">Its own color</div>
         <div className="flex items-center gap-2">
-          <input type="color" aria-label="The section’s colour" value={isHex(style.accent) && style.accent.length === 7 ? style.accent : '#4f46e5'} onChange={(e) => setStyle((s) => void (s.accent = e.target.value))} className="h-8 w-9 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-0.5" />
+          <input type="color" aria-label="The section’s color" value={isHex(style.accent) && style.accent.length === 7 ? style.accent : '#4f46e5'} onChange={(e) => setStyle((s) => void (s.accent = e.target.value))} className="h-8 w-9 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-0.5" />
           <span className="min-w-0 flex-1 font-mono text-xs text-slate-600">{style.accent ?? 'The look’s primary'}</span>
           {style.accent && (
             <Button size="sm" variant="ghost" onClick={() => setStyle((s) => void delete s.accent)}>
@@ -653,7 +653,7 @@ function ItemSettings({
           <Field label="Height at most (pixels)">
             <Input type="number" min={16} max={800} value={item.height ?? ''} placeholder="160" onChange={(e) => onPatch((i) => i.kind === 'image' && (i.height = e.target.value === '' ? undefined : Number(e.target.value)))} />
           </Field>
-          <Choice label="Placed" value={item.align ?? 'left'} onChange={(v) => onPatch((i) => i.kind === 'image' && (i.align = v))} options={[['left', 'Left'], ['center', 'Centre'], ['right', 'Right']]} />
+          <Choice label="Placed" value={item.align ?? 'left'} onChange={(v) => onPatch((i) => i.kind === 'image' && (i.align = v))} options={[['left', 'Left'], ['center', 'Center'], ['right', 'Right']]} />
         </>
       )}
       {item.kind === 'divider' && <p className="text-xs text-slate-500">A line across the section.</p>}

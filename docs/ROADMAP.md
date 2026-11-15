@@ -9,8 +9,10 @@ browser studio (simulated); *Skeleton* means the server path exists in a first f
 The next work is what one organization needs to run its real work on a Modus server for months,
 not days. An architecture review on November 13, 2026 set the order:
 
-1. **A command costs what it touches.** Today every command copies and compares every item the
-   application has ever had, and finished items stay in memory for good. Copy items only when they
+1. **A command costs what it touches.** *Started: a live clock no longer looks at every item every
+   minute, and a server back from time away catches up in short commits (measured: a week away with
+   20,000 timers took the server down; it is now under two seconds).* Still to do: every command copies
+   and compares every item the application has ever had, and finished items stay in memory for good. Copy items only when they
    change, keep an index of what is due so timers are not found by scanning, move finished items
    out of the working state, and catch the clock up after downtime in small steps that commit one
    by one.
@@ -27,7 +29,7 @@ Done first:
   PostgreSQL, or a directory with the memory store) and sends a file only to someone who may read
   the field it is in. See [DEPLOYMENT.md](DEPLOYMENT.md#attachments).
 - **A forms designer and branding.** Design each object type's form on a canvas that is the form
-  itself, and give the Workspace your organization's name, logo, colours and style.
+  itself, and give the Workspace your organization's name, logo, colors and style.
 - **Who may take the event log out, and who may answer for a service.** The OCEL export is for
   administrators and auditors and leaves out the fields hidden from them; a service's jobs can be
   taken and finished only by its listed workers and administrators.
@@ -54,8 +56,8 @@ per item, several organizations on one deployment, and the M5 load targets.
 | Capability | Status |
 | --- | --- |
 | Dynamic object types, generated forms, numbering, title and summary fields | Prototype |
-| Forms designer: the form as the canvas, drag and drop, resize by pulling an edge, one to four columns, section looks and colours, labels above or beside, callouts, space, pictures; tablet and phone widths | Prototype |
-| Branding: the Workspace's name, logo, colours, typeface, corners, room, field and label styles, side panel, own style rules; per organization and per application | Prototype |
+| Forms designer: the form as the canvas, drag and drop, resize by pulling an edge, one to four columns, section looks and colors, labels above or beside, callouts, space, pictures; tablet and phone widths | Prototype |
+| Branding: the Workspace's name, logo, colors, typeface, corners, room, field and label styles, side panel, own style rules; per organization and per application | Prototype |
 | File uploads stored on the server, with per-field limits on kind, number and size | Done |
 | Per-step form layouts; conditional sections (show when a field has a value) | Planned |
 | S3-compatible storage for large files; malware scanning hook; retention for removed files | Planned |

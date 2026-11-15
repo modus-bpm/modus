@@ -1,4 +1,4 @@
-// The look of the Workspace. A theme is a handful of choices (colours, type, corners, room, how
+// The look of the Workspace. A theme is a handful of choices (colors, type, corners, room, how
 // fields are drawn) and, for whatever those don't reach, style rules of the organization's own.
 // This file turns a theme into what a page needs: CSS custom properties, a few attributes and a
 // style sheet that can't reach outside the Workspace or call out of the page.
@@ -43,7 +43,7 @@ export function isDefaultTheme(t: Theme): boolean {
   return (Object.keys(DEFAULT_THEME) as Array<keyof Theme>).every((k) => t[k] === DEFAULT_THEME[k]) && !t.name && !t.logo && !t.css
 }
 
-// ---------- Colour ----------
+// ---------- Color ----------
 
 type Rgb = [number, number, number]
 
@@ -74,13 +74,13 @@ function luminance(c: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/** Contrast between two colours, 1 (none) to 21. Text wants 4.5 or more. */
+/** Contrast between two colors, 1 (none) to 21. Text wants 4.5 or more. */
 export function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number]
   return (hi + 0.05) / (lo + 0.05)
 }
 
-/** Black or white, whichever reads better on this colour. */
+/** Black or white, whichever reads better on this color. */
 export const onColor = (c: string) => (contrast(c, '#ffffff') >= contrast(c, '#0f172a') ? '#ffffff' : '#0f172a')
 
 // ---------- A theme as CSS ----------
@@ -218,7 +218,7 @@ export function themeProblems(theme: unknown): string[] {
   if (typeof theme !== 'object' || theme === null) return ['The look is not one Modus knows.']
   const t = theme as Partial<Theme>
   const out: string[] = []
-  for (const k of ['primary', 'background', 'surface', 'text'] as const) if (t[k] !== undefined && !isHex(t[k])) out.push(`The ${k} colour is not a hex colour such as #4f46e5.`)
+  for (const k of ['primary', 'background', 'surface', 'text'] as const) if (t[k] !== undefined && !isHex(t[k])) out.push(`The ${k} color is not a hex color such as #4f46e5.`)
   if (t.logo !== undefined && t.logo !== '' && (typeof t.logo !== 'string' || !IMAGE.test(t.logo))) out.push('The logo is not an image kept in the design.')
   if (typeof t.logo === 'string' && t.logo.length > MAX_IMAGE_BYTES * 1.4) out.push(`The logo is larger than ${Math.round(MAX_IMAGE_BYTES / 1000)} KB.`)
   if (t.css !== undefined && typeof t.css !== 'string') out.push('The style rules are not text.')

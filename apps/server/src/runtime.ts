@@ -33,6 +33,8 @@ export interface RuntimeOptions {
    * subscriber that threw on a change (not retried; the change stands).
    */
   onError?: (err: unknown, during: 'tick' | 'listen' | 'subscriber') => void
+  /** How long one transaction may spend catching the clock up after time away, before it commits and the next goes on (ms). */
+  catchUpBudgetMs?: number
 }
 
 export interface Change {
@@ -69,6 +71,14 @@ const moved = (before: SimState, after: SimState) => changesBetween(before, afte
 
 /** A tick that logged nothing and comes this soon after the last stored clock time is rolled back. */
 const IDLE_TICK_MS = 30_000
+/**
+ * Catching the clock up after the server was away. A gap longer than this many minutes is caught
+ * up in transactions of its own, each moving the clock for about CATCH_UP_BUDGET_MS (checked every
+ * hour of clock) and then committing, so no transaction is held open while a week of timers comes due (PostgreSQL ends
+ * one left idle for 15 s) and a stop in the middle loses only the last piece.
+ */
+const CATCH_UP_MINUTES = 60
+const CATCH_UP_BUDGET_MS = 2000
 
 export class Runtime {
   design!: Design
@@ -90,7 +100,7 @@ export class Runtime {
   private constructor(private readonly opts: Required<Omit<RuntimeOptions, 'storage'>> & { storage: Storage }) {}
 
   static async create(options: RuntimeOptions): Promise<Runtime> {
-    const rt = new Runtime({ timeScale: 1, tickMs: 1000, seedIfEmpty: true, onError: (err, during) => console.error(`Runtime ${during} failed:`, err), ...options })
+    const rt = new Runtime({ timeScale: 1, tickMs: 1000, seedIfEmpty: true, catchUpBudgetMs: CATCH_UP_BUDGET_MS, onError: (err, during) => console.error(`Runtime ${during} failed:`, err), ...options })
     const { storage } = rt.opts
     const stored = await storage.designs.current()
     if (stored) {
@@ -344,6 +354,19 @@ export class Runtime {
 
   private command<T>(appId: Id, fn: (sim: SimState, ctx: Ctx) => T, tick = false): Promise<T> {
     return this.serial(appId, async () => {
+      // Usually once. After a long time away, the clock is first caught up piece by piece, each
+      // piece committed; the command runs in the transaction that brings the clock to now.
+      for (;;) {
+        if (this.stopping) throw new StorageUnavailable('The server is shutting down, so the change wasn’t made.')
+        const r = await this.attempt(appId, fn, tick)
+        if (r.done) return r.value
+      }
+    })
+  }
+
+  /** One transaction: catch the clock up, and run the command if that brought it to now. */
+  private async attempt<T>(appId: Id, fn: (sim: SimState, ctx: Ctx) => T, tick: boolean): Promise<{ done: true; value: T } | { done: false }> {
+    {
       let ctx = this.ctx(appId)
       const cached = this.cached(appId)
       // A throw from our side of the transaction (the command, or projecting its result), as opposed to storage's.
@@ -353,7 +376,9 @@ export class Runtime {
       let sim!: SimState
       let tickedAt: number | undefined
       let itemIds: Id[] = []
-      let r: { value: T; version: number; committed: boolean }
+      // The clock is still behind after this transaction: it only caught up part of the way.
+      let behind = false
+      let r: { value: T | undefined; version: number; committed: boolean }
       try {
         r = await this.opts.storage.transact(appId, cached.version, async (stored) => {
           try {
@@ -371,18 +396,27 @@ export class Runtime {
             // Catch the clock up from when it was last moved, by whichever server. A state from before
             // clock times were kept isn't moved; this commit starts keeping one.
             const last = stored.tickedAt
-            if (last !== undefined && now > last) advance(sim, ctx, ((now - last) / 60_000) * this.opts.timeScale)
-            const value = fn(sim, ctx)
+            const gap = last !== undefined && now > last ? ((now - last) / 60_000) * this.opts.timeScale : 0
+            let caught = gap
+            if (gap > CATCH_UP_MINUTES) {
+              // A long time away: move the clock until the budget is spent, and commit how far it got.
+              const started = Date.now()
+              caught = advance(sim, ctx, gap, () => Date.now() - started >= this.opts.catchUpBudgetMs)
+            } else if (gap > 0) advance(sim, ctx, gap)
+            behind = caught < gap - 1e-9
+            // Not at now yet: the command waits for the transaction that gets there.
+            const value = behind ? undefined : fn(sim, ctx)
             const c = changesBetween(before, sim)
             itemIds = c.itemIds
-            if (tick && !c.itemIds.length && last !== undefined && now - last < IDLE_TICK_MS) return { value }
+            if (!behind && tick && !c.itemIds.length && last !== undefined && now - last < IDLE_TICK_MS) return { value }
             // Every item that changed is written (its state and its rows), not only those whose rows moved.
             const idx = buildIndex(ctx)
             const items = changedItems(before, sim)
               .map((id) => projectItem(sim, ctx, id, idx))
               .filter((p): p is ProjectedItem => !!p)
             // Never write a clock time earlier than the stored one (another server's clock may run ahead).
-            tickedAt = Math.max(now, last ?? now)
+            // Part way: the clock time is how far it got, so the next piece starts from there.
+            tickedAt = behind ? last! + (caught / this.opts.timeScale) * 60_000 : Math.max(now, last ?? now)
             return { value, write: { state: sim, entries: c.entries, items, outbox: c.outbox, tickedAt } }
           } catch (err) {
             failed = { err }
@@ -405,8 +439,8 @@ export class Runtime {
         // A rolled-back idle tick still brought another server's change: show it.
         this.emit({ appId, clock: fresh.sim.clock, itemIds: theirs })
       }
-      return r.value
-    })
+      return behind ? { done: false } : { done: true, value: r.value as T }
+    }
   }
 
   /** Another server (or this one) committed: reload unless the cache has that version already. */
