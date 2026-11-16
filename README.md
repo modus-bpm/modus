@@ -159,5 +159,8 @@ and the [Modus playlist on YouTube](https://www.youtube.com/playlist?list=PLGVn4
 
 ## License
 
-[Apache License 2.0](LICENSE).
-Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+[Apache License 2.0](LICENSE). Copyright 2026 Randy Michak and the contributors (see [NOTICE](NOTICE)).
+
+The license covers the code, not the name or logo: see [TRADEMARKS.md](TRADEMARKS.md).
+Contributions are welcome under the [contributor license agreement](CLA.md) — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
