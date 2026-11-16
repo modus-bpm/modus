@@ -6,4 +6,4 @@
 
 ## Agreement
 
-- [ ] I have read [CLA.md](../CLA.md) and agree to the contributor license agreement for this contribution.
+- [ ] I have read [CLA.md](https://github.com/modus-bpm/modus/blob/main/CLA.md) and agree to the contributor license agreement for this contribution.
