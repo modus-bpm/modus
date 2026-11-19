@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { appFromTemplate, seedDesign } from '../model/seed'
 import { seedTemplates } from '../model/seed-templates'
-import type { Group, User } from '../model/types'
-import { advance, advanceEveryMinute, burst, completeJob, type Ctx, pollJobs } from './engine'
+import type { App, Distribution, Group, ServiceDef, User, WfEdge, WfNode, Workflow } from '../model/types'
+import { advance, advanceEveryMinute, burst, completeJob, createObject, type Ctx, pollJobs } from './engine'
 import { workRelease } from './ops'
 import { copyState, newSim, type SimState } from './state'
 
@@ -20,12 +20,14 @@ const services = seedDesign().services
 function inFlight(name: string, seed: number, simulatedMinutes: number): { live: Ctx; sim: SimState } {
   const t = seedTemplates().find((x) => x.name === name)!
   const app = appFromTemplate(t, { groups, users })
+  let people = 0
   for (const n of app.workflows[0]!.nodes) {
     if (n.type === 'user') {
       n.data.groupId = 'g_team'
-      // Some steps escalate, so escalations come due during the gap too.
+      // Some steps escalate, so escalations come due during the gap too; every other one hands
+      // the work back to the team's supervisor, to be given out again.
       n.data.escalateAfterHours ??= 30
-      n.data.escalation ??= { raisePriority: true, toDistributors: false }
+      n.data.escalation ??= { raisePriority: true, toDistributors: people++ % 2 === 1 }
     }
     if (n.type === 'auto') n.data.fallbackGroupId = 'g_team'
   }
@@ -165,5 +167,159 @@ describe('the live clock', () => {
     advance(sim, live, 7 * DAY)
     // Stepping every minute over 5,000 items took tens of seconds; this is a few ticks' work.
     expect(Date.now() - started).toBeLessThan(2000)
+  })
+})
+
+// The due items' minute can free or hand on work that belongs to other items: a service slot
+// another item is queued for, work handed back to be given out again. The shortcut has to do
+// that work the same minute the reference does.
+describe('the live clock, when an item that comes due frees or hands on work', () => {
+  const at = { x: 0, y: 0 }
+  const start: WfNode = { id: 's', type: 'start', position: at, data: { label: 'Start' } }
+  const split: WfNode = { id: 'p', type: 'split', position: at, data: { label: 'Split', mode: 'all' } }
+  const end = (id: string, result: 'completed' | 'cancelled' = 'completed'): WfNode => ({ id, type: 'end', position: at, data: { label: id, result } })
+  const wait = (id: string, minutes: number): WfNode => ({ id, type: 'wait', position: at, data: { label: id, minutes } })
+  const call = (id: string, serviceId: string): WfNode => ({ id, type: 'auto', position: at, data: { label: id, avgMinutes: 5, actions: [], serviceId, operationId: `${serviceId}_op` } })
+  const person = (id: string, distribution: Distribution, extra: Partial<Extract<WfNode, { type: 'user' }>['data']> = {}): WfNode => ({
+    id,
+    type: 'user',
+    position: at,
+    data: { label: id, distribution, groupId: 'g', autoDistribute: false, distributeEveryMinutes: 30, avgMinutes: 60, outcomes: [{ id: 'ok', label: 'Done', weight: 1, actions: [] }], fieldAccess: {}, ...extra },
+  })
+  const edge = (source: string, target: string, outcomeId?: string): WfEdge => ({ id: `${source}-${target}`, source, target, data: outcomeId ? { outcomeId } : {} })
+  /** A workflow; its node ids get the workflow's id in front (`hold.cx`), as they must be unique in an application. */
+  const flow = (id: string, nodes: WfNode[], edges: WfEdge[]): Workflow => ({
+    id,
+    name: id,
+    kind: 'process',
+    objectTypeId: 't',
+    arrivalsPerHour: 0,
+    nodes: nodes.map((n) => ({ ...n, id: `${id}.${n.id}` })),
+    edges: edges.map((e) => ({ ...e, id: `${id}.${e.id}`, source: `${id}.${e.source}`, target: `${id}.${e.target}` })),
+  })
+  const service = (id: string, concurrency: number): ServiceDef => ({
+    id,
+    name: id,
+    kind: 'worker',
+    endpoint: `topic: ${id}`,
+    status: 'online',
+    concurrency,
+    operations: [{ id: `${id}_op`, name: 'run', avgMinutes: 5, successRate: 1, outputs: [] }],
+  })
+
+  /** A live application with one type (an Owner field), a team of three with a supervisor, and these workflows. */
+  function liveApp(workflows: Workflow[], opts: { services?: ServiceDef[]; available?: boolean } = {}): Ctx {
+    const team: User[] = ['u0', 'u1', 'u2'].map((id, i) => ({ id, name: `Person ${i}`, title: 'Clerk', color: '#000', speed: 1, available: opts.available ?? true }))
+    team.push({ id: 'boss', name: 'Boss', title: 'Supervisor', color: '#000', speed: 1, available: true })
+    const app: App = {
+      id: 'a',
+      name: 'Test',
+      description: '',
+      color: '#000',
+      lists: [],
+      objectTypes: [
+        {
+          id: 't',
+          name: 'Thing',
+          pluralName: 'Things',
+          icon: 'file',
+          color: '#000',
+          numberPrefix: 'T-',
+          permissions: { g: { create: true, read: true, update: true, delete: false } },
+          fields: [{ id: 'who', label: 'Owner', type: 'user', width: 'half' }],
+        },
+      ],
+      workflows,
+    }
+    return { app, users: team, groups: [{ id: 'g', name: 'Team', memberIds: ['u0', 'u1', 'u2'], supervisorId: 'boss' }], services: opts.services ?? [], live: true }
+  }
+
+  function quietSim(seed: number) {
+    const sim = newSim('a', seed)
+    sim.arrivals = false
+    return sim
+  }
+
+  /** Both clocks from the same state over the same gap must agree; returns the shortcut's state. */
+  function bothWays(ctx: Ctx, sim: SimState, minutes: number): SimState {
+    const fast = copyState(sim)
+    const slow = copyState(sim)
+    advance(fast, ctx, minutes)
+    advanceEveryMinute(slow, ctx, minutes)
+    same(fast, slow)
+    return fast
+  }
+
+  // Holds a slot on x until its timer ends the whole item and withdraws the call.
+  const hold = flow('hold', [start, split, call('cx', 'x'), wait('w', 60), end('stop', 'cancelled')], [edge('s', 'p'), edge('p', 'cx'), edge('p', 'w'), edge('w', 'stop')])
+
+  it('hands escalated work back out the minute it escalates', () => {
+    const escalates = person('u', 'load-balance', { escalateAfterHours: 1, escalation: { raisePriority: false, toDistributors: true } })
+    const ctx = liveApp([flow('w', [start, escalates, end('e')], [edge('s', 'u'), edge('u', 'e', 'ok')])])
+    const sim = quietSim(1)
+    for (let i = 0; i < 3; i++) createObject(sim, ctx, 'w', {}, 'boss')
+    const fast = bothWays(ctx, sim, 3 * 60)
+    for (const o of Object.values(fast.objects)) {
+      expect(o.tokens[0]!.escalated).toBe(true)
+      expect(o.tokens[0]!.state).toBe('assigned')
+    }
+  })
+
+  it('starts a call queued for one service when another service takes a slot the same minute', () => {
+    const ctx = liveApp(
+      [
+        hold,
+        flow('queue', [start, call('cx', 'x'), end('e')], [edge('s', 'cx'), edge('cx', 'e')]),
+        // Takes a slot on y when its timer ends, the same minute the holder lets go of x.
+        flow('later', [start, wait('w', 60), call('cy', 'y'), end('e')], [edge('s', 'w'), edge('w', 'cy'), edge('cy', 'e')]),
+      ],
+      { services: [service('x', 1), service('y', 5)] },
+    )
+    const sim = quietSim(2)
+    const holder = createObject(sim, ctx, 'hold', {}, 'boss')!
+    const queued = createObject(sim, ctx, 'queue', {}, 'boss')!
+    createObject(sim, ctx, 'later', {}, 'boss')
+    expect(queued.tokens[0]!.state).toBe('queued')
+    const fast = bothWays(ctx, sim, 2 * 60)
+    expect(fast.objects[holder.id]!.status).not.toBe('active')
+    expect(fast.objects[queued.id]!.tokens[0]!.state).toBe('auto')
+  })
+
+  it('starts a call queued behind one that took the slot before it came free, the same minute', () => {
+    // x has room for two. The holder has one; at minute 60 one waiter takes the other, the
+    // second waiter queues, and then the holder lets go: x is as busy as it began, with a call waiting.
+    const ctx = liveApp([hold, flow('later', [start, wait('w', 60), call('cx', 'x'), end('e')], [edge('s', 'w'), edge('w', 'cx'), edge('cx', 'e')])], { services: [service('x', 2)] })
+    const sim = quietSim(3)
+    createObject(sim, ctx, 'later', {}, 'boss')
+    const second = createObject(sim, ctx, 'later', {}, 'boss')!
+    createObject(sim, ctx, 'hold', {}, 'boss')
+    const fast = bothWays(ctx, sim, 2 * 60)
+    expect(fast.objects[second.id]!.tokens[0]!.state).toBe('auto')
+  })
+
+  it('hands out work by a field filled in the same minute', () => {
+    // Nobody in the team is available, so the work waits until the item names its owner.
+    const ctx = liveApp(
+      [
+        flow(
+          'w',
+          [
+            start,
+            split,
+            person('f', 'field', { assigneeFieldId: 'who' }),
+            wait('w', 60),
+            { id: 'set', type: 'auto', position: at, data: { label: 'Name the owner', avgMinutes: 0, actions: [{ id: 'a1', kind: 'setField', fieldId: 'who', value: 'u1' }] } },
+            end('e'),
+          ],
+          [edge('s', 'p'), edge('p', 'f'), edge('p', 'w'), edge('w', 'set'), edge('set', 'e'), edge('f', 'e', 'ok')],
+        ),
+      ],
+      { available: false },
+    )
+    const sim = quietSim(4)
+    const o = createObject(sim, ctx, 'w', {}, 'boss')!
+    expect(o.tokens.find((t) => t.nodeId === 'w.f')!.state).toBe('unassigned')
+    const fast = bothWays(ctx, sim, 2 * 60)
+    expect(fast.objects[o.id]!.tokens.find((t) => t.nodeId === 'w.f')!.userId).toBe('u1')
   })
 })

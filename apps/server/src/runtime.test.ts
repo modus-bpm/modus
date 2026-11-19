@@ -162,6 +162,27 @@ describe('runtime', () => {
     expect(after.tickedAt).toBeLessThan(Date.now())
   })
 
+  it('ends a catch-up as soon as shutdown begins, before the requests waiting on it are drained', async () => {
+    // As main.ts does on SIGTERM: beginStop, then close the HTTP server (which waits for this
+    // request), and only then stop. The request must end without waiting for stop().
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const storage = memoryStorage()
+    const rt = await Runtime.create({ storage, catchUpBudgetMs: 0 })
+    await make(rt, 'B-1')
+    const before = (await storage.state.load('app_invoice'))!
+    vi.setSystemTime(Date.now() + 10 * 60 * 60_000)
+    let pieces = 0
+    rt.subscribe(() => {
+      if (++pieces === 2) rt.beginStop()
+    })
+    await expect(make(rt, 'B-2')).rejects.toBeInstanceOf(StorageUnavailable)
+    expect(rt.ready).toBe(false)
+    const after = (await storage.state.load('app_invoice'))!
+    expect(after.version - before.version).toBe(2)
+    expect(Object.values(after.state.objects).some((o) => o.data.f_invno === 'B-2')).toBe(false)
+    await rt.stop()
+  })
+
   it('doesn’t move the clock of a state stored before clock times were kept; the commit starts keeping one', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     // A data directory from before versions: a state file and no meta file (version 1, no clock time).

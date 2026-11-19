@@ -1,7 +1,9 @@
-// The clock catch-up test. A server that was off for a while catches its clock up inside the
-// first command's transaction: every minute it missed, in one go. This measures what that costs
-// on an application with a long history, and whether the first command after a week off can
-// finish before PostgreSQL gives up on the transaction (15 s idle in transaction).
+// The clock catch-up test. A server that was off for a while catches its clock up when the first
+// command comes in. A gap of an hour or less is moved inside that command's transaction; a longer
+// one in pieces of about two seconds' work, each committed on its own, and the command runs in the
+// transaction that reaches now. This measures what that costs on an application with a long
+// history, and whether each of those transactions finishes well before PostgreSQL gives up on it
+// (15 s idle in transaction).
 //
 //   tools/load/node_modules/.bin/tsx tools/load/src/catchup.ts                 # the engine alone
 //   DATABASE_URL=postgres://… tools/load/node_modules/.bin/tsx tools/load/src/catchup.ts   # and through a server

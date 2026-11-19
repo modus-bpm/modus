@@ -80,6 +80,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {
     server.log.info(`${signal}: shutting down`)
     clearInterval(pruning)
+    // First, so a request waiting on a long clock catch-up ends at the next piece and the server can close.
+    runtime.beginStop()
     await server.close()
     // Let a send in flight record its result while storage is still open.
     await sender.stop()

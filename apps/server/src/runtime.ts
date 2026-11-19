@@ -167,8 +167,17 @@ export class Runtime {
     return { storage: storage.name }
   }
 
-  async stop() {
+  /**
+   * The first step of shutting down: report not ready, take no new work, and end a clock
+   * catch-up at its next piece. Call it before closing the HTTP server, which waits for requests
+   * in flight, and a request held up behind a long catch-up among them. `stop` finishes the job.
+   */
+  beginStop() {
     this.stopping = true
+  }
+
+  async stop() {
+    this.beginStop()
     if (this.timer) clearInterval(this.timer)
     this.timer = undefined
     await this.ticking
@@ -366,81 +375,79 @@ export class Runtime {
 
   /** One transaction: catch the clock up, and run the command if that brought it to now. */
   private async attempt<T>(appId: Id, fn: (sim: SimState, ctx: Ctx) => T, tick: boolean): Promise<{ done: true; value: T } | { done: false }> {
-    {
-      let ctx = this.ctx(appId)
-      const cached = this.cached(appId)
-      // A throw from our side of the transaction (the command, or projecting its result), as opposed to storage's.
-      let failed: { err: unknown } | undefined
-      // Another server's newer state, handed over under the lock: worth keeping whatever happens next.
-      let fresh: Cached | undefined
-      let sim!: SimState
-      let tickedAt: number | undefined
-      let itemIds: Id[] = []
-      // The clock is still behind after this transaction: it only caught up part of the way.
-      let behind = false
-      let r: { value: T | undefined; version: number; committed: boolean }
-      try {
-        r = await this.opts.storage.transact(appId, cached.version, async (stored) => {
-          try {
-            // Another server changed the design and we haven't heard yet: its items may run a version we lack.
-            if ((stored.designRevision ?? 0) > this.designRevision) {
-              await this.reloadDesign(false)
-              ctx = this.ctx(appId)
-            }
-            // Another server committed since our version: what it changed, applied to the cached state.
-            if (stored.changes) fresh = { version: stored.version, sim: withChanges(cached.sim, stored.changes), tickedAt: stored.tickedAt }
-            const before = fresh?.sim ?? cached.sim
-            sim = copyState(before)
-            // Taken under the lock: waiting for it doesn't count as clock time already spent.
-            const now = Date.now()
-            // Catch the clock up from when it was last moved, by whichever server. A state from before
-            // clock times were kept isn't moved; this commit starts keeping one.
-            const last = stored.tickedAt
-            const gap = last !== undefined && now > last ? ((now - last) / 60_000) * this.opts.timeScale : 0
-            let caught = gap
-            if (gap > CATCH_UP_MINUTES) {
-              // A long time away: move the clock until the budget is spent, and commit how far it got.
-              const started = Date.now()
-              caught = advance(sim, ctx, gap, () => Date.now() - started >= this.opts.catchUpBudgetMs)
-            } else if (gap > 0) advance(sim, ctx, gap)
-            behind = caught < gap - 1e-9
-            // Not at now yet: the command waits for the transaction that gets there.
-            const value = behind ? undefined : fn(sim, ctx)
-            const c = changesBetween(before, sim)
-            itemIds = c.itemIds
-            if (!behind && tick && !c.itemIds.length && last !== undefined && now - last < IDLE_TICK_MS) return { value }
-            // Every item that changed is written (its state and its rows), not only those whose rows moved.
-            const idx = buildIndex(ctx)
-            const items = changedItems(before, sim)
-              .map((id) => projectItem(sim, ctx, id, idx))
-              .filter((p): p is ProjectedItem => !!p)
-            // Never write a clock time earlier than the stored one (another server's clock may run ahead).
-            // Part way: the clock time is how far it got, so the next piece starts from there.
-            tickedAt = behind ? last! + (caught / this.opts.timeScale) * 60_000 : Math.max(now, last ?? now)
-            return { value, write: { state: sim, entries: c.entries, items, outbox: c.outbox, tickedAt } }
-          } catch (err) {
-            failed = { err }
-            throw err
+    let ctx = this.ctx(appId)
+    const cached = this.cached(appId)
+    // A throw from our side of the transaction (the command, or projecting its result), as opposed to storage's.
+    let failed: { err: unknown } | undefined
+    // Another server's newer state, handed over under the lock: worth keeping whatever happens next.
+    let fresh: Cached | undefined
+    let sim!: SimState
+    let tickedAt: number | undefined
+    let itemIds: Id[] = []
+    // The clock is still behind after this transaction: it only caught up part of the way.
+    let behind = false
+    let r: { value: T | undefined; version: number; committed: boolean }
+    try {
+      r = await this.opts.storage.transact(appId, cached.version, async (stored) => {
+        try {
+          // Another server changed the design and we haven't heard yet: its items may run a version we lack.
+          if ((stored.designRevision ?? 0) > this.designRevision) {
+            await this.reloadDesign(false)
+            ctx = this.ctx(appId)
           }
-        })
-      } catch (err) {
-        // The command failed, but another server's change it was handed is real: keep and show it.
-        if (fresh && this.adopt(appId, fresh)) this.emit({ appId, clock: fresh.sim.clock, itemIds: moved(cached.sim, fresh.sim) })
-        if (failed) throw failed.err
-        if (err instanceof StorageBusy) throw new StorageUnavailable(err.message, { cause: err })
-        throw new StorageUnavailable('Storage is unavailable, so the change wasn’t made. Try again shortly.', { cause: err })
-      }
-      // Items another server moved since our cached version, which this runtime hasn't told anyone about.
-      const theirs = fresh ? moved(cached.sim, fresh.sim) : []
-      if (r.committed) {
-        this.adopt(appId, { version: r.version, sim, tickedAt })
-        this.emit({ appId, clock: sim.clock, itemIds: [...new Set([...theirs, ...itemIds])].sort() })
-      } else if (fresh && this.adopt(appId, fresh)) {
-        // A rolled-back idle tick still brought another server's change: show it.
-        this.emit({ appId, clock: fresh.sim.clock, itemIds: theirs })
-      }
-      return behind ? { done: false } : { done: true, value: r.value as T }
+          // Another server committed since our version: what it changed, applied to the cached state.
+          if (stored.changes) fresh = { version: stored.version, sim: withChanges(cached.sim, stored.changes), tickedAt: stored.tickedAt }
+          const before = fresh?.sim ?? cached.sim
+          sim = copyState(before)
+          // Taken under the lock: waiting for it doesn't count as clock time already spent.
+          const now = Date.now()
+          // Catch the clock up from when it was last moved, by whichever server. A state from before
+          // clock times were kept isn't moved; this commit starts keeping one.
+          const last = stored.tickedAt
+          const gap = last !== undefined && now > last ? ((now - last) / 60_000) * this.opts.timeScale : 0
+          let caught = gap
+          if (gap > CATCH_UP_MINUTES) {
+            // A long time away: move the clock until the budget is spent, and commit how far it got.
+            const started = Date.now()
+            caught = advance(sim, ctx, gap, () => Date.now() - started >= this.opts.catchUpBudgetMs)
+          } else if (gap > 0) advance(sim, ctx, gap)
+          behind = caught < gap - 1e-9
+          // Not at now yet: the command waits for the transaction that gets there.
+          const value = behind ? undefined : fn(sim, ctx)
+          const c = changesBetween(before, sim)
+          itemIds = c.itemIds
+          if (!behind && tick && !c.itemIds.length && last !== undefined && now - last < IDLE_TICK_MS) return { value }
+          // Every item that changed is written (its state and its rows), not only those whose rows moved.
+          const idx = buildIndex(ctx)
+          const items = changedItems(before, sim)
+            .map((id) => projectItem(sim, ctx, id, idx))
+            .filter((p): p is ProjectedItem => !!p)
+          // Never write a clock time earlier than the stored one (another server's clock may run ahead).
+          // Part way: the clock time is how far it got, so the next piece starts from there.
+          tickedAt = behind ? last! + (caught / this.opts.timeScale) * 60_000 : Math.max(now, last ?? now)
+          return { value, write: { state: sim, entries: c.entries, items, outbox: c.outbox, tickedAt } }
+        } catch (err) {
+          failed = { err }
+          throw err
+        }
+      })
+    } catch (err) {
+      // The command failed, but another server's change it was handed is real: keep and show it.
+      if (fresh && this.adopt(appId, fresh)) this.emit({ appId, clock: fresh.sim.clock, itemIds: moved(cached.sim, fresh.sim) })
+      if (failed) throw failed.err
+      if (err instanceof StorageBusy) throw new StorageUnavailable(err.message, { cause: err })
+      throw new StorageUnavailable('Storage is unavailable, so the change wasn’t made. Try again shortly.', { cause: err })
     }
+    // Items another server moved since our cached version, which this runtime hasn't told anyone about.
+    const theirs = fresh ? moved(cached.sim, fresh.sim) : []
+    if (r.committed) {
+      this.adopt(appId, { version: r.version, sim, tickedAt })
+      this.emit({ appId, clock: sim.clock, itemIds: [...new Set([...theirs, ...itemIds])].sort() })
+    } else if (fresh && this.adopt(appId, fresh)) {
+      // A rolled-back idle tick still brought another server's change: show it.
+      this.emit({ appId, clock: fresh.sim.clock, itemIds: theirs })
+    }
+    return behind ? { done: false } : { done: true, value: r.value as T }
   }
 
   /** Another server (or this one) committed: reload unless the cache has that version already. */
