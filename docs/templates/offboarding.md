@@ -4,7 +4,7 @@
 
 When someone leaves, access removal, equipment return, final pay and the handover all start at once. HR closes the file only when every one of them is done.
 
-![The Offboarding map in the Modus designer](images/offboarding.png)
+![The Offboarding map in the Modus BPM designer](images/offboarding.png)
 
 7 steps · 4 people steps · 1 step for a system of yours. Each item is a **Departure**. Tags: parallel, access removal, termination.
 

@@ -4,7 +4,7 @@
 
 A manager approves the request; anything over $10,000 also needs a director. Ends as Approved or Rejected.
 
-![The Purchase request map in the Modus designer](images/purchase-request.png)
+![The Purchase request map in the Modus BPM designer](images/purchase-request.png)
 
 3 steps · 2 people steps. Each item is a **Purchase request**. Tags: threshold, requisition, approval.
 

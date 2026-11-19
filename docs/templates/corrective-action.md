@@ -4,7 +4,7 @@
 
 Find the root cause, get the plan approved, and carry it out. Thirty days later someone checks whether it worked; if it did not, the case goes back to the root cause.
 
-![The Corrective action map in the Modus designer](images/corrective-action.png)
+![The Corrective action map in the Modus BPM designer](images/corrective-action.png)
 
 5 steps · 4 people steps. Each item is a **Corrective action**. Tags: timer, verify, quality.
 

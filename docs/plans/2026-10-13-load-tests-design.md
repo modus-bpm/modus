@@ -4,7 +4,7 @@ Status: implemented 2026-10-13 (`tools/load`, see its README). Roadmap item from
 
 ## Goal
 
-One command runs a realistic mixed load against 1–3 Modus servers on a disposable Postgres on a
+One command runs a realistic mixed load against 1–3 Modus BPM servers on a disposable Postgres on a
 developer's machine, lets you watch it live, and saves a report you can compare with other runs.
 Numbers are for finding bottlenecks and comparing before/after, not for production capacity.
 
@@ -13,7 +13,7 @@ Numbers are for finding bottlenecks and comparing before/after, not for producti
 - `tools/load/` (a workspace package): `compose.yml`, k6 scenarios, a setup script, an observer, the
   runner, a README.
 - `pnpm load [--profile smoke|baseline|full] [--servers 1-3]`: build the image from the working tree;
-  start Postgres, the setup step, 1–3 Modus servers behind nginx, and the observer; run k6; write the
+  start Postgres, the setup step, 1–3 Modus BPM servers behind nginx, and the observer; run k6; write the
   report; tear everything down. Its own Compose project and ports, never the dev database.
 - **Test design:** the sample design plus generated clerks (`u_load_0001`…) in the clerk group, written
   to the database before the servers start, so 1,000 simulated people are 1,000 identities.

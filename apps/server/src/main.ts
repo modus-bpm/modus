@@ -1,4 +1,4 @@
-// Start the Modus server: read the configuration, load the design, start the
+// Start the Modus BPM server: read the configuration, load the design, start the
 // engine clock, serve the API (and the studio, when STATIC_DIR is set).
 //
 //   PORT=8787 DATA_DIR=./data TIME_SCALE=1 pnpm --filter @modus-bpm/server dev

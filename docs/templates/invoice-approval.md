@@ -4,7 +4,7 @@
 
 A clerk codes the invoice, then the amount decides who approves: a manager under $5,000, a department head above that, and the controller as well over $25,000.
 
-![The Invoice approval map in the Modus designer](images/invoice-approval.png)
+![The Invoice approval map in the Modus BPM designer](images/invoice-approval.png)
 
 7 steps · 4 people steps · 1 step for a system of yours. Each item is an **Invoice**. Tags: accounts payable, threshold, approval.
 

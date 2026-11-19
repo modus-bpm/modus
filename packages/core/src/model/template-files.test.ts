@@ -22,8 +22,8 @@ describe('a template file', () => {
   it('says what it is when it is something else', () => {
     expect(() => readTemplateFile('not json')).toThrow(NotATemplateFile)
     expect(() => readTemplateFile('{"apps":[],"users":[],"groups":[]}')).toThrow(/whole design/)
-    expect(() => readTemplateFile('{"hello":1}')).toThrow(/not a Modus template file/)
-    expect(() => readTemplateFile(JSON.stringify({ ...templateFile([]), version: 99 }))).toThrow(/newer Modus/)
+    expect(() => readTemplateFile('{"hello":1}')).toThrow(/not a Modus BPM template file/)
+    expect(() => readTemplateFile(JSON.stringify({ ...templateFile([]), version: 99 }))).toThrow(/newer release of Modus BPM/)
   })
 
   it('gives the good templates and says what is wrong with the others', () => {

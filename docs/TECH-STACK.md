@@ -1,6 +1,6 @@
 # Technology stack
 
-This is the full stack Modus uses to go from today's prototype to a product that runs as a
+This is the full stack Modus BPM uses to go from today's prototype to a product that runs as a
 hosted SaaS or on a laptop. It covers every layer, explains why each piece was chosen, and
 shows where each feature lives. [ARCHITECTURE.md](ARCHITECTURE.md) has the engine semantics,
 data model and request sequences. [DEPLOYMENT.md](DEPLOYMENT.md) has the operator's guide
@@ -126,7 +126,7 @@ a role into its own service later is a deployment change, not a rewrite.
 | Internationalization | FormatJS (`react-intl`) message catalogs; `Intl` for dates, numbers and currency | Planned; labels designers type stay as entered and can carry translations per locale. |
 | Mobile | The Workspace as an installable PWA (offline read of my work, push notifications) | Planned for field users such as officers. |
 
-The studio needs no server: it simulates the organization in the browser. Served by a Modus
+The studio needs no server: it simulates the organization in the browser. Served by a Modus BPM
 server, its Workspace and Monitor have a Live mode that reads the API and the live stream instead
 of the simulator, the Workspace acts through the API, and the designer pages save and publish
 the server's design. The engine is identical either way.
@@ -193,7 +193,7 @@ contract test suite runs against each certified database in containers. JSON sto
 2025) and native `JSON` (Oracle 21c+). The full comparison is in
 [backend options](research/backend-options.md#3-multi-database-support-in-practice).
 
-**Connection management.** Modus connects to Postgres directly or through a session-mode pooler
+**Connection management.** Modus BPM connects to Postgres directly or through a session-mode pooler
 (PgBouncer `pool_mode = session`). Transaction pooling breaks `LISTEN` and the session advisory
 locks that pick one clock ticker per application. The scheduler and automation roles use
 `SKIP LOCKED` claims, so several replicas can run without leader election.
@@ -205,7 +205,7 @@ permissive.
 ## Line items (multi-row data)
 
 An invoice has line items; a purchase request has requested items; an inspection has findings.
-Modus models these as a **table field**: a field whose value is a list of rows with typed
+Modus BPM models these as a **table field**: a field whose value is a list of rows with typed
 columns.
 
 ```mermaid
@@ -320,7 +320,7 @@ Authorization combines three models, each where it fits best:
 
 All checks are **pure functions in the core** (`supervisesStep`, `canSuperviseToken`,
 `hasRole`, `fieldVerdicts`). The browser uses them to show the right buttons; the server uses
-the same functions to enforce. Directory groups map to Modus groups and roles through OIDC
+the same functions to enforce. Directory groups map to Modus BPM groups and roles through OIDC
 claims or SCIM 2.0. A dedicated policy engine (OpenFGA, Cedar) was considered; the rules are
 small, process-specific and must also run inside the simulator, so they stay in the engine. A
 policy engine remains an option for customers who want central policy.
@@ -353,14 +353,14 @@ budget** (for example "at most 10% of open items") is planned so the fast lane s
 | Mapping | JSONata for input/output mapping; decisions stay declarative (the rule model). User scripts, if ever allowed, run in a WebAssembly sandbox (QuickJS), never in the server process. |
 | Event ingest | **NATS JetStream** (Apache-2.0, single binary, runs air-gapped) with its built-in **MQTT** listener for cameras and devices; a Kafka connector when the customer already runs Kafka. Ingest workers triage in batches; only events worth a person's time become items, created in bulk. |
 | Realtime | After commit, a small change notice goes out (Postgres `LISTEN/NOTIFY` on one node, NATS across replicas). The realtime role batches counts per second and pushes them over SSE; per-person notices update baskets instantly. |
-| Processes as tools | Planned: Modus exposes its own MCP server so agents can start processes, check status and search work — with the same permissions as a person. |
+| Processes as tools | Planned: Modus BPM exposes its own MCP server so agents can start processes, check status and search work — with the same permissions as a person. |
 
 ## Identity, secrets and files
 
 | Concern | Choice |
 | --- | --- |
 | Sign-in | **OIDC** (authorization code + PKCE) via `openid-client`; works with Entra ID, Okta, Google, Login.gov and **Keycloak**, which ships in the Compose file for local and self-hosted installs. SAML for older identity providers. |
-| Users and groups | **SCIM 2.0** endpoint for provisioning; group claims map to Modus groups and roles. Just-in-time user creation on first sign-in. |
+| Users and groups | **SCIM 2.0** endpoint for provisioning; group claims map to Modus BPM groups and roles. Just-in-time user creation on first sign-in. |
 | API clients and workers | OAuth client credentials (or per-pool tokens) scoped to a tenant and to service topics. |
 | Secrets | Never in designs or the database: the service registry stores a *reference*; the automation role resolves it at call time from the environment, Kubernetes Secrets, HashiCorp Vault / OpenBao, or a cloud secret manager (via External Secrets Operator). |
 | Encryption | TLS everywhere; database and storage encryption at rest; **envelope encryption** of sensitive fields with a per-tenant key from a KMS (planned for the hosted edition). |
@@ -392,7 +392,7 @@ flowchart LR
 | --- | --- |
 | **Image** | Multi-stage `Dockerfile`: install with pnpm, build the studio, bundle the server with esbuild into one file, run on a small Node.js base as a non-root user. Serves the API and the studio on one port. Health check built in. |
 | **Roles** | `MODUS_ROLES=api,engine,automation,scheduler,ingest,realtime` (default: all). Kubernetes runs each role as its own Deployment from the same image. |
-| **Compose** | `docker compose up` runs Modus alone. Optional profiles add PostgreSQL, NATS (with MQTT) and Keycloak. |
+| **Compose** | `docker compose up` runs Modus BPM alone. Optional profiles add PostgreSQL, NATS (with MQTT) and Keycloak. |
 | **Helm chart** | `deploy/helm/modus`: probes, resources, autoscaling, disruption budget, ingress, secret references (`DATABASE_URL`, `ANTHROPIC_API_KEY`), role selection. |
 | **Configuration** | Environment variables only (twelve-factor), documented in one place; the full reference is in [DEPLOYMENT.md](DEPLOYMENT.md). |
 | **Releases** | Images on GHCR tagged by version and commit, multi-architecture (amd64, arm64), signed with cosign, with an SBOM attached. |
@@ -408,13 +408,13 @@ flowchart TB
     OPS["Fleet operations<br/>rolling upgrades · backups · status page"]
   end
   subgraph Cell1["Cell (one region)"]
-    RT1["Modus roles (Helm)"]
+    RT1["Modus BPM roles (Helm)"]
     PG1[("Postgres cluster<br/>pooled tenants · RLS")]
     N1[[NATS]]
     S31[(Object storage)]
   end
   subgraph Cell2["Dedicated cell"]
-    RT2["Modus roles"]
+    RT2["Modus BPM roles"]
     PG2[("Postgres<br/>one tenant")]
   end
   EDGE["Global edge<br/>TLS · WAF · tenant routing<br/>acme.modus.app → cell"]

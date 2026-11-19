@@ -1,5 +1,5 @@
 ---
-name: Modus Studio
+name: Modus BPM Studio
 description: An open-source process manager where the map you draw is what runs, what's simulated and what's monitored.
 colors:
   brand-indigo: "#4f46e5"
@@ -140,13 +140,13 @@ components:
     width: "64px"
 ---
 
-# Design System: Modus Studio
+# Design System: Modus BPM Studio
 
 ## Overview
 
 **Creative North Star: "The Working Floor"**
 
-Modus looks like the inside of an organization at work, seen from above: a cool dot-grid canvas, white step cards laid on it, live counts ticking in round badges, and one rose tag where the work is piling up. Everything is slate and white so that the few colored things (indigo actions, heat on a count, a bottleneck, an app's own color) carry meaning. The material is the product's own: the Studio's process map is the house pattern, and every other surface borrows from it rather than inventing decoration.
+Modus BPM looks like the inside of an organization at work, seen from above: a cool dot-grid canvas, white step cards laid on it, live counts ticking in round badges, and one rose tag where the work is piling up. Everything is slate and white so that the few colored things (indigo actions, heat on a count, a bottleneck, an app's own color) carry meaning. The material is the product's own: the Studio's process map is the house pattern, and every other surface borrows from it rather than inventing decoration.
 
 The system has two registers on one set of tokens. **Operate** (Studio and Workspace) is dense and quiet: 28 to 32px controls, 11 to 14px type, hairline borders, flat surfaces, information first. **Persuade** (the landing page in front of the app) is the same world at a larger scale: 44px actions, a 68px display line, 16px-radius showcase cards, and sections paced at 112px, but still dot grid, white cards, slate type and indigo. The landing page proves the product by showing it (a live invoice map, sample organizations as doors) rather than describing it.
 

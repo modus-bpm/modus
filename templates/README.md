@@ -1,6 +1,6 @@
 # Starter templates
 
-The fifty templates Modus ships with, one file each. They are ordinary template files: the same
+The fifty templates Modus BPM ships with, one file each. They are ordinary template files: the same
 JSON the Studio writes when you export a template and reads when you import one.
 
 ```json
@@ -11,12 +11,12 @@ What each one does, with a picture of its map, is in [docs/TEMPLATES.md](../docs
 
 ## Use one
 
-A new Modus starts with all of them in its library. To bring one into a Modus that lacks it, or
+A new Modus BPM installation starts with all of them in its library. To bring one into an installation that lacks it, or
 to get a starter template back after changing your copy, open **Templates** in the Studio, choose
 **Import…** and pick the file. If your library already has that template, the import asks whether
 to keep both, replace yours or skip it.
 
-A Modus keeps the copies it has. A newer release that changes a file here does not change the
+An installation keeps the copies it has. A newer release that changes a file here does not change the
 template in a library that already holds it; import the file if you want the new one.
 
 ## Add or change one

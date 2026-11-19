@@ -4,7 +4,7 @@
 
 An emergency change goes to one emergency approver. Every other change goes to five board members at once and proceeds when three have approved; an objection sends it back.
 
-![The Change request map in the Modus designer](images/change-request.png)
+![The Change request map in the Modus BPM designer](images/change-request.png)
 
 10 steps · 7 people steps. Each item is a **Change**. Tags: three of five, change board, emergency path.
 

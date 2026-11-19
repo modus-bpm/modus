@@ -238,7 +238,7 @@ export function buildServer(rt: Runtime, opts: ServerOptions = {}): FastifyInsta
   })
 
   app.get('/api', async () => ({
-    name: 'Modus API',
+    name: 'Modus BPM API',
     identity: { none: 'x-user-id header', password: 'a shared password, then the x-user-id header', oidc: 'OIDC sign-in' }[auth.auth.mode] + '; Authorization: Bearer for machine tokens',
     routes: app.printRoutes({ commonPrefix: false }).split('\n').filter(Boolean),
   }))

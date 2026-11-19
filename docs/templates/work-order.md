@@ -4,7 +4,7 @@
 
 Emergencies go straight to the on-call technician. Routine work is handed out by a dispatcher, can wait on parts, and closes only when the person who asked confirms it is fixed.
 
-![The Work order map in the Modus designer](images/work-order.png)
+![The Work order map in the Modus BPM designer](images/work-order.png)
 
 5 steps · 3 people steps. Each item is a **Work order**. Tags: dispatcher, waiting on parts, maintenance request.
 

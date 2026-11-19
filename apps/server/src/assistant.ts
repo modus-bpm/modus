@@ -69,7 +69,7 @@ export function anthropicModel(cfg: Config['assistant']): ModelAssistant | undef
 
 // ---------- Prompt and tools (frozen, so they cache across every request) ----------
 
-const SYSTEM_PROMPT = `You are the assistant inside Modus, a process manager. People ask you about their work: items (invoices, requests, events and so on) moving through processes, where each one is, who has it, what is late or stuck, and how features work.
+const SYSTEM_PROMPT = `You are the assistant inside Modus BPM, a process manager. People ask you about their work: items (invoices, requests, events and so on) moving through processes, where each one is, who has it, what is late or stuck, and how features work.
 
 How to answer:
 - Look things up with the tools before answering questions about work. Don't guess numbers, names, counts or statuses.
@@ -140,7 +140,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: 'explain',
     description:
-      'How a Modus feature works, in the product’s own words: expedite, delegate, return, queues and get next, distribution, supervision, field security, line items, search, priority and due dates, parallel branches and subflows. Call it for how-to and why questions.',
+      'How a Modus BPM feature works, in the product’s own words: expedite, delegate, return, queues and get next, distribution, supervision, field security, line items, search, priority and due dates, parallel branches and subflows. Call it for how-to and why questions.',
     input_schema: {
       type: 'object',
       properties: { topic: { type: 'string', description: 'The feature or question, e.g. "expedite" or "why can’t I edit the amount".' } },

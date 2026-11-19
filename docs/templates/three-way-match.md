@@ -4,7 +4,7 @@
 
 Fetch the purchase order and the goods receipt in parallel, then match them against the invoice. Only mismatches go to a person. The two fetch steps call the sample ERP: point them at your own purchasing system.
 
-![The Three-way match map in the Modus designer](images/three-way-match.png)
+![The Three-way match map in the Modus BPM designer](images/three-way-match.png)
 
 6 steps · 1 people step. Each item is an **Invoice**. Tags: parallel, accounts payable, ERP.
 

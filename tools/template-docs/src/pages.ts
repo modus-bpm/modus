@@ -183,7 +183,7 @@ function page(entries: Entry[], i: number): string {
     '',
     t.description,
     '',
-    `![The ${t.name} map in the Modus designer](images/${slug}.png)`,
+    `![The ${t.name} map in the Modus BPM designer](images/${slug}.png)`,
     '',
     `${facts.join(' · ')}. Each item is ${/^[aeiou]/i.test(item) ? 'an' : 'a'} **${item}**.${t.tags?.length ? ` Tags: ${t.tags.join(', ')}.` : ''}`,
     '',

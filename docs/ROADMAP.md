@@ -6,7 +6,7 @@ browser studio (simulated); *Skeleton* means the server path exists in a first f
 
 ## Next
 
-The next work is what one organization needs to run its real work on a Modus server for months,
+The next work is what one organization needs to run its real work on a Modus BPM server for months,
 not days. An architecture review on November 13, 2026 set the order:
 
 1. **A command costs what it touches.** *Started: a live clock no longer looks at every item every
@@ -110,7 +110,7 @@ per item, several organizations on one deployment, and the M5 load targets.
 | Retries, failure path, hand to a person, stop for an administrator; take work off automation | Prototype |
 | Worker job protocol (poll with lease, complete with outputs, fail) | Skeleton |
 | Outbox sender: signed webhooks with retries, shared by every replica, admin list and retry | Done |
-| REST/OpenAPI connector, MCP client connector, email from Modus | Planned (M4) |
+| REST/OpenAPI connector, MCP client connector, email from Modus BPM | Planned (M4) |
 | Worker SDKs (TypeScript, Python, .NET, Java) | Planned (M4) |
 | Processes exposed as MCP tools (other agents can start and query them) | Planned |
 | Stream ingest (NATS JetStream / MQTT / Kafka) with triage and bulk create | Planned (M5) |
@@ -137,7 +137,7 @@ per item, several organizations on one deployment, and the M5 load targets.
 | REST API + live stream (SSE) | Skeleton |
 | Workspace on the server: the served Studio's Workspace works the server's live work through the API (home, my work and its form, queues, dispatch board, supervise, requests, new request, search, Ask Modus), kept current from the stream, with a switch back to the simulation | Done (M3) |
 | Designing on the server: the served Studio saves the design (workflow maps as drafts, the rest at once), publishes a draft as a version for new items or for items in flight too, moves items between versions with the step mapping, restores a version as the draft and forecasts a draft on the live state; replicas pick it up without a restart | Done (M3) |
-| PostgreSQL storage: design, live state and the event log, with migrations at startup; Compose runs Modus on Postgres by default | Done (M2) |
+| PostgreSQL storage: design, live state and the event log, with migrations at startup; Compose runs Modus BPM on Postgres by default | Done (M2) |
 | One transaction per command: state, audit entries, item and work-item projections, outbox and clock commit together | Done (M2) |
 | Durable clock: one replica per application moves it (advisory lock); a restart catches it up | Done (M2) |
 | Several replicas on one PostgreSQL database; changes reach the others through LISTEN/NOTIFY | Done (M2) |

@@ -4,7 +4,7 @@
 
 HR checks eligibility and can ask the employee for documents. The leave then waits until the return date, when HR either confirms the return or extends it.
 
-![The Leave of absence map in the Modus designer](images/leave-of-absence.png)
+![The Leave of absence map in the Modus BPM designer](images/leave-of-absence.png)
 
 5 steps · 4 people steps. Each item is a **Leave**. Tags: timer, return for changes, leave.
 

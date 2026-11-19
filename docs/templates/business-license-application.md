@@ -4,7 +4,7 @@
 
 The clerk checks the application and sends incomplete ones back. A zoning check decides whether the business is allowed at that address; if it is, the fee is collected and the license issued.
 
-![The Business license application map in the Modus designer](images/business-license-application.png)
+![The Business license application map in the Modus BPM designer](images/business-license-application.png)
 
 7 steps · 5 people steps · 1 step for a system of yours. Each item is a **License application**. Tags: return for changes, licensing, zoning.
 

@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Served by a Modus server, the Studio's Monitor shows the server's real state live, with a switch back to the simulation.
+**Goal:** Served by a Modus BPM server, the Studio's Monitor shows the server's real state live, with a switch back to the simulation.
 
 **Architecture:** The server adds administrator-only read endpoints over its in-memory state (`/monitor`, `/monitor/series`, `/monitor/feed`, `/monitor/items`) and `GET /api/design`. The Studio adds a server client and a live store fed by those endpoints and the existing SSE stream; Monitor panels read from either the simulation store or the live store.
 

@@ -4,7 +4,7 @@
 
 After an eligibility check, three reviewers score the application independently. The panel decides as soon as two scores are in, and funded applicants get an award letter.
 
-![The Grant application review map in the Modus designer](images/grant-application-review.png)
+![The Grant application review map in the Modus BPM designer](images/grant-application-review.png)
 
 8 steps · 5 people steps. Each item is a **Grant application**. Tags: two of three, scoring, grants.
 

@@ -1,6 +1,6 @@
 /** Product name. Change it here and it changes everywhere in the UI. */
 export const PRODUCT = {
-  name: 'Modus',
+  name: 'Modus BPM',
   tagline: 'Process manager',
   /** The public source repository. */
   repo: 'https://github.com/modus-bpm/modus',

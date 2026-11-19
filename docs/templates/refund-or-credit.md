@@ -4,7 +4,7 @@
 
 Customer service checks the request. Refunds of $250 or less are issued straight away; larger ones need a manager first.
 
-![The Refund or credit map in the Modus designer](images/refund-or-credit.png)
+![The Refund or credit map in the Modus BPM designer](images/refund-or-credit.png)
 
 4 steps · 2 people steps · 1 step for a system of yours. Each item is a **Refund**. Tags: threshold, customer, credit memo.
 

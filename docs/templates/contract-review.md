@@ -4,7 +4,7 @@
 
 Legal and compliance review the contract at the same time. Both must approve before final sign-off; a rejection from either stops the other.
 
-![The Contract review map in the Modus designer](images/contract-review.png)
+![The Contract review map in the Modus BPM designer](images/contract-review.png)
 
 5 steps · 3 people steps. Each item is a **Contract**. Tags: parallel, legal, compliance.
 

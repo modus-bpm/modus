@@ -1,9 +1,9 @@
 /*
-THESIS: The front door is a set of real doors. Modus proves itself by letting the visitor walk
+THESIS: The front door is a set of real doors. Modus BPM proves itself by letting the visitor walk
 into a working organization, not by describing one; it refuses the hero-plus-feature-grid page.
 OWN-WORLD: The studio's own materials: dot-grid canvas, white step cards with count badges, slate
 type, indigo actions, each sample app in its own color; one dark slate band for the open-source close.
-STORY: In one viewport the visitor learns what Modus is (one model that runs, simulates and is
+STORY: In one viewport the visitor learns what Modus BPM is (one model that runs, simulates and is
 monitored) and sees it working; then picks a sample organization or a role and walks in.
 FIRST VIEWPORT: The three-beat headline across the top; below it, left, the offer with Open the
 Studio as the primary action and the Workspace and GitHub beside it; right, the live invoice map
@@ -580,7 +580,7 @@ function Footer() {
   )
 }
 
-/** The front page of the browser prototype: what Modus is, and doors into it. */
+/** The front page of the browser prototype: what Modus BPM is, and doors into it. */
 export function LandingPage() {
   return (
     <div className="h-full overflow-y-auto bg-white" id="top">

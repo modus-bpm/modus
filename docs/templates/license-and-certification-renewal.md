@@ -4,7 +4,7 @@
 
 A timer starts the renewal ahead of the expiry date. The employee uploads proof, HR verifies it or sends it back, and it escalates if the date is getting close.
 
-![The License and certification renewal map in the Modus designer](images/license-and-certification-renewal.png)
+![The License and certification renewal map in the Modus BPM designer](images/license-and-certification-renewal.png)
 
 4 steps · 2 people steps · 1 step for a system of yours. Each item is a **License**. Tags: timer, expiry, return for changes.
 

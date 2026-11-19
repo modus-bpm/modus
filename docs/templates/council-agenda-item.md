@@ -4,7 +4,7 @@
 
 The department head forwards the item, legal and finance review it at the same time, and the manager approves it or returns it to the department before the clerk places it on the agenda.
 
-![The Council agenda item map in the Modus designer](images/council-agenda-item.png)
+![The Council agenda item map in the Modus BPM designer](images/council-agenda-item.png)
 
 7 steps · 5 people steps. Each item is an **Agenda item**. Tags: parallel, return for changes, clerk.
 

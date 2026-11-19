@@ -4,7 +4,7 @@
 
 A mechanic inspects and estimates. Repairs over $1,500 need the fleet manager, who can decide the vehicle is not worth repairing. A road test releases it back into service.
 
-![The Vehicle repair map in the Modus designer](images/vehicle-repair.png)
+![The Vehicle repair map in the Modus BPM designer](images/vehicle-repair.png)
 
 6 steps · 4 people steps. Each item is a **Repair**. Tags: threshold, fleet, waiting on parts.
 

@@ -17,7 +17,7 @@ const design = {
 
 const item = (id: string, extra: Partial<SimObject> = {}) => ({ id, number: id.toUpperCase(), status: 'active', tokens: [], history: [], data: {}, ...extra }) as unknown as SimObject
 
-/** A fake Modus server holding each person's Workspace; the test changes it and pushes stream events. */
+/** A fake Modus BPM server holding each person's Workspace; the test changes it and pushes stream events. */
 function fakeServer() {
   const calls: Array<{ method: string; path: string; user: string | null; body?: unknown }> = []
   const streams: Array<ReturnType<typeof fakeStream>> = []

@@ -1,12 +1,12 @@
 {
   "realm": "modus",
-  "displayName": "Modus (development)",
+  "displayName": "Modus BPM (development)",
   "enabled": true,
   "registrationAllowed": false,
   "clients": [
     {
       "clientId": "modus",
-      "name": "Modus",
+      "name": "Modus BPM",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,

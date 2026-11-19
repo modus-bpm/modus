@@ -15,7 +15,7 @@ import { readImage } from './look'
 // the Workspace uses, so what is shown here is what people get.
 
 const PRESETS: Array<{ name: string; look: Partial<Theme> }> = [
-  { name: 'Modus', look: {} },
+  { name: 'Modus BPM', look: {} },
   { name: 'Civic', look: { primary: '#1d4ed8', background: '#f3f6fb', radius: 'square', labels: 'bold', header: 'brand' } },
   { name: 'Forest', look: { primary: '#15803d', background: '#f4f7f2', surface: '#ffffff', text: '#14261a', radius: 'round', font: 'system' } },
   { name: 'Clay', look: { primary: '#b45309', background: '#faf6f0', surface: '#fffdf9', text: '#292017', font: 'serif', fields: 'underlined', labels: 'caps' } },

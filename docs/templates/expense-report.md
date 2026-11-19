@@ -4,7 +4,7 @@
 
 The employee’s own manager reviews it and can send it back for changes. Reports over $1,000 also go to finance before reimbursement.
 
-![The Expense report map in the Modus designer](images/expense-report.png)
+![The Expense report map in the Modus BPM designer](images/expense-report.png)
 
 5 steps · 3 people steps · 1 step for a system of yours. Each item is an **Expense report**. Tags: reimbursement, return for changes, threshold.
 

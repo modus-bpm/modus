@@ -1,4 +1,4 @@
-# Modus
+# Modus BPM
 
 *As in modus operandi: the way your organization gets things done.*
 
@@ -20,7 +20,7 @@ the work.
 
 ![The studio: an invoice process with live counts, parallel steps and a subflow](docs/images/studio.jpg)
 
-Modus is for organizations whose work moves through people and systems: approvals,
+Modus BPM is for organizations whose work moves through people and systems: approvals,
 requests, case work — and also processes that aren't "business" at all, like camera signals
 screened by AI, enriched in parallel, and routed to the officer who should look. Business
 people can read and change every step. Administrators see the whole picture: how many items
@@ -155,7 +155,7 @@ of Appian, Pega, Camunda, ServiceNow, Power Automate, Temporal, n8n and others, 
 
 Questions and ideas go in [Discussions](https://github.com/modus-bpm/modus/discussions). Updates and
 short demos are on [X (@modusbpm)](https://x.com/modusbpm), [LinkedIn](https://www.linkedin.com/company/modus-bpm/)
-and the [Modus playlist on YouTube](https://www.youtube.com/playlist?list=PLGVn4__psJD0).
+and the [Modus BPM playlist on YouTube](https://www.youtube.com/playlist?list=PLGVn4__psJD0).
 
 ## License
 

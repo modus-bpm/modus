@@ -144,8 +144,8 @@ function page(reply: FastifyReply, status: number, title: string, text: string) 
     .header('cache-control', 'no-store')
     .type('text/html; charset=utf-8')
     .send(
-      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} · Modus</title>` +
-        `<body style="font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1rem;color:#1e293b"><h1 style="font-size:1.25rem">${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p><p><a href="/">Back to Modus</a></p>`,
+      `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} · Modus BPM</title>` +
+        `<body style="font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1rem;color:#1e293b"><h1 style="font-size:1.25rem">${escapeHtml(title)}</h1><p>${escapeHtml(text)}</p><p><a href="/">Back to Modus BPM</a></p>`,
     )
 }
 
@@ -283,7 +283,7 @@ export function registerAuth(app: FastifyInstance, rt: Runtime, s: AuthSettings)
       config = await discover()
     } catch (err) {
       req.log.error({ err }, 'The identity provider could not be reached')
-      return page(reply, 502, 'Sign-in isn’t available', 'Modus couldn’t reach the identity provider. Try again in a moment.')
+      return page(reply, 502, 'Sign-in isn’t available', 'Modus BPM couldn’t reach the identity provider. Try again in a moment.')
     }
     const verifier = oidc.randomPKCECodeVerifier()
     const state = oidc.randomState()
@@ -321,7 +321,7 @@ export function registerAuth(app: FastifyInstance, rt: Runtime, s: AuthSettings)
     }
 
     const value = claims[auth.claim]
-    if (typeof value !== 'string' || !value.trim()) return page(reply, 403, 'You can’t sign in yet', `The identity provider didn’t say what your ${auth.claim} is, and that is how Modus knows people.`)
+    if (typeof value !== 'string' || !value.trim()) return page(reply, 403, 'You can’t sign in yet', `The identity provider didn’t say what your ${auth.claim} is, and that is how Modus BPM knows people.`)
     // An address the provider hasn't checked could be anyone's: it names nobody here.
     if (auth.claim === 'email' && claims.email_verified !== true && !auth.trustEmail) return page(reply, 403, 'You can’t sign in yet', 'The identity provider hasn’t verified your e-mail address.')
 
@@ -336,7 +336,7 @@ export function registerAuth(app: FastifyInstance, rt: Runtime, s: AuthSettings)
         return added.design
       })
     }
-    if (!person) return page(reply, 403, 'You aren’t a person in Modus yet', `You signed in as ${value}, and no person in Modus has that sign-in name. Ask an administrator to add it to you on the People page.`)
+    if (!person) return page(reply, 403, 'You aren’t a person in Modus BPM yet', `You signed in as ${value}, and no person in Modus BPM has that sign-in name. Ask an administrator to add it to you on the People page.`)
 
     startSession(req, reply, person.id)
     return reply.header('cache-control', 'no-store').redirect(localPath(typeof flow.ret === 'string' ? flow.ret : undefined))

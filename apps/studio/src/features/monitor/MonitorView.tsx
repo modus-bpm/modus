@@ -51,7 +51,7 @@ async function downloadServerLog(appId: Id, appName: string) {
 }
 
 // The administrator's live view of the open application's work: where items are piling up, who is
-// carrying the load, and what just happened. From the in-browser simulation, or (served by a Modus
+// carrying the load, and what just happened. From the in-browser simulation, or (served by a Modus BPM
 // server) from the server itself, with the same panels either way.
 
 export function MonitorView() {

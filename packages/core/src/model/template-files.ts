@@ -9,7 +9,7 @@ import type { FieldDef, Template, WfNode } from './types'
 import { uid } from './util'
 
 export const TEMPLATE_FILE_FORMAT = 'modus-template'
-/** Goes up when the shape of a template changes in a way an older Modus could not read. */
+/** Goes up when the shape of a template changes in a way an older Modus BPM release could not read. */
 export const TEMPLATE_FILE_VERSION = 1
 
 export interface TemplateFile {
@@ -67,7 +67,7 @@ export function templateProblems(t: unknown): string[] {
   else
     for (const f of t.fields) {
       if (!isObject(f) || !isText(f.id, 200) || !isText(f.label) || typeof f.type !== 'string' || !FIELD_TYPES.has(f.type)) {
-        out.push(`A field is not one Modus knows: ${isObject(f) && typeof f.label === 'string' ? f.label : 'unnamed'}.`)
+        out.push(`A field is not one Modus BPM knows: ${isObject(f) && typeof f.label === 'string' ? f.label : 'unnamed'}.`)
         continue
       }
       if (fieldIds.has(f.id)) out.push(`Two fields share the id ${f.id}.`)
@@ -82,7 +82,7 @@ export function templateProblems(t: unknown): string[] {
     for (const n of t.nodes) {
       const label = isObject(n) && isObject(n.data) && typeof n.data.label === 'string' ? n.data.label : undefined
       if (!isObject(n) || !isText(n.id, 200) || typeof n.type !== 'string' || !NODE_TYPES.has(n.type) || label === undefined) {
-        out.push(`A step is not one Modus knows: ${label ?? 'unnamed'}.`)
+        out.push(`A step is not one Modus BPM knows: ${label ?? 'unnamed'}.`)
         continue
       }
       if (!isObject(n.position) || typeof n.position.x !== 'number' || typeof n.position.y !== 'number') out.push(`“${label}” has no place on the map.`)
@@ -98,7 +98,7 @@ export function templateProblems(t: unknown): string[] {
   else
     for (const e of t.edges) {
       if (!isObject(e) || !isText(e.id, 200) || typeof e.source !== 'string' || typeof e.target !== 'string' || !isObject(e.data)) {
-        out.push('A path is not one Modus knows.')
+        out.push('A path is not one Modus BPM knows.')
         continue
       }
       // With no steps at all, that is already said once.
@@ -131,8 +131,8 @@ export function readTemplateFile(text: string): ReadTemplates {
     throw new NotATemplateFile('That file is not JSON.')
   }
   if (isObject(doc) && Array.isArray(doc.apps) && Array.isArray(doc.users)) throw new NotATemplateFile('That is a whole design, not a template file. Use Import design in the settings menu.')
-  if (!isObject(doc) || doc.format !== TEMPLATE_FILE_FORMAT || !Array.isArray(doc.templates)) throw new NotATemplateFile('That is not a Modus template file.')
-  if (typeof doc.version !== 'number' || doc.version > TEMPLATE_FILE_VERSION) throw new NotATemplateFile('That template file was written by a newer Modus than this one.')
+  if (!isObject(doc) || doc.format !== TEMPLATE_FILE_FORMAT || !Array.isArray(doc.templates)) throw new NotATemplateFile('That is not a Modus BPM template file.')
+  if (typeof doc.version !== 'number' || doc.version > TEMPLATE_FILE_VERSION) throw new NotATemplateFile('That template file was written by a newer release of Modus BPM than this one.')
   if (doc.templates.length > MAX_TEMPLATES) throw new NotATemplateFile(`That file holds more than ${MAX_TEMPLATES} templates.`)
 
   const out: ReadTemplates = { templates: [], refused: [] }

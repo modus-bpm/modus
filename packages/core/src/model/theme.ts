@@ -215,7 +215,7 @@ export function scopedCss(css: string | undefined, scope = '.modus-themed'): str
 /** What is wrong with a theme as data; empty when nothing is. */
 export function themeProblems(theme: unknown): string[] {
   if (theme === undefined) return []
-  if (typeof theme !== 'object' || theme === null) return ['The look is not one Modus knows.']
+  if (typeof theme !== 'object' || theme === null) return ['The look is not one Modus BPM knows.']
   const t = theme as Partial<Theme>
   const out: string[] = []
   for (const k of ['primary', 'background', 'surface', 'text'] as const) if (t[k] !== undefined && !isHex(t[k])) out.push(`The ${k} color is not a hex color such as #4f46e5.`)
@@ -225,7 +225,7 @@ export function themeProblems(theme: unknown): string[] {
   else if (t.css && cssProblem(t.css)) out.push(cssProblem(t.css)!)
   if (t.name !== undefined && (typeof t.name !== 'string' || t.name.length > 80)) out.push('The name is longer than 80 characters.')
   const choice = <K extends keyof Theme>(k: K, allowed: readonly string[]) => {
-    if (t[k] !== undefined && !allowed.includes(t[k] as string)) out.push(`The look’s ${k} is not a choice Modus knows.`)
+    if (t[k] !== undefined && !allowed.includes(t[k] as string)) out.push(`The look’s ${k} is not a choice Modus BPM knows.`)
   }
   choice('font', Object.keys(THEME_FONTS))
   choice('radius', Object.keys(RADIUS))

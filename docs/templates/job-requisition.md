@@ -4,7 +4,7 @@
 
 Finance checks the budget while HR checks the grade and the posting. A replacement can then be posted; a new position needs an executive first.
 
-![The Job requisition map in the Modus designer](images/job-requisition.png)
+![The Job requisition map in the Modus BPM designer](images/job-requisition.png)
 
 7 steps · 3 people steps · 1 step for a system of yours. Each item is a **Requisition**. Tags: parallel, recruiting, headcount.
 

@@ -4,7 +4,7 @@
 
 An analyst confirms the report or closes it as a false alarm. Containing it and preserving evidence then run at the same time, and legal is brought in only when personal data is involved.
 
-![The Security incident map in the Modus designer](images/security-incident.png)
+![The Security incident map in the Modus BPM designer](images/security-incident.png)
 
 8 steps · 5 people steps. Each item is a **Security incident**. Tags: parallel, triage, security.
 

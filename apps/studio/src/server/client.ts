@@ -1,4 +1,4 @@
-// The Studio's client for a Modus server: detection, the Monitor's read endpoints, the Workspace's
+// The Studio's client for a Modus BPM server: detection, the Monitor's read endpoints, the Workspace's
 // reads and commands, and the live stream.
 // Browser-only APIs (fetch, ReadableStream, TextDecoder): the same file runs in Vitest on Node.
 // Who the Studio acts as goes in the `x-user-id` header; a server that signs people in (oidc) goes by
@@ -65,7 +65,7 @@ export class ApiError extends Error {
 }
 
 /**
- * Is the Studio served by a Modus server? One GET /api/health: a static host (Pages, `vite dev`) answers
+ * Is the Studio served by a Modus BPM server? One GET /api/health: a static host (Pages, `vite dev`) answers
  * with HTML or 404, and an unreachable one times out. Never throws.
  */
 export async function detectServer(f: Fetch = fetch, timeoutMs = 1500): Promise<boolean> {

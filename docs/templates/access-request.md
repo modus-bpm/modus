@@ -4,7 +4,7 @@
 
 The person’s manager approves, then the system’s owner, who can ask the requester for more information. Access is granted only after both say yes.
 
-![The Access request map in the Modus designer](images/access-request.png)
+![The Access request map in the Modus BPM designer](images/access-request.png)
 
 4 steps · 3 people steps · 1 step for a system of yours. Each item is an **Access request**. Tags: two approvals, return for changes, permissions.
 

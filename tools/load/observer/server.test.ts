@@ -24,7 +24,7 @@ async function observer(opts: { settleMs?: number; idleMs?: number } = {}) {
   return { obs, base, clock }
 }
 
-/** A stand-in for a Modus server's live stream: every named client gets what the test pushes. */
+/** A stand-in for a Modus BPM server's live stream: every named client gets what the test pushes. */
 async function fakeSSE() {
   const clients = new Set<ServerResponse>()
   let connections = 0

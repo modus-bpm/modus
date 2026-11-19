@@ -2,7 +2,7 @@
   "name": "@modus-bpm/load",
   "private": true,
   "version": "0.2.0",
-  "description": "Local load tests: 1-3 Modus servers on a disposable Postgres behind nginx, driven by k6.",
+  "description": "Local load tests: 1-3 Modus BPM servers on a disposable Postgres behind nginx, driven by k6.",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {

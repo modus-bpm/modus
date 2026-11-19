@@ -4,7 +4,7 @@
 
 The employee’s manager approves; courses over $1,500 also go to HR. After the course the employee confirms they finished it, so the record is complete.
 
-![The Training request map in the Modus designer](images/training-request.png)
+![The Training request map in the Modus BPM designer](images/training-request.png)
 
 6 steps · 3 people steps · 1 step for a system of yours. Each item is a **Training request**. Tags: threshold, timer, development.
 

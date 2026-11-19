@@ -55,7 +55,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const view = useUi((s) => s.view)
   const mode = useUi((s) => s.mode)
   const setView = useUi((s) => s.setView)
-  // Served by a Modus server in Live, the designer pages edit the server's design.
+  // Served by a Modus BPM server in Live, the designer pages edit the server's design.
   useServerDesignMode()
   return (
     <div className="flex h-full flex-col">

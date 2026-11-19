@@ -4,7 +4,7 @@
 
 The clerk logs the request and can pause it while the requester clarifies. Departments search at the same time, legal reviews for exemptions, and the response goes out. Set the deadline your own law gives you.
 
-![The Public records request map in the Modus designer](images/public-records-request.png)
+![The Public records request map in the Modus BPM designer](images/public-records-request.png)
 
 8 steps · 4 people steps. Each item is a **Records request**. Tags: deadline, parallel, FOIA.
 
