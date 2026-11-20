@@ -4,7 +4,7 @@
 
 Accounts are created automatically while IT, Facilities and Payroll work in parallel; the hiring manager welcomes the new hire once everything is ready.
 
-![The New hire onboarding map in the Modus designer](images/new-hire-onboarding.png)
+![The New hire onboarding map in the Modus BPM designer](images/new-hire-onboarding.png)
 
 7 steps · 4 people steps. Each item is a **New hire**. Tags: parallel, onboarding, MCP.
 

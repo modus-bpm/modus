@@ -4,7 +4,7 @@
 
 A schedule opens the job and a dispatcher hands it to a technician. If the checklist turns up a problem, a supervisor decides whether to repair now or defer it, and the service is recorded either way.
 
-![The Preventive maintenance map in the Modus designer](images/preventive-maintenance.png)
+![The Preventive maintenance map in the Modus BPM designer](images/preventive-maintenance.png)
 
 5 steps · 3 people steps · 1 step for a system of yours. Each item is a **Maintenance job**. Tags: schedule, dispatcher, checklist.
 

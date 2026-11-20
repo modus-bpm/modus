@@ -4,7 +4,7 @@
 
 A draft reply is prepared automatically and a person always reviews it before anything is sent. Hard cases go to a manager, and a follow-up three days later reopens it if the customer is still unhappy.
 
-![The Customer complaint map in the Modus designer](images/customer-complaint.png)
+![The Customer complaint map in the Modus BPM designer](images/customer-complaint.png)
 
 5 steps · 3 people steps · 1 step for a system of yours. Each item is a **Complaint**. Tags: AI, follow-up, customer service.
 

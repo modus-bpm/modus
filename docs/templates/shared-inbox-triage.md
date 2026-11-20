@@ -4,7 +4,7 @@
 
 An AI agent classifies each message that arrives. Confident answers go straight through; the rest go to a person, whose corrections are recorded.
 
-![The Shared inbox triage map in the Modus designer](images/shared-inbox-triage.png)
+![The Shared inbox triage map in the Modus BPM designer](images/shared-inbox-triage.png)
 
 3 steps · 1 people step. Each item is a **Message**. Tags: AI, human in the loop, email.
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Modus has one idea at its center: **the model is the system**. The process an
+Modus BPM has one idea at its center: **the model is the system**. The process an
 administrator draws is the thing that runs, the thing that is simulated, and the thing
 that is monitored. There is no second copy that can drift.
 
@@ -66,8 +66,8 @@ also serves the studio.
 | **Application** | A bundle of object types, lists and workflows (e.g. Invoice Processing). |
 | **Object type** | A dynamically defined record: fields (text, number, currency, date, yes/no, choice, person, email, attachment, and **tables** of rows such as invoice line items), numbering, title, priority field, permissions per group, and *sensitive* fields visible only to some groups. Forms are generated from it. |
 | **Table field** | Multi-row data inside an item: typed columns, formula columns (`Quantity × Unit Price`), row limits, and **total fields** that sum a column. Calculated values are kept by the engine and are read-only everywhere. |
-| **Form design** | How an object type's form looks: sections of one to four columns, each with a look of its own (plain, card, tinted, outlined, an accent colour, a title size), fields at a chosen width with their own label and guidance, headings, paragraphs, callouts, dividers, space and pictures between them, and choices for the whole form (how wide, labels above or beside, spacing). Made in the forms designer, where the canvas is the form drawn by the code the Workspace uses. Without one, the form is every field in order. It only arranges: field security still decides who sees and changes what, and a field the layout leaves out is still shown at the end. |
-| **Look** | How the Workspace is drawn for the people working in it: a name and logo, four colours every other shade is mixed from, typeface, corners, room, how fields and labels are drawn, the side panel, and style rules of the organization's own. Set for the organization; an application can differ. |
+| **Form design** | How an object type's form looks: sections of one to four columns, each with a look of its own (plain, card, tinted, outlined, an accent color, a title size), fields at a chosen width with their own label and guidance, headings, paragraphs, callouts, dividers, space and pictures between them, and choices for the whole form (how wide, labels above or beside, spacing). Made in the forms designer, where the canvas is the form drawn by the code the Workspace uses. Without one, the form is every field in order. It only arranges: field security still decides who sees and changes what, and a field the layout leaves out is still shown at the end. |
+| **Look** | How the Workspace is drawn for the people working in it: a name and logo, four colors every other shade is mixed from, typeface, corners, room, how fields and labels are drawn, the side panel, and style rules of the organization's own. Set for the organization; an application can differ. |
 | **List** | Flat or linked (cascading) reference data: Model Year → Make → Model. |
 | **Workflow** | A graph of steps and paths for one object type. `process` workflows start when an item is created; `subflow` workflows run inside a subflow step. Has a target time (due dates), workflow-wide field locks, **process supervisors**, and an **expedite policy** (who may expedite, how much faster, whether a reason is required). |
 | **Step types** | Start (form, API, event stream, schedule, inbox) · User step · Automated step · Decision · Parallel split · Join · Subflow · Timer · End. |
@@ -269,7 +269,11 @@ Every change to an application goes through `Storage.transact`. On PostgreSQL:
    another server committed since this one's cached version, what it changed comes back with
    the lock: the rest of the state and the items written since, applied to the cached state.
 3. The runtime catches the clock up from the stored clock time, then runs the command on a copy
-   of the state.
+   of the state. After a long time away (over an hour of clock), the catch-up is done first, in
+   transactions of its own that each move the clock for about two seconds and commit, so none is
+   held open and a stop part way loses only the last piece. The engine's live clock keeps every
+   item's next time (a timer, an escalation, a built-in step) in order and touches only the items
+   that are due, so a quiet week costs next to nothing however many items are waiting.
 4. Pure core functions compare the state before and after: `changesBetween` finds the new audit
    entries and outbox messages (`job.ready` for a service job that became ready, `notify` for
    notifications and escalations), and `changedItems` the items that changed in any way. The
@@ -303,7 +307,7 @@ engine still works on a whole application's state, so per-item locking waits for
 split in M1. Every server runs an outbox sender: it fans each message out to the configured
 webhook endpoints, claims due deliveries with `FOR UPDATE SKIP LOCKED` and a 60-second lease, posts
 them signed outside any transaction and records the result, with retries for 24 hours
-([DEPLOYMENT.md](DEPLOYMENT.md#webhooks)). Email from Modus and the REST and MCP connectors come in M4.
+([DEPLOYMENT.md](DEPLOYMENT.md#webhooks)). Email from Modus BPM and the REST and MCP connectors come in M4.
 
 The memory adapter implements the same contract for one process. On disk each application's
 state is a log, one line per commit with the rest of the state and the items it changed,
@@ -339,7 +343,7 @@ quiet stream open through proxies. Like the design, the stream is for any named 
 
 ### The Studio on a server: the Monitor (M3, first slice)
 
-Served by a Modus server, the Studio's Monitor reads the server instead of simulating. At startup
+Served by a Modus BPM server, the Studio's Monitor reads the server instead of simulating. At startup
 the Studio asks `GET /api/health`; an answer means a server serves it, and the Monitor header shows
 **Live / Simulation**, opening on Live. Live draws the server's published design (`GET /api/design`)
 and fills every panel from the administrator-only reads: `/monitor` (KPIs, steps, services,
@@ -354,7 +358,7 @@ server takes at its word: don't expose a server with `MODUS_AUTH=none`. The Moni
 
 ### The Studio on a server: the Workspace (M3)
 
-Served by a Modus server with Live chosen, the Workspace works the server's real work. Every page
+Served by a Modus BPM server with Live chosen, the Workspace works the server's real work. Every page
 reads what the server sent and every action is a request to the API; nothing is simulated behind
 it. The same **Live / Simulation** switch sits in the Workspace's sidebar, and Simulation is the
 in-browser simulation as before.
@@ -525,7 +529,7 @@ step is bound to a two-GPU worker pool, and the simulation shows it becoming the
 
 The classic approach — generating a table per object type and altering it whenever a field is
 added — needs runtime DDL, per-type migrations and DBA change control for every design edit.
-EAV (one row per field value) avoids DDL but makes every query a pile of self-joins. Modus
+EAV (one row per field value) avoids DDL but makes every query a pile of self-joins. Modus BPM
 takes the hybrid that modern databases make cheap:
 
 - **Event log + projections, in one transaction.** Every command appends the item's new events
@@ -620,7 +624,7 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
   [DEPLOYMENT.md](DEPLOYMENT.md#sign-in)). With `oidc` the identity provider says who signed in,
   the server matches that to a person by their sign-in name, and a signed cookie carries it; the
   `x-user-id` header is ignored. `none` and `password` take the header at its word and are for a
-  laptop and for demos. Planned: directory groups mapped to Modus groups (claims, then SCIM), SAML.
+  laptop and for demos. Planned: directory groups mapped to Modus BPM groups (claims, then SCIM), SAML.
 - **Authorization layers**: organization roles (administrator, designer, auditor); object-type
   permissions (create/read/update/delete per group); who may act on a work item (holder,
   delegate, dispatcher, task or process supervisor, administrator); and field security (sensitive fields → workflow locks → step access). Reads are filtered (hidden fields
@@ -638,7 +642,7 @@ Core server tier feasible; see [backend options](research/backend-options.md#3-m
   ones the item already holds, and what the data says about a file comes from storage. A file is
   sent only to someone who can read the field it is in, on that item, as it stands; always as a
   download or a sandboxed view, never as a page of the server's origin.
-- **The look**: colours, logos and form pictures are data the core checks (hex colours, images
+- **The look**: colors, logos and form pictures are data the core checks (hex colors, images
   kept in the design as data URLs). Style rules of the organization's own are used exactly as
   written or not at all: they are read as a browser reads them, refused if they could close the
   Workspace's scope or load anything from elsewhere, and nested under the Workspace so they can't
@@ -679,9 +683,9 @@ hard separation.
 | | Milestone | Exit criteria |
 | --- | --- | --- |
 | **M1** | Kernel hardening | Split the engine's command handlers from the simulation drivers further (`decide/evolve` over typed events); property tests and a "one million simulated items, zero stuck tokens" fuzz run; versioned JSON Schemas for designs. *Partly done: live mode, tokens, split/join, subflows, OCEL export, separation of duties, line items, search, assistant, supervisors, expedite, workflow versions and migration. The rest waits for a first real deployment ([order of work](ROADMAP.md#next)).* |
-| **M2** | Server on Postgres | Kysely migrations; events + projections + outbox + timers in one transaction per command, so several servers can share a database; object types, objects, lists, attachments; OIDC login; single image + Compose. *Storage done: a PostgreSQL adapter (Kysely, versioned migrations in code, run at startup) stores the design, each application's state (JSON) and the event log (`UNIQUE (app_id, item_id, seq)`); every command commits state, audit entries, item and work-item projections, outbox rows and the clock in one transaction under the application's row lock; several replicas share one database (LISTEN/NOTIFY, one clock per application by advisory lock); a shared storage contract suite runs against memory and Postgres; Docker Compose runs Modus on Postgres by default. Locking is per application; per item after M1. The outbox is written, and sent to signed webhooks with retries by every server. Next: OIDC, and attachments when a deployment needs files; then object types, objects and lists ([order of work](ROADMAP.md#next)).* |
+| **M2** | Server on Postgres | Kysely migrations; events + projections + outbox + timers in one transaction per command, so several servers can share a database; object types, objects, lists, attachments; OIDC login; single image + Compose. *Storage done: a PostgreSQL adapter (Kysely, versioned migrations in code, run at startup) stores the design, each application's state (JSON) and the event log (`UNIQUE (app_id, item_id, seq)`); every command commits state, audit entries, item and work-item projections, outbox rows and the clock in one transaction under the application's row lock; several replicas share one database (LISTEN/NOTIFY, one clock per application by advisory lock); a shared storage contract suite runs against memory and Postgres; Docker Compose runs Modus BPM on Postgres by default. Locking is per application; per item after M1. The outbox is written, and sent to signed webhooks with retries by every server. Next: OIDC, and attachments when a deployment needs files; then object types, objects and lists ([order of work](ROADMAP.md#next)).* |
 | **M3** | Work service and Workspace on the server | Worklists and all distribution modes with SKIP LOCKED claims; delegation, out of office, SLA timers with business calendars; the studio's Workspace and Monitor wired to the API and the live stream. *Monitor, Workspace and designing done: Live / Simulation on a served Studio; the Monitor reads the administrator routes and the stream, the Workspace works each person's share of the state through the API, and the designer pages save the server's design and publish workflow versions that every replica runs without a restart.* |
-| **M4** | Automation | Email from Modus; REST/OpenAPI and MCP connectors; worker SDKs (TypeScript, Python, .NET, Java) from OpenAPI; retries, incidents, tracing. *Done ahead of it: the outbox sender (signed webhooks with retries).* |
+| **M4** | Automation | Email from Modus BPM; REST/OpenAPI and MCP connectors; worker SDKs (TypeScript, Python, .NET, Java) from OpenAPI; retries, incidents, tracing. *Done ahead of it: the outbox sender (signed webhooks with retries).* |
 | **M5** | Scale, ingest, analytics | Stream ingest and triage; OCEL/XES export; simulation calibrated from the log; Helm chart; load tests (target 100 signals/s sustained, 1,000 concurrent Workspace users). |
 | **M6** | Hardening, second database, v1.0 | SQL Server adapter certified by the contract suite; SCIM/SAML; multi-tenancy; backup/upgrade runbooks; SBOM, signing, air-gap bundle; external security review. Oracle in v1.1. |
 

@@ -44,7 +44,7 @@ export interface PlannedSection {
   description?: string
   columns: 1 | 2 | 3 | 4
   collapsed: boolean
-  /** How it is drawn: every choice filled in, the accent only when it is a colour. */
+  /** How it is drawn: every choice filled in, the accent only when it is a color. */
   look: NonNullable<SectionStyle['look']>
   accent?: string
   titleSize: NonNullable<SectionStyle['title']>
@@ -173,19 +173,19 @@ export function layoutProblems(layout: unknown): string[] {
   const span = (x: unknown) => x === undefined || [1, 2, 3, 4].includes(x as number)
   const pick = (x: unknown, allowed: readonly string[]) => x === undefined || allowed.includes(x as string)
   if (l.style !== undefined && (typeof l.style !== 'object' || l.style === null || !pick(l.style.width, ['narrow', 'medium', 'wide', 'full']) || !pick(l.style.labels, ['above', 'beside']) || !pick(l.style.spacing, ['tight', 'normal', 'airy'])))
-    out.push('The form’s style is not one Modus knows.')
+    out.push('The form’s style is not one Modus BPM knows.')
   const ids = new Set<Id>()
   for (const s of l.sections) {
     if (!s || typeof s.id !== 'string' || !Array.isArray(s.items) || ![1, 2, 3, 4].includes(s.columns) || !text(s.title) || !text(s.description)) {
-      out.push('A section of the form layout is not one Modus knows.')
+      out.push('A section of the form layout is not one Modus BPM knows.')
       continue
     }
     const st = s.style
     if (st !== undefined && (typeof st !== 'object' || st === null || !pick(st.look, ['plain', 'card', 'tinted', 'outlined']) || !pick(st.title, SIZES) || (st.accent !== undefined && !(typeof st.accent === 'string' && HEX.test(st.accent))) || (st.rule !== undefined && typeof st.rule !== 'boolean')))
-      out.push('A section’s style is not one Modus knows.')
+      out.push('A section’s style is not one Modus BPM knows.')
     for (const i of s.items) {
       if (!i || typeof i.id !== 'string' || !['field', 'heading', 'text', 'divider', 'spacer', 'image'].includes(i.kind)) {
-        out.push('Something on the form layout is not a kind Modus knows.')
+        out.push('Something on the form layout is not a kind Modus BPM knows.')
         continue
       }
       if (ids.has(i.id)) out.push(`Two things on the form layout share the id ${i.id}.`)
@@ -193,10 +193,10 @@ export function layoutProblems(layout: unknown): string[] {
       if (i.kind !== 'divider' && !span(i.span)) out.push('Something on the form layout has a width that is not one.')
       if (i.kind === 'image' && i.url !== undefined && i.url !== '' && !isOwnPicture(i.url)) out.push('A picture on the form is not an image kept in the design.')
       if (i.kind === 'image' && (!text(i.alt) || (i.height !== undefined && typeof i.height !== 'number') || !pick(i.align, ['left', 'center', 'right']))) out.push('A picture on the form has a description, height or place that is not one.')
-      if (i.kind === 'heading' && (typeof i.text !== 'string' || !pick(i.size, SIZES))) out.push('A heading on the form is not written the way Modus knows.')
-      if (i.kind === 'text' && (typeof i.text !== 'string' || !pick(i.tone, ['plain', 'note', 'success', 'warning']))) out.push('A paragraph on the form is not written the way Modus knows.')
+      if (i.kind === 'heading' && (typeof i.text !== 'string' || !pick(i.size, SIZES))) out.push('A heading on the form is not written the way Modus BPM knows.')
+      if (i.kind === 'text' && (typeof i.text !== 'string' || !pick(i.tone, ['plain', 'note', 'success', 'warning']))) out.push('A paragraph on the form is not written the way Modus BPM knows.')
       if (i.kind === 'spacer' && i.height !== undefined && typeof i.height !== 'number') out.push('A space on the form has a height that is not one.')
-      if (i.kind === 'field' && (typeof i.fieldId !== 'string' || !text(i.label) || !text(i.help) || !text(i.placeholder) || (i.emphasis !== undefined && typeof i.emphasis !== 'boolean'))) out.push('A field on the form layout is not placed the way Modus knows.')
+      if (i.kind === 'field' && (typeof i.fieldId !== 'string' || !text(i.label) || !text(i.help) || !text(i.placeholder) || (i.emphasis !== undefined && typeof i.emphasis !== 'boolean'))) out.push('A field on the form layout is not placed the way Modus BPM knows.')
     }
   }
   return out

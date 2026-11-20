@@ -4,7 +4,7 @@
 
 The person who handled the incident writes it up (retain familiar), a commander reviews, and it is filed to records automatically.
 
-![The Incident report map in the Modus designer](images/incident-report.png)
+![The Incident report map in the Modus BPM designer](images/incident-report.png)
 
 3 steps · 2 people steps. Each item is an **Incident**. Tags: retain familiar, records.
 

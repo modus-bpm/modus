@@ -12,7 +12,7 @@ import { type ChatMessage, useWorkspace } from './store'
 // Ask Modus: questions about the work in plain words. The answers come from the
 // engine's built-in interpreter (core/assistant), which turns a question into a
 // search and shows the search it ran. Over the simulation nothing leaves the browser;
-// served by a Modus server in Live, the server's built-in interpreter answers over its work.
+// served by a Modus BPM server in Live, the server's built-in interpreter answers over its work.
 
 const NO_MESSAGES: ChatMessage[] = []
 const CARDS = 5
@@ -167,7 +167,7 @@ export function AskPanel({ me, app, ctx, sim, data, onClose }: Props) {
         </IconButton>
       </header>
       <p className="shrink-0 border-b border-slate-100 bg-slate-50/80 px-4 py-2 text-[11px] leading-snug text-slate-500">
-        Runs locally. Answers come from Modus’s own search; connect an AI model on the server for open-ended questions.
+        Runs locally. Answers come from Modus BPM’s own search; connect an AI model on the server for open-ended questions.
       </p>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
@@ -201,7 +201,7 @@ export function AskPanel({ me, app, ctx, sim, data, onClose }: Props) {
         )}
 
         {typing && (
-          <div className="flex items-start gap-2.5" aria-live="polite" aria-label="Modus is answering">
+          <div className="flex items-start gap-2.5" aria-live="polite" aria-label="Modus BPM is answering">
             <Avatar />
             <span className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-slate-100 px-3 py-3">
               {[0, 150, 300].map((d) => (

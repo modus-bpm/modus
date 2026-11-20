@@ -429,6 +429,10 @@ export function postgresStorage(connectionString: string, options: PostgresOptio
   const pool = new pg.Pool({ connectionString, max, options: searchPath, keepAlive: true })
   // An idle client losing its connection (database restart) must not crash the process; the next query reconnects.
   pool.on('error', () => undefined)
+  // A connection in use that the server ends (a transaction left idle too long, a restart) reports it
+  // on the client. Unheard, that takes the whole process down; heard, the query in flight fails and the
+  // command is answered as storage being unavailable.
+  pool.on('connect', (client) => client.on('error', () => undefined))
   const db = new Kysely<Tables>({ dialect: new PostgresDialect({ pool }) })
   // node-postgres would turn a JavaScript array into a Postgres array; JSONB needs JSON text.
   const json = <T>(v: T) => JSON.stringify(v) as unknown as T

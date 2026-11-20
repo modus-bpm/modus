@@ -4,7 +4,7 @@
 
 The request goes to the employee’s own manager. If nobody has answered in 48 hours it is escalated; once approved, the team calendar is updated.
 
-![The Time-off request map in the Modus designer](images/time-off-request.png)
+![The Time-off request map in the Modus BPM designer](images/time-off-request.png)
 
 2 steps · 1 people step · 1 step for a system of yours. Each item is a **Time-off request**. Tags: PTO, vacation, escalation.
 

@@ -4,7 +4,7 @@
 
 The clerk checks the application and the insurance certificate. Police, fire and public works sign off at the same time, and events expecting more than 1,000 people also need the manager.
 
-![The Special event permit map in the Modus designer](images/special-event-permit.png)
+![The Special event permit map in the Modus BPM designer](images/special-event-permit.png)
 
 10 steps · 6 people steps · 1 step for a system of yours. Each item is an **Event permit**. Tags: parallel, threshold, permits.
 

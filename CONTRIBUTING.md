@@ -1,6 +1,6 @@
-# Contributing to Modus
+# Contributing to Modus BPM
 
-Thanks for helping. Modus is early: the studio is a working prototype, the server is a
+Thanks for helping. Modus BPM is early: the studio is a working prototype, the server is a
 skeleton, and the [roadmap](docs/ROADMAP.md) lists what comes next.
 
 ## Set up

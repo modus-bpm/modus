@@ -4,7 +4,7 @@
 
 The driver named on the report writes the statement. The insurance claim, the repair estimate and the safety review then run at the same time before the fleet manager closes it.
 
-![The Vehicle accident report map in the Modus designer](images/vehicle-accident-report.png)
+![The Vehicle accident report map in the Modus BPM designer](images/vehicle-accident-report.png)
 
 7 steps · 5 people steps. Each item is an **Accident report**. Tags: parallel, person on the item, fleet.
 

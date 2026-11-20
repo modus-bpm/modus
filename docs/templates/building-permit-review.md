@@ -4,7 +4,7 @@
 
 After a completeness check, zoning, fire and engineering review the plans at the same time. The building official then issues the permit, denies it, or sends the plans back to the applicant for corrections and another round.
 
-![The Building permit review map in the Modus designer](images/building-permit-review.png)
+![The Building permit review map in the Modus BPM designer](images/building-permit-review.png)
 
 10 steps · 7 people steps · 1 step for a system of yours. Each item is a **Permit application**. Tags: parallel, corrections, permits.
 

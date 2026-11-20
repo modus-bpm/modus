@@ -4,7 +4,7 @@
 
 An AI agent screens every alarm and dismisses the ones it is sure are false. An operator verifies the rest and the responder is told only about real ones.
 
-![The Alarm screening map in the Modus designer](images/alarm-screening.png)
+![The Alarm screening map in the Modus BPM designer](images/alarm-screening.png)
 
 5 steps · 2 people steps. Each item is an **Alarm**. Tags: AI, human in the loop, security operations.
 

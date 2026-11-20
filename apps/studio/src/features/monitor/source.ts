@@ -1,4 +1,4 @@
-// Where the Monitor's numbers come from: the in-browser simulation or a Modus server (Live).
+// Where the Monitor's numbers come from: the in-browser simulation or a Modus BPM server (Live).
 // React-free so the choice and its small rules are unit-tested; MonitorView picks one per render.
 
 import { expeditedByStep, publishedVersion, workingNow, type FeedEntry, type SimState, type SimView, type WorkingOn } from '@modus-bpm/core'

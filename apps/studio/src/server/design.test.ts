@@ -12,7 +12,7 @@ const edit = (d: Design, change: (x: Design) => void): Design => {
 }
 const label = (d: Design) => d.apps[0]!.workflows[0]!.nodes[1]!.data.label
 
-/** A fake Modus server holding one design with a revision. Avery is its administrator, Noah a designer, Maya a clerk. */
+/** A fake Modus BPM server holding one design with a revision. Avery is its administrator, Noah a designer, Maya a clerk. */
 function fakeServer() {
   const calls: Array<{ method: string; path: string; user: string | null; body?: { revision?: number; design?: Design } & Record<string, unknown> }> = []
   const s = {

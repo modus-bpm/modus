@@ -4,7 +4,7 @@
 
 Operations and quality review the draft at the same time. The process owner approves it or sends it back to the author; once approved it is published and team leads acknowledge it.
 
-![The Procedure change map in the Modus designer](images/procedure-change.png)
+![The Procedure change map in the Modus BPM designer](images/procedure-change.png)
 
 8 steps · 5 people steps. Each item is a **Procedure change**. Tags: parallel, return for changes, policy.
 

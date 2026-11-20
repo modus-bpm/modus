@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** `pnpm load` runs a mixed, watchable load against 1–3 local Modus servers on a disposable Postgres and saves a comparable report.
+**Goal:** `pnpm load` runs a mixed, watchable load against 1–3 local Modus BPM servers on a disposable Postgres and saves a comparable report.
 
-**Architecture:** A `tools/load` workspace package holds a Compose stack (Postgres, 1–3 Modus servers built from the working tree, nginx, an observer), k6 scenarios run from the `grafana/k6` image, a host-side runner that orchestrates and writes the report, and a setup script that writes a test design into the database before the servers start.
+**Architecture:** A `tools/load` workspace package holds a Compose stack (Postgres, 1–3 Modus BPM servers built from the working tree, nginx, an observer), k6 scenarios run from the `grafana/k6` image, a host-side runner that orchestrates and writes the report, and a setup script that writes a test design into the database before the servers start.
 
 **Tech Stack:** Docker Compose, grafana/k6 (Docker), nginx, Node 22 + tsx, Vitest, the server's Postgres adapter.
 

@@ -4,7 +4,7 @@
 
 A conflict and credit check comes first. Then the engagement letter, billing setup and the kickoff all start together, and the client is active once the three are done.
 
-![The New client intake map in the Modus designer](images/new-client-intake.png)
+![The New client intake map in the Modus BPM designer](images/new-client-intake.png)
 
 6 steps · 4 people steps. Each item is a **Client**. Tags: parallel, onboarding, professional services.
 

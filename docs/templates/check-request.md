@@ -4,7 +4,7 @@
 
 A payment outside the normal invoice run goes to three authorized signers at once and is released as soon as any two have signed. One refusal stops it.
 
-![The Check request map in the Modus designer](images/check-request.png)
+![The Check request map in the Modus BPM designer](images/check-request.png)
 
 7 steps · 4 people steps · 1 step for a system of yours. Each item is a **Check request**. Tags: two of three, dual signature, payment.
 

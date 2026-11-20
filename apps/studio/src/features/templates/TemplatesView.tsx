@@ -111,7 +111,7 @@ export function TemplatesView() {
   /** Export what is on screen: the whole library, or what the search and filters left. */
   const exportShown = () => {
     downloadTemplates(shown)
-    toast(`${plural(shown.length, 'template')} saved to a file. Import it into another Modus from this page.`, 'success')
+    toast(`${plural(shown.length, 'template')} saved to a file. Import it into another Modus BPM installation from this page.`, 'success')
   }
 
   const usingTpl = templates.find((t) => t.id === using)

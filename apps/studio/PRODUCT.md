@@ -18,11 +18,11 @@ web
 - **People doing the work**, who use the Workspace: a basket of assigned items, queues, a
   dispatch board, search and a plain-language assistant.
 - **Evaluators**: engineers and decision makers visiting the public demo or the GitHub
-  repository to judge whether Modus fits, how it is built, and how it would be deployed.
+  repository to judge whether Modus BPM fits, how it is built, and how it would be deployed.
 
 ## Product Purpose
 
-Modus is an open-source process manager (Apache-2.0) where the model is the system: the
+Modus BPM is an open-source process manager (Apache-2.0) where the model is the system: the
 process an administrator draws is the process that runs, the one that is simulated, and the
 one that is monitored. Success is that changing how work flows becomes an edit, not a project,
 and that administrators can see bottlenecks and test a fix before making it.
@@ -57,7 +57,7 @@ Planned, not built: PostgreSQL (then SQL Server, Oracle), OIDC/SAML, multi-tenan
 
 ## Brand Commitments
 
-- Name: **Modus** ("as in modus operandi: the way your organization gets things done").
+- Name: **Modus BPM** ("as in modus operandi: the way your organization gets things done").
 - Plain words for business users; standard terms nearby for engineers.
 - Never name the legacy product it replaces; refer to "classic" or "earlier-generation" BPM.
 - An independent open-source project, with no company named in the product or the repository; repository https://github.com/modus-bpm/modus.

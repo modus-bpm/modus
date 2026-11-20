@@ -5,8 +5,8 @@ Status: implemented (approved 2026-10-13; see Refinements). Builds on M2 (`outbo
 ## Goal
 
 Deliver every outbox message (`job.ready`, `notify`) to configured HTTP endpoints, signed, at
-least once, with retries. Email, chat or a worker wake-up are wired outside Modus for now; sending
-email from Modus comes later.
+least once, with retries. Email, chat or a worker wake-up are wired outside Modus BPM for now; sending
+email from Modus BPM comes later.
 
 ## Configuration (server settings)
 
@@ -76,7 +76,7 @@ Administrator role required. Each failure is logged with the endpoint name and s
 ## Docs
 
 DEPLOYMENT: a Webhooks section (settings, payload, verifying the signature in Node, retries).
-ROADMAP and ARCHITECTURE: outbox sender done (webhooks); email from Modus and connectors stay in M4.
+ROADMAP and ARCHITECTURE: outbox sender done (webhooks); email from Modus BPM and connectors stay in M4.
 
 ## Refinements
 

@@ -268,7 +268,7 @@ body {
   }
 }
 
-/* A section's look. Its accent is its own colour when it has one, the look's primary otherwise. */
+/* A section's look. Its accent is its own color when it has one, the look's primary otherwise. */
 .form-section[data-look='card'] {
   border: 1px solid var(--color-slate-200);
   border-radius: var(--radius-lg);
@@ -524,12 +524,12 @@ body {
   color: var(--color-slate-900);
 }
 
-/* Text on the primary colour reads on it, whatever colour was chosen. */
+/* Text on the primary color reads on it, whatever color was chosen. */
 .modus-themed :is(.bg-brand-500, .bg-brand-600, .bg-brand-700).text-white {
   color: var(--theme-on-brand);
 }
 
-/* The side panel in the primary colour or dark: the same palette, mixed for that background. */
+/* The side panel in the primary color or dark: the same palette, mixed for that background. */
 .modus-themed:is([data-theme-header='brand'], [data-theme-header='dark']) .theme-side {
   --color-white: var(--theme-side);
   --color-slate-50: color-mix(in srgb, var(--theme-on-side) 8%, var(--theme-side));

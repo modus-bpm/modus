@@ -4,7 +4,7 @@
 
 Security, legal and budget look at a new tool at the same time, so the request waits on the slowest of the three and not on all of them in turn. The IT owner approves once all three agree.
 
-![The Software purchase map in the Modus designer](images/software-purchase.png)
+![The Software purchase map in the Modus BPM designer](images/software-purchase.png)
 
 7 steps · 4 people steps · 1 step for a system of yours. Each item is a **Software request**. Tags: parallel, security review, software.
 

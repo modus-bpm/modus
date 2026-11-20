@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Modus: the studio and the server in one image.
+# Modus BPM: the studio and the server in one image.
 #
 #   docker build -t modus:local .
 #   docker run --rm -p 8787:8787 -v modus-data:/data modus:local     # http://localhost:8787
@@ -38,12 +38,12 @@ RUN pnpm --filter @modus-bpm/studio build \
 FROM node:${NODE_VERSION}-alpine AS runtime
 ARG VERSION=dev
 ARG REVISION=unknown
-LABEL org.opencontainers.image.title="Modus" \
+LABEL org.opencontainers.image.title="Modus BPM" \
       org.opencontainers.image.description="Open-source process manager: design, simulate and run business processes on one model." \
       org.opencontainers.image.source="https://github.com/modus-bpm/modus" \
       org.opencontainers.image.url="https://github.com/modus-bpm/modus" \
       org.opencontainers.image.licenses="Apache-2.0" \
-      org.opencontainers.image.vendor="Modus" \
+      org.opencontainers.image.vendor="Modus BPM" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: modus
-description: Modus, the open-source process manager - studio, API and engine in one image.
+description: Modus BPM, the open-source process manager - studio, API and engine in one image.
 type: application
 # The chart's own version; bump on every chart change.
 version: 0.2.0

@@ -4,7 +4,7 @@
 
 Three suppliers are asked for a quote at the same time. The buyer compares as soon as two have answered, and the third is no longer waited for.
 
-![The Three quotes map in the Modus designer](images/three-quotes.png)
+![The Three quotes map in the Modus BPM designer](images/three-quotes.png)
 
 7 steps · 4 people steps · 1 step for a system of yours. Each item is a **Purchase**. Tags: two of three, competitive quotes, purchasing.
 

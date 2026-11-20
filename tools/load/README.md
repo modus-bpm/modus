@@ -1,6 +1,6 @@
 # Load tests
 
-`pnpm load` runs a mixed load against 1-3 Modus servers on a throwaway Postgres on your machine,
+`pnpm load` runs a mixed load against 1-3 Modus BPM servers on a throwaway Postgres on your machine,
 lets you watch it, and saves a report you can compare with other runs. The numbers are for finding
 bottlenecks and comparing before and after a change, not for sizing production.
 

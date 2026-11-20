@@ -255,6 +255,6 @@ Errors in a round (storage down) are logged and the next round retries; a round 
 - Two-server test (contract, `peer()`): two `Sender`s on two storages against one local HTTP server; create 30 messages; wake both repeatedly until all are delivered; the server saw each `id` exactly once.
 - Helm: `webhooks.endpoints` (list without secrets: name, url, apps, kinds, secretEnv) rendered into a `webhooks.json` key in the ConfigMap and mounted at `/etc/modus/webhooks.json` with `WEBHOOKS_FILE` set; `webhooks.existingSecret` whose keys are exposed as env vars (`envFrom`) so `secretEnv` names resolve. Nothing rendered when the list is empty. Verify with `docker run --rm -v "$PWD/deploy/helm/modus:/chart" alpine/helm:3.16.2 template …` and `lint`.
 - DEPLOYMENT.md "Webhooks" section: settings; payload example; headers; verifying the signature in Node (10 lines with `crypto.timingSafeEqual`); retries and give-up; admin routes; Helm values.
-- ROADMAP/ARCHITECTURE: outbox sender (webhooks) done; email from Modus and REST/MCP connectors remain M4.
+- ROADMAP/ARCHITECTURE: outbox sender (webhooks) done; email from Modus BPM and REST/MCP connectors remain M4.
 
 **Commit:** `deploy, docs: webhooks — two-server delivery test, Helm values, docs`

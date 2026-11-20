@@ -1,4 +1,4 @@
-# Modus Helm chart.
+# Modus BPM Helm chart.
 #
 #   helm install modus deploy/helm/modus --set image.tag=main
 #
@@ -162,7 +162,7 @@ serviceAccount:
   create: true
   name: ''
   annotations: {}
-  # Modus never calls the Kubernetes API.
+  # Modus BPM never calls the Kubernetes API.
   automount: false
 
 podSecurityContext:

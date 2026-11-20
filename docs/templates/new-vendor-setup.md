@@ -4,7 +4,7 @@
 
 Accounts payable checks the paperwork and waits for anything missing. Tax, insurance and bank details are then checked at the same time, and the controller signs off before the vendor can be paid.
 
-![The New vendor setup map in the Modus designer](images/new-vendor-setup.png)
+![The New vendor setup map in the Modus BPM designer](images/new-vendor-setup.png)
 
 9 steps · 5 people steps · 1 step for a system of yours. Each item is a **Vendor**. Tags: parallel, return for changes, accounts payable.
 

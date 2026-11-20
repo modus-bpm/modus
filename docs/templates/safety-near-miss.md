@@ -4,7 +4,7 @@
 
 The first safety lead to pick it up decides whether action is needed. A task is handed out, verified, and sent back if the hazard is still there; then what was learned is shared.
 
-![The Safety near-miss map in the Modus designer](images/safety-near-miss.png)
+![The Safety near-miss map in the Modus BPM designer](images/safety-near-miss.png)
 
 4 steps · 3 people steps. Each item is a **Near-miss**. Tags: claim, verify, safety.
 

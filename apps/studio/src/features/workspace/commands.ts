@@ -1,5 +1,5 @@
 // What a person can do in the Workspace, as data: one list of actions with two ways to carry them
-// out. Over the simulation each runs the engine operation in this browser; over a Modus server each
+// out. Over the simulation each runs the engine operation in this browser; over a Modus BPM server each
 // is the request for the route that runs the same operation there.
 
 import {
@@ -108,7 +108,7 @@ export function runInSim(sim: SimState, ctx: Ctx, me: Id, c: WorkCommand): Resul
 
 const seg = encodeURIComponent
 
-/** The same action as a request to a Modus server (the path is under the application). Who acts is the caller. */
+/** The same action as a request to a Modus BPM server (the path is under the application). Who acts is the caller. */
 export function toRequest(c: WorkCommand): CommandRequest {
   switch (c.do) {
     case 'create':

@@ -1,4 +1,4 @@
-Modus is installed as {{ include "modus.fullname" . }} ({{ include "modus.image" . }}).
+Modus BPM is installed as {{ include "modus.fullname" . }} ({{ include "modus.image" . }}).
 
 {{- if .Values.ingress.enabled }}
 

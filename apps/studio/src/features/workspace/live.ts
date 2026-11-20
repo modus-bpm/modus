@@ -27,7 +27,7 @@ import { isLive } from '../monitor/source'
 import { type CommandValue, runInSim, toRequest, type WorkCommand } from './commands'
 import { useWorkspace } from './store'
 
-// Where the Workspace's work comes from: the in-browser simulation, or (served by a Modus server,
+// Where the Workspace's work comes from: the in-browser simulation, or (served by a Modus BPM server,
 // with Live chosen) the server. Either way the pages get an application, an engine state to run the
 // read models over and one way to act; only this file knows which is behind them.
 

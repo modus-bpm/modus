@@ -4,7 +4,7 @@
 
 An AI agent sorts each ticket. Sure ones go straight to the service desk queue; the rest are sorted by a person first. The desk resolves it, asks for more information, or passes it to a specialist.
 
-![The Service desk ticket map in the Modus designer](images/service-desk-ticket.png)
+![The Service desk ticket map in the Modus BPM designer](images/service-desk-ticket.png)
 
 6 steps · 4 people steps. Each item is a **Ticket**. Tags: AI, queue, help desk.
 

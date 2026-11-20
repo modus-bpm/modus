@@ -1,12 +1,12 @@
-# Modus with Docker Compose.
+# Modus BPM with Docker Compose.
 #
-#   docker compose up --build                  # Modus on http://localhost:8787, stored in Postgres
+#   docker compose up --build                  # Modus BPM on http://localhost:8787, stored in Postgres
 #   docker compose --profile nats up           # also start the optional services you name
 #   DB_DIALECT=memory docker compose up --no-deps modus   # no database: JSON snapshots in the modus-data volume
 #
-# `modus` and `postgres` start by default: Modus keeps the design, live state
+# `modus` and `postgres` start by default: Modus BPM keeps the design, live state
 # and event log in PostgreSQL (the postgres-data volume) and runs its schema
-# migrations at startup. The nats profile is infrastructure the roadmap adds; Modus
+# migrations at startup. The nats profile is infrastructure the roadmap adds; Modus BPM
 # does not use it yet. The keycloak profile is an identity provider for trying
 # MODUS_AUTH=oidc with a server run on your machine (docs/DEPLOYMENT.md, "Sign-in").
 #
@@ -80,7 +80,7 @@ services:
   #       condition: service_started
   #   restart: unless-stopped
 
-  # PostgreSQL 18: Modus's storage (milestone M2).
+  # PostgreSQL 18: Modus BPM's storage (milestone M2).
   postgres:
     image: postgres:18-alpine
     environment:
@@ -103,7 +103,7 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  # ----- Optional, planned: not used by Modus yet -----
+  # ----- Optional, planned: not used by Modus BPM yet -----
 
   # NATS JetStream with its MQTT listener: event ingest for high-volume signals (milestone M5).
   nats:

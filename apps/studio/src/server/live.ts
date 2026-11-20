@@ -1,4 +1,4 @@
-// The live Monitor's source: a Modus server's state, kept fresh from its event stream.
+// The live Monitor's source: a Modus BPM server's state, kept fresh from its event stream.
 // A vanilla zustand store (no React) so tests drive it directly; the Monitor wraps it with `useLive`.
 //
 // Load stays bounded however busy the server is: step counts come with every `change` event, and the
@@ -40,7 +40,7 @@ export interface ExplorerState {
 }
 
 export interface LiveState {
-  /** A Modus server serves the Studio and this browser may use it: signed in, where it signs people in (set by `detect`). Nothing is ever requested while false. */
+  /** A Modus BPM server serves the Studio and this browser may use it: signed in, where it signs people in (set by `detect`). Nothing is ever requested while false. */
   available: boolean
   mode: LiveMode
   /** Who the Studio acts as (`x-user-id`) until OIDC: by default the design's first administrator. */

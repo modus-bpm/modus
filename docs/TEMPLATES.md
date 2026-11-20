@@ -1,6 +1,6 @@
 # Starter templates
 
-Modus ships with 50 workflow templates, grouped by department. Each one is a small process you can
+Modus BPM ships with 50 workflow templates, grouped by department. Each one is a small process you can
 look at, start a new application from, or add to an application you already have. Open **Templates** in the
 Studio to browse them, filter by department or tag, and search by the name you use at work.
 
@@ -22,7 +22,7 @@ repository, and a template you save yourself becomes the same kind of file when 
 - **Import.** **Import…** takes one file or several. A template your library already has (the same id) is
   kept beside yours as a copy, replaces yours, or is skipped: you choose. A file that is not a template file,
   or a template with a step or path missing, is refused with the reason.
-- **Your copy stays yours.** A library keeps the templates it has. Upgrading Modus does not change them, so
+- **Your copy stays yours.** A library keeps the templates it has. Upgrading Modus BPM does not change them, so
   what you tweaked stays tweaked; to take a newer starter template, import its file.
 
 On a server, importing changes the design like any other edit: save it and every replica has the templates.
@@ -116,7 +116,7 @@ On a server, importing changes the design like any other edit: save it and every
 
 The list aims at the processes most organizations of a few hundred to a few thousand people run, named the
 way the people who own them name them, with more than the usual share for local government, where general
-template galleries have little. Processes whose steps are set by law or that depend on an integration Modus
+template galleries have little. Processes whose steps are set by law or that depend on an integration Modus BPM
 does not have were left out on purpose.
 
 Every template is checked by the test suite: its file reads back as written, it has no unreachable step and no outcome without a path, an

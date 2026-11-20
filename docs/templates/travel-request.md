@@ -4,7 +4,7 @@
 
 The traveler’s manager approves. International trips and trips over $3,000 also go to finance before the travel desk books anything.
 
-![The Travel request map in the Modus designer](images/travel-request.png)
+![The Travel request map in the Modus BPM designer](images/travel-request.png)
 
 4 steps · 3 people steps. Each item is a **Trip**. Tags: threshold, travel, approval.
 

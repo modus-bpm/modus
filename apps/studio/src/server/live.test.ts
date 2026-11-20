@@ -28,7 +28,7 @@ const snapshot = (clock: number, total = 1): MonitorSnapshot => ({
 
 const row = (id: string) => ({ id, number: id }) as unknown as ExplorerRow
 
-/** A fake Modus server: routes by path, records every request, and hands out SSE streams the test drives. */
+/** A fake Modus BPM server: routes by path, records every request, and hands out SSE streams the test drives. */
 function fakeServer() {
   const calls: Array<{ path: string; user: string | null }> = []
   const streams: Array<ReturnType<typeof fakeStream>> = []

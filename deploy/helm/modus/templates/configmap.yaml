@@ -1,5 +1,5 @@
 {{- include "modus.validate" . -}}
-# Settings shared by every Modus pod. Secrets are referenced from existing Secrets in deployment.yaml.
+# Settings shared by every Modus BPM pod. Secrets are referenced from existing Secrets in deployment.yaml.
 apiVersion: v1
 kind: ConfigMap
 metadata:

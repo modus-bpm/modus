@@ -1,4 +1,4 @@
-// Start the Modus server: read the configuration, load the design, start the
+// Start the Modus BPM server: read the configuration, load the design, start the
 // engine clock, serve the API (and the studio, when STATIC_DIR is set).
 //
 //   PORT=8787 DATA_DIR=./data TIME_SCALE=1 pnpm --filter @modus-bpm/server dev
@@ -80,6 +80,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {
     server.log.info(`${signal}: shutting down`)
     clearInterval(pruning)
+    // First, so a request waiting on a long clock catch-up ends at the next piece and the server can close.
+    runtime.beginStop()
     await server.close()
     // Let a send in flight record its result while storage is still open.
     await sender.stop()

@@ -1,5 +1,5 @@
 // @ts-check
-// The load-test observer: receives Modus webhooks (checks signatures, records delivery lag) and holds
+// The load-test observer: receives Modus BPM webhooks (checks signatures, records delivery lag) and holds
 // live-screen SSE streams on each server, recording how far apart the servers show the same update.
 // Plain Node 22, no dependencies, so the container is stock node:22-alpine with this file mounted.
 //

@@ -42,7 +42,7 @@ const notices = [...roots]
     return { id: `${pkg.name}@${pkg.version} (${pkg.license ?? 'unknown'})`, text }
   })
   .sort((a, b) => a.id.localeCompare(b.id))
-writeFileSync('dist/THIRD-PARTY-NOTICES.txt', `Modus server bundle: third-party software\n\n${notices.map((n) => `${'='.repeat(78)}\n${n.id}\n\n${n.text}\n`).join('\n')}`)
+writeFileSync('dist/THIRD-PARTY-NOTICES.txt', `Modus BPM server bundle: third-party software\n\n${notices.map((n) => `${'='.repeat(78)}\n${n.id}\n\n${n.text}\n`).join('\n')}`)
 
 const bytes = Object.values(result.metafile.outputs).reduce((n, o) => n + o.bytes, 0)
 console.log(`dist/server.mjs: ${(bytes / 1024 / 1024).toFixed(1)} MB with its source map; ${notices.length} bundled packages listed in dist/THIRD-PARTY-NOTICES.txt`)

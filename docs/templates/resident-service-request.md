@@ -4,7 +4,7 @@
 
 An AI agent picks the department for each request; a clerk routes the ones it is unsure of. A dispatcher hands the job to a crew, and the resident is told when it is done.
 
-![The Resident service request map in the Modus designer](images/resident-service-request.png)
+![The Resident service request map in the Modus BPM designer](images/resident-service-request.png)
 
 5 steps · 2 people steps. Each item is a **Service request**. Tags: AI, dispatcher, 311.
 

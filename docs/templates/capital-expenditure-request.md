@@ -4,7 +4,7 @@
 
 Finance and operations review the business case at the same time. The department head decides requests up to $100,000; anything larger goes to an executive.
 
-![The Capital expenditure request map in the Modus designer](images/capital-expenditure-request.png)
+![The Capital expenditure request map in the Modus BPM designer](images/capital-expenditure-request.png)
 
 7 steps · 4 people steps. Each item is a **Capital request**. Tags: parallel, threshold, capex.
 

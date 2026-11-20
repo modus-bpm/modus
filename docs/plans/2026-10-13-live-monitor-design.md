@@ -6,12 +6,12 @@ See "Refinements" at the end for what changed while building it.
 
 ## Goal
 
-When the Studio is served by a Modus server, its Monitor shows the server's real state, updating live,
+When the Studio is served by a Modus BPM server, its Monitor shows the server's real state, updating live,
 with a switch back to the in-browser simulation. The standalone build (Pages, `pnpm dev`) is unchanged.
 
 ## How the Studio connects
 
-- **Detection:** one `GET /api/health` at startup. An answer means a Modus server serves the Studio.
+- **Detection:** one `GET /api/health` at startup. An answer means a Modus BPM server serves the Studio.
 - **Toggle:** served by a server, the Monitor header has **Live / Simulation**; it opens on Live.
   Simulation is today's in-browser simulation, unchanged.
 - **Design:** Live draws the server's published design (`GET /api/design`), not the browser's. A note

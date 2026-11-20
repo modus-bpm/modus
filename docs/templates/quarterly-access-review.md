@@ -4,7 +4,7 @@
 
 Each manager confirms who still needs access. A 14-day timer runs beside the review: if the manager has not answered when it ends, the access is removed.
 
-![The Quarterly access review map in the Modus designer](images/quarterly-access-review.png)
+![The Quarterly access review map in the Modus BPM designer](images/quarterly-access-review.png)
 
 5 steps · 1 people step · 2 steps for systems of yours. Each item is an **Access review**. Tags: timer, deadline, audit.
 

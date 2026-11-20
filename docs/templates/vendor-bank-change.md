@@ -4,7 +4,7 @@
 
 A request to change a vendor’s bank details is confirmed by a call-back to the number already on file, made by someone other than the person who took the request, before the controller approves it.
 
-![The Vendor bank change map in the Modus designer](images/vendor-bank-change.png)
+![The Vendor bank change map in the Modus BPM designer](images/vendor-bank-change.png)
 
 4 steps · 3 people steps · 1 step for a system of yours. Each item is a **Bank change**. Tags: fraud control, four eyes, accounts payable.
 

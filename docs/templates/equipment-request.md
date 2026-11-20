@@ -4,7 +4,7 @@
 
 After the manager approves, IT checks stock. What is on the shelf is handed over the same day; anything else is ordered and waits for delivery first.
 
-![The Equipment request map in the Modus designer](images/equipment-request.png)
+![The Equipment request map in the Modus BPM designer](images/equipment-request.png)
 
 6 steps · 4 people steps. Each item is an **Equipment request**. Tags: in stock or order, hardware, timer.
 

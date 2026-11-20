@@ -1,4 +1,4 @@
-// The live Workspace's source: one person's share of a Modus server's state, kept fresh from its
+// The live Workspace's source: one person's share of a Modus BPM server's state, kept fresh from its
 // event stream, and their actions sent to its API. A vanilla zustand store (no React) so tests drive
 // it directly; the Workspace wraps it with `useWork`.
 //

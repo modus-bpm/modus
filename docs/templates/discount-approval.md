@@ -4,7 +4,7 @@
 
 The size of the discount decides who signs: up to 10% is approved automatically, up to 20% needs the sales manager, and anything more goes to a director.
 
-![The Discount approval map in the Modus designer](images/discount-approval.png)
+![The Discount approval map in the Modus BPM designer](images/discount-approval.png)
 
 4 steps · 2 people steps · 1 step for a system of yours. Each item is a **Discount request**. Tags: threshold, auto-approve, pricing.
 

@@ -4,7 +4,7 @@
 
 The motor pool approves and assigns a vehicle. The reservation then waits until the vehicle is due back, and a check-in inspection logs any damage before it closes.
 
-![The Motor pool reservation map in the Modus designer](images/motor-pool-reservation.png)
+![The Motor pool reservation map in the Modus BPM designer](images/motor-pool-reservation.png)
 
 5 steps · 3 people steps. Each item is a **Reservation**. Tags: timer, reservation, fleet.
 

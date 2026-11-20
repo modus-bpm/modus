@@ -1,4 +1,4 @@
-// The look of the Workspace. A theme is a handful of choices (colours, type, corners, room, how
+// The look of the Workspace. A theme is a handful of choices (colors, type, corners, room, how
 // fields are drawn) and, for whatever those don't reach, style rules of the organization's own.
 // This file turns a theme into what a page needs: CSS custom properties, a few attributes and a
 // style sheet that can't reach outside the Workspace or call out of the page.
@@ -43,7 +43,7 @@ export function isDefaultTheme(t: Theme): boolean {
   return (Object.keys(DEFAULT_THEME) as Array<keyof Theme>).every((k) => t[k] === DEFAULT_THEME[k]) && !t.name && !t.logo && !t.css
 }
 
-// ---------- Colour ----------
+// ---------- Color ----------
 
 type Rgb = [number, number, number]
 
@@ -74,13 +74,13 @@ function luminance(c: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/** Contrast between two colours, 1 (none) to 21. Text wants 4.5 or more. */
+/** Contrast between two colors, 1 (none) to 21. Text wants 4.5 or more. */
 export function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number]
   return (hi + 0.05) / (lo + 0.05)
 }
 
-/** Black or white, whichever reads better on this colour. */
+/** Black or white, whichever reads better on this color. */
 export const onColor = (c: string) => (contrast(c, '#ffffff') >= contrast(c, '#0f172a') ? '#ffffff' : '#0f172a')
 
 // ---------- A theme as CSS ----------
@@ -94,12 +94,12 @@ const RADIUS: Record<Theme['radius'], [sm: string, md: string, lg: string, xl: s
 
 /**
  * The custom properties a theme sets on the Workspace. They take the place of the product's own
- * palette there (brand shades, greys, white, the page), so everything drawn with it follows.
+ * palette there (brand shades, grays, white, the page), so everything drawn with it follows.
  */
 export function themeVars(theme: Theme): Record<string, string> {
   const t = { ...theme, primary: isHex(theme.primary) ? theme.primary : DEFAULT_THEME.primary, background: isHex(theme.background) ? theme.background : DEFAULT_THEME.background, surface: isHex(theme.surface) ? theme.surface : DEFAULT_THEME.surface, text: isHex(theme.text) ? theme.text : DEFAULT_THEME.text }
-  // Greys run from the surface towards the text, so they stay greys of this theme, light or dark.
-  const grey = (amount: number) => mix(t.surface, t.text, amount)
+  // Grays run from the surface towards the text, so they stay grays of this theme, light or dark.
+  const gray = (amount: number) => mix(t.surface, t.text, amount)
   const dark = luminance(t.surface) < 0.2
   // Shades of the primary: tints towards the surface, and a deeper one for hover and text on tints.
   const tint = (amount: number) => mix(t.primary, t.surface, amount)
@@ -119,15 +119,15 @@ export function themeVars(theme: Theme): Record<string, string> {
     '--theme-on-brand': onColor(t.primary),
     '--color-canvas': t.background,
     '--color-white': t.surface,
-    '--color-slate-50': grey(0.03),
-    '--color-slate-100': grey(0.07),
-    '--color-slate-200': grey(0.13),
-    '--color-slate-300': grey(0.22),
-    '--color-slate-400': grey(0.42),
-    '--color-slate-500': grey(0.58),
-    '--color-slate-600': grey(0.72),
-    '--color-slate-700': grey(0.84),
-    '--color-slate-800': grey(0.93),
+    '--color-slate-50': gray(0.03),
+    '--color-slate-100': gray(0.07),
+    '--color-slate-200': gray(0.13),
+    '--color-slate-300': gray(0.22),
+    '--color-slate-400': gray(0.42),
+    '--color-slate-500': gray(0.58),
+    '--color-slate-600': gray(0.72),
+    '--color-slate-700': gray(0.84),
+    '--color-slate-800': gray(0.93),
     '--color-slate-900': t.text,
     '--theme-side': side,
     '--theme-on-side': t.header === 'light' ? t.text : onColor(side),
@@ -215,17 +215,17 @@ export function scopedCss(css: string | undefined, scope = '.modus-themed'): str
 /** What is wrong with a theme as data; empty when nothing is. */
 export function themeProblems(theme: unknown): string[] {
   if (theme === undefined) return []
-  if (typeof theme !== 'object' || theme === null) return ['The look is not one Modus knows.']
+  if (typeof theme !== 'object' || theme === null) return ['The look is not one Modus BPM knows.']
   const t = theme as Partial<Theme>
   const out: string[] = []
-  for (const k of ['primary', 'background', 'surface', 'text'] as const) if (t[k] !== undefined && !isHex(t[k])) out.push(`The ${k} colour is not a hex colour such as #4f46e5.`)
+  for (const k of ['primary', 'background', 'surface', 'text'] as const) if (t[k] !== undefined && !isHex(t[k])) out.push(`The ${k} color is not a hex color such as #4f46e5.`)
   if (t.logo !== undefined && t.logo !== '' && (typeof t.logo !== 'string' || !IMAGE.test(t.logo))) out.push('The logo is not an image kept in the design.')
   if (typeof t.logo === 'string' && t.logo.length > MAX_IMAGE_BYTES * 1.4) out.push(`The logo is larger than ${Math.round(MAX_IMAGE_BYTES / 1000)} KB.`)
   if (t.css !== undefined && typeof t.css !== 'string') out.push('The style rules are not text.')
   else if (t.css && cssProblem(t.css)) out.push(cssProblem(t.css)!)
   if (t.name !== undefined && (typeof t.name !== 'string' || t.name.length > 80)) out.push('The name is longer than 80 characters.')
   const choice = <K extends keyof Theme>(k: K, allowed: readonly string[]) => {
-    if (t[k] !== undefined && !allowed.includes(t[k] as string)) out.push(`The look’s ${k} is not a choice Modus knows.`)
+    if (t[k] !== undefined && !allowed.includes(t[k] as string)) out.push(`The look’s ${k} is not a choice Modus BPM knows.`)
   }
   choice('font', Object.keys(THEME_FONTS))
   choice('radius', Object.keys(RADIUS))

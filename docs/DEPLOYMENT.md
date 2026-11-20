@@ -1,6 +1,6 @@
-# Deploying Modus
+# Deploying Modus BPM
 
-Modus ships as one container image, `ghcr.io/modus-bpm/modus`, that holds the studio and the
+Modus BPM ships as one container image, `ghcr.io/modus-bpm/modus`, that holds the studio and the
 server. This guide covers running it on a laptop, on a single VM, on Kubernetes as a hosted
 (SaaS) service, and self-hosted in a closed network. Each section says plainly what works
 today and what is planned.
@@ -26,7 +26,7 @@ today and what is planned.
 | Identity | A setting, `MODUS_AUTH` ([Sign-in](#sign-in)): `none` (the caller says who they are), `password` (one shared password, for demos) or `oidc` (an identity provider; tested against Keycloak). Machine tokens in each. | Entra ID, Okta and Login.gov tested; roles and groups from claims; SAML; SCIM group sync |
 | Tenancy | One organization per installation | Tenant id in every key; Postgres row-level security for hosted; a database per tenant for regulated customers |
 | Observability | JSON logs on stdout, live counts per step (`/overview`), OCEL 2.0 export | OpenTelemetry traces, Prometheus metrics |
-| Outbox | Every message is posted to configured webhook endpoints, signed, with retries, shared by all replicas ([Webhooks](#webhooks)) | Email from Modus, REST and MCP connectors (M4) |
+| Outbox | Every message is posted to configured webhook endpoints, signed, with retries, shared by all replicas ([Webhooks](#webhooks)) | Email from Modus BPM, REST and MCP connectors (M4) |
 | Assistant | Claude through read-only tools when `ANTHROPIC_API_KEY` is set; the built-in interpreter otherwise | |
 | Attachments | Files are uploaded to the server and kept in PostgreSQL, or under `DATA_DIR/files` with the memory store ([Attachments](#attachments)) | S3-compatible storage for large files; virus scanning |
 | Forms and look | A form design per object type and the Workspace's look are part of the design: saved, versioned by revision and sent to every replica like the rest of it | |
@@ -67,12 +67,12 @@ TEST_DATABASE_URL=postgres://modus:modus-dev-only@127.0.0.1:5432/modus \
 
 `pnpm test` runs the contract suite against the memory adapter only and skips Postgres unless
 `TEST_DATABASE_URL` is set; `test:pg` fails without it. Each Postgres test works in a schema of its
-own and drops it afterwards, so it never touches the tables Modus itself uses.
+own and drops it afterwards, so it never touches the tables Modus BPM itself uses.
 
 With Docker:
 
 ```bash
-docker compose up --build                     # Modus and PostgreSQL: http://localhost:8787
+docker compose up --build                     # Modus BPM and PostgreSQL: http://localhost:8787
 ANTHROPIC_API_KEY=… docker compose up -d      # with the language-model assistant
 docker compose down                           # stop; the postgres-data volume keeps the state
 docker compose down -v                        # stop and delete the data
@@ -81,7 +81,7 @@ DB_DIALECT=memory docker compose up --no-deps modus   # no database: JSON snapsh
 
 Compose starts `postgres` (PostgreSQL 18, data in the `postgres-data` volume, published on
 `127.0.0.1:5432`, or `POSTGRES_PORT`) and starts `modus` once Postgres reports healthy, with
-`DB_DIALECT=postgres` and a `DATABASE_URL` pointing at it. Modus applies its schema migrations
+`DB_DIALECT=postgres` and a `DATABASE_URL` pointing at it. Modus BPM applies its schema migrations
 at startup. The password is a development-only default (`modus-dev-only`); set
 `POSTGRES_PASSWORD` in an untracked `.env` before the volume is first created (it is spliced
 into the connection string, so use URL-safe characters). Two optional profiles hold
@@ -118,7 +118,7 @@ The simplest real deployment: one Linux VM with Docker Engine and the Compose pl
      reverse_proxy 127.0.0.1:8787
    }
    ```
-4. `restart: unless-stopped` brings Modus and Postgres back after a reboot. Back up the
+4. `restart: unless-stopped` brings Modus BPM and Postgres back after a reboot. Back up the
    database (see [Backups](#backups-and-upgrades)).
 
 Sizing: an idle server uses about 50 MB of memory. Memory grows with the number of live items,
@@ -243,7 +243,7 @@ separate deployments, each scaled on its own signal:
 
 ### Multi-tenancy (planned)
 
-Modus is designed to be hosted for many organizations from one installation:
+Modus BPM is designed to be hosted for many organizations from one installation:
 
 - **Tenant id in every key and every query**, enforced by the storage ports so application code
   can't forget it. Events, items, work items, timers and the outbox are all keyed by tenant.
@@ -276,7 +276,7 @@ command → job → connector call) and a Prometheus `/metrics` endpoint are pla
 
 ## Self-hosted and air-gapped
 
-Modus is built to run where nothing leaves the network.
+Modus BPM is built to run where nothing leaves the network.
 
 - **No phone-home.** There is no telemetry. The studio loads nothing from the internet. The
   server makes outbound connections only to the Anthropic API, and only when
@@ -307,7 +307,7 @@ Modus is built to run where nothing leaves the network.
 
 Every outbox message (`job.ready` when a service job is ready, `notify` for notifications and
 escalations) is posted to the webhook endpoints you configure, signed, at least once. Use them to
-send email, post to chat or wake a worker; sending email from Modus itself comes in M4.
+send email, post to chat or wake a worker; sending email from Modus BPM itself comes in M4.
 
 Every server runs a sender. Servers sharing a PostgreSQL database share the work: each delivery is
 claimed by one of them at a time, and a server that dies mid-send loses its claim after 60 seconds,
@@ -495,7 +495,7 @@ many files, and how large each may be. The server enforces the same limits on ev
 | --- | --- | --- | --- |
 | `none` (default) | Anyone who can reach the server | Whoever they say (the `x-user-id` header; the Studio's "Working as" and "Acting as") | Your own machine, a closed network |
 | `password` | Anyone with the one shared password | Whoever they choose, as above | A demo for a team to try: it keeps strangers out, it does not tell people apart |
-| `oidc` | People your identity provider signs in, who are also people in the Modus design | Themselves; `x-user-id` is ignored | Real work |
+| `oidc` | People your identity provider signs in, who are also people in the Modus BPM design | Themselves; `x-user-id` is ignored | Real work |
 
 In `password` and `oidc` everything under `/api` needs a sign-in, except the health and
 readiness probes. The Studio itself still loads for anyone: without signing in it is the
@@ -517,7 +517,7 @@ passwords in a minute from one address (thirty from everywhere) pause sign-in fo
 
 ```bash
 MODUS_AUTH=oidc
-MODUS_PUBLIC_URL=https://modus.example.org        # where browsers reach Modus
+MODUS_PUBLIC_URL=https://modus.example.org        # where browsers reach Modus BPM
 MODUS_OIDC_ISSUER=https://id.example.org/realms/modus
 MODUS_OIDC_CLIENT_ID=modus
 MODUS_OIDC_CLIENT_SECRET=<from the provider>      # leave out for a public client
@@ -534,18 +534,18 @@ redirect address `<MODUS_PUBLIC_URL>/api/auth/callback`.
 - **The first administrator.** Someone whose claim is listed in `MODUS_OIDC_ADMINS` is added to
   the design as an administrator at their first sign-in. They give everyone else a sign-in
   name. Only administrators can change sign-in names, and no two people share one.
-- **Everyone else** who signs in at the provider but has no sign-in name in Modus is told so
+- **Everyone else** who signs in at the provider but has no sign-in name in Modus BPM is told so
   and gets nothing.
 - **Unverified addresses are refused.** With the `email` claim, the provider must also send
   `email_verified: true`. Set `MODUS_OIDC_TRUST_EMAIL=true` only for a provider whose addresses
   your organization assigns and that doesn't send the flag. For Entra ID prefer
   `MODUS_OIDC_CLAIM=preferred_username`.
 - **Leaving.** Removing a person from the design ends their sign-in at once. Signing out of
-  Modus does not sign out of the provider.
+  Modus BPM does not sign out of the provider.
 
 Tested against Keycloak 26. Any provider with OIDC discovery should work; Entra ID, Okta and
 Google have not been tried yet, and Login.gov (`private_key_jwt`) is not supported yet. Roles
-and groups stay in the Modus design: nothing is read from the provider's group claims yet.
+and groups stay in the Modus BPM design: nothing is read from the provider's group claims yet.
 
 To try it on your machine, the Compose file has a Keycloak with a development realm (client
 `modus`, people `admin@example.org` and `clerk@example.org`, every secret `modus-dev-only`):
@@ -631,9 +631,9 @@ a message that names the variable.
 | `MODUS_AUTH_PASSWORD` | unset | The shared password for `MODUS_AUTH=password`, 8 or more characters. Secret: never logged. |
 | `MODUS_SESSION_SECRET` | a random one per start | Signs the sign-in cookies, 32 or more characters. Every replica needs the same one. Secret: never logged. |
 | `MODUS_SESSION_HOURS` | `12` | Hours a sign-in lasts. |
-| `MODUS_PUBLIC_URL` | unset | Where browsers reach Modus. Required for `oidc` (the redirect address is `<it>/api/auth/callback`); `https://` here marks cookies Secure. |
+| `MODUS_PUBLIC_URL` | unset | Where browsers reach Modus BPM. Required for `oidc` (the redirect address is `<it>/api/auth/callback`); `https://` here marks cookies Secure. |
 | `MODUS_OIDC_ISSUER` | unset | The identity provider's issuer address. Required for `oidc`; `https://` unless `MODUS_OIDC_ALLOW_HTTP=true`. |
-| `MODUS_OIDC_CLIENT_ID` | unset | The client registered for Modus at the provider. Required for `oidc`. |
+| `MODUS_OIDC_CLIENT_ID` | unset | The client registered for Modus BPM at the provider. Required for `oidc`. |
 | `MODUS_OIDC_CLIENT_SECRET` | unset | The client's secret; leave unset for a public client. Secret: never logged. |
 | `MODUS_OIDC_CLAIM` | `email` | The claim matched against people's sign-in names. |
 | `MODUS_OIDC_SCOPES` | `openid email profile` | Scopes asked of the provider. |
@@ -705,11 +705,11 @@ POD=$(kubectl -n modus get pods -l app.kubernetes.io/instance=modus -o jsonpath=
 kubectl -n modus cp "$POD":/data ./modus-backup
 ```
 
-**Restore** by putting the files back into an empty volume and starting Modus.
+**Restore** by putting the files back into an empty volume and starting Modus BPM.
 
 **Upgrades:** pull the new tag and restart (`docker compose pull && docker compose up -d`, or
 `helm upgrade modus deploy/helm/modus --reuse-values --set image.tag=…`). Back up first. While
-Modus is a prototype the snapshot format follows the engine's state shape and is not versioned
+Modus BPM is a prototype the snapshot format follows the engine's state shape and is not versioned
 or migrated: an upgrade can require starting with fresh state. The stored `design.json` always
 wins over the sample design built into the image; delete it to pick up a new sample. The
 same holds on PostgreSQL: the sample is written only when the `design` table is empty, and a

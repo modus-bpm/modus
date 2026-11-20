@@ -15,7 +15,7 @@ import { readImage } from './look'
 // the Workspace uses, so what is shown here is what people get.
 
 const PRESETS: Array<{ name: string; look: Partial<Theme> }> = [
-  { name: 'Modus', look: {} },
+  { name: 'Modus BPM', look: {} },
   { name: 'Civic', look: { primary: '#1d4ed8', background: '#f3f6fb', radius: 'square', labels: 'bold', header: 'brand' } },
   { name: 'Forest', look: { primary: '#15803d', background: '#f4f7f2', surface: '#ffffff', text: '#14261a', radius: 'round', font: 'system' } },
   { name: 'Clay', look: { primary: '#b45309', background: '#faf6f0', surface: '#fffdf9', text: '#292017', font: 'serif', fields: 'underlined', labels: 'caps' } },
@@ -23,11 +23,11 @@ const PRESETS: Array<{ name: string; look: Partial<Theme> }> = [
   { name: 'High contrast', look: { primary: '#000000', background: '#ffffff', surface: '#ffffff', text: '#000000', radius: 'square', labels: 'bold', density: 'roomy' } },
 ]
 
-const COLOURS: Array<{ key: 'primary' | 'background' | 'surface' | 'text'; label: string; hint: string }> = [
+const COLORS: Array<{ key: 'primary' | 'background' | 'surface' | 'text'; label: string; hint: string }> = [
   { key: 'primary', label: 'Primary', hint: 'Buttons, links and what is selected.' },
   { key: 'background', label: 'Page', hint: 'Behind everything.' },
   { key: 'surface', label: 'Surface', hint: 'Cards, forms and fields.' },
-  { key: 'text', label: 'Text', hint: 'Greys and borders are mixed from it.' },
+  { key: 'text', label: 'Text', hint: 'Grays and borders are mixed from it.' },
 ]
 
 type Scope = 'org' | 'app'
@@ -93,11 +93,11 @@ export function BrandingView() {
     }
   }
 
-  // Colours that would be hard to read, said before anyone has to squint.
+  // Colors that would be hard to read, said before anyone has to squint.
   const warnings = [
     contrast(shown.text, shown.surface) < 4.5 && `Text on the surface has a contrast of ${contrast(shown.text, shown.surface).toFixed(1)}:1. Body text wants 4.5:1 or more.`,
     contrast(shown.text, shown.background) < 4.5 && `Text on the page has a contrast of ${contrast(shown.text, shown.background).toFixed(1)}:1. Body text wants 4.5:1 or more.`,
-    contrast(shown.primary, shown.surface) < 3 && `The primary colour barely stands out from the surface (${contrast(shown.primary, shown.surface).toFixed(1)}:1). Links and outlines want 3:1 or more.`,
+    contrast(shown.primary, shown.surface) < 3 && `The primary color barely stands out from the surface (${contrast(shown.primary, shown.surface).toFixed(1)}:1). Links and outlines want 3:1 or more.`,
   ].filter((w): w is string => !!w)
   const cssWhy = cssProblem(shown.css)
 
@@ -176,10 +176,10 @@ export function BrandingView() {
             <p className="mt-1.5 text-[11px] text-slate-500">PNG, JPEG, GIF, WebP or SVG, up to 300 KB. It is kept in the design.</p>
           </Group>
 
-          <Group title="Colours">
+          <Group title="Colors">
             <div className="grid grid-cols-2 gap-3">
-              {COLOURS.map((c) => (
-                <ColourField key={c.key} label={c.label} hint={inherits(c.key) ? 'Follows the organization’s.' : c.hint} value={shown[c.key]} onChange={(v) => set(c.key, v)} />
+              {COLORS.map((c) => (
+                <ColorField key={c.key} label={c.label} hint={inherits(c.key) ? 'Follows the organization’s.' : c.hint} value={shown[c.key]} onChange={(v) => set(c.key, v)} />
               ))}
             </div>
             {warnings.map((w) => (
@@ -212,7 +212,7 @@ export function BrandingView() {
           </Group>
 
           <Group title="Side panel">
-            <Choice label="The Workspace’s side panel" value={shown.header} onChange={(v) => set('header', v)} options={[['light', 'Like the page'], ['brand', 'Primary colour'], ['dark', 'Dark']]} />
+            <Choice label="The Workspace’s side panel" value={shown.header} onChange={(v) => set('header', v)} options={[['light', 'Like the page'], ['brand', 'Primary color'], ['dark', 'Dark']]} />
           </Group>
 
           <Group title="Your own style rules">
@@ -235,7 +235,7 @@ export function BrandingView() {
               </p>
             )}
             <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-              Useful names: <code>.form-section-title</code>, <code>.form-label</code>, <code>.form-grid</code>, <code>.form-heading</code>, <code>.form-text</code>, <code>.theme-side</code>, and the colours as <code>var(--color-brand-600)</code>,{' '}
+              Useful names: <code>.form-section-title</code>, <code>.form-label</code>, <code>.form-grid</code>, <code>.form-heading</code>, <code>.form-text</code>, <code>.theme-side</code>, and the colors as <code>var(--color-brand-600)</code>,{' '}
               <code>var(--color-white)</code>, <code>var(--color-slate-200)</code>.
             </p>
           </Group>
@@ -276,18 +276,18 @@ function Choice<T extends string>({ label, value, onChange, options }: { label: 
   )
 }
 
-/** A colour, by picker or by hex. What is typed is kept only once it is a colour. */
-function ColourField({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (v: string) => void }) {
+/** A color, by picker or by hex. What is typed is kept only once it is a color. */
+function ColorField({ label, hint, value, onChange }: { label: string; hint: string; value: string; onChange: (v: string) => void }) {
   const [typed, setTyped] = useState<string>()
   const text = typed ?? value
   return (
     <Field label={label} hint={hint}>
       <div className="flex items-center gap-1.5">
-        <input type="color" aria-label={`${label} colour`} value={isHex(value) && value.length === 7 ? value : DEFAULT_THEME.primary} onChange={(e) => onChange(e.target.value)} className="h-8 w-9 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-0.5" />
+        <input type="color" aria-label={`${label} color`} value={isHex(value) && value.length === 7 ? value : DEFAULT_THEME.primary} onChange={(e) => onChange(e.target.value)} className="h-8 w-9 shrink-0 cursor-pointer rounded-md border border-slate-300 bg-white p-0.5" />
         <Input
           className="font-mono text-xs"
           value={text}
-          aria-label={`${label} colour as hex`}
+          aria-label={`${label} color as hex`}
           aria-invalid={!isHex(text)}
           onChange={(e) => {
             const v = e.target.value.trim()
@@ -342,7 +342,7 @@ function Preview({ app, look }: { app: App; look: Theme }) {
             </a>
           </div>
           <p className="text-[11px] text-slate-500">
-            Text on the primary colour is drawn in {onColor(look.primary) === '#ffffff' ? 'white' : 'black'}, whichever reads better.
+            Text on the primary color is drawn in {onColor(look.primary) === '#ffffff' ? 'white' : 'black'}, whichever reads better.
           </p>
         </div>
       </div>

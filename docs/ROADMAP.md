@@ -6,11 +6,13 @@ browser studio (simulated); *Skeleton* means the server path exists in a first f
 
 ## Next
 
-The next work is what one organization needs to run its real work on a Modus server for months,
+The next work is what one organization needs to run its real work on a Modus BPM server for months,
 not days. An architecture review on November 13, 2026 set the order:
 
-1. **A command costs what it touches.** Today every command copies and compares every item the
-   application has ever had, and finished items stay in memory for good. Copy items only when they
+1. **A command costs what it touches.** *Started: a live clock no longer looks at every item every
+   minute, and a server back from time away catches up in short commits (measured: a week away with
+   20,000 timers took the server down; it is now under two seconds).* Still to do: every command copies
+   and compares every item the application has ever had, and finished items stay in memory for good. Copy items only when they
    change, keep an index of what is due so timers are not found by scanning, move finished items
    out of the working state, and catch the clock up after downtime in small steps that commit one
    by one.
@@ -27,7 +29,7 @@ Done first:
   PostgreSQL, or a directory with the memory store) and sends a file only to someone who may read
   the field it is in. See [DEPLOYMENT.md](DEPLOYMENT.md#attachments).
 - **A forms designer and branding.** Design each object type's form on a canvas that is the form
-  itself, and give the Workspace your organization's name, logo, colours and style.
+  itself, and give the Workspace your organization's name, logo, colors and style.
 - **Who may take the event log out, and who may answer for a service.** The OCEL export is for
   administrators and auditors and leaves out the fields hidden from them; a service's jobs can be
   taken and finished only by its listed workers and administrators.
@@ -54,8 +56,8 @@ per item, several organizations on one deployment, and the M5 load targets.
 | Capability | Status |
 | --- | --- |
 | Dynamic object types, generated forms, numbering, title and summary fields | Prototype |
-| Forms designer: the form as the canvas, drag and drop, resize by pulling an edge, one to four columns, section looks and colours, labels above or beside, callouts, space, pictures; tablet and phone widths | Prototype |
-| Branding: the Workspace's name, logo, colours, typeface, corners, room, field and label styles, side panel, own style rules; per organization and per application | Prototype |
+| Forms designer: the form as the canvas, drag and drop, resize by pulling an edge, one to four columns, section looks and colors, labels above or beside, callouts, space, pictures; tablet and phone widths | Prototype |
+| Branding: the Workspace's name, logo, colors, typeface, corners, room, field and label styles, side panel, own style rules; per organization and per application | Prototype |
 | File uploads stored on the server, with per-field limits on kind, number and size | Done |
 | Per-step form layouts; conditional sections (show when a field has a value) | Planned |
 | S3-compatible storage for large files; malware scanning hook; retention for removed files | Planned |
@@ -108,7 +110,7 @@ per item, several organizations on one deployment, and the M5 load targets.
 | Retries, failure path, hand to a person, stop for an administrator; take work off automation | Prototype |
 | Worker job protocol (poll with lease, complete with outputs, fail) | Skeleton |
 | Outbox sender: signed webhooks with retries, shared by every replica, admin list and retry | Done |
-| REST/OpenAPI connector, MCP client connector, email from Modus | Planned (M4) |
+| REST/OpenAPI connector, MCP client connector, email from Modus BPM | Planned (M4) |
 | Worker SDKs (TypeScript, Python, .NET, Java) | Planned (M4) |
 | Processes exposed as MCP tools (other agents can start and query them) | Planned |
 | Stream ingest (NATS JetStream / MQTT / Kafka) with triage and bulk create | Planned (M5) |
@@ -135,7 +137,7 @@ per item, several organizations on one deployment, and the M5 load targets.
 | REST API + live stream (SSE) | Skeleton |
 | Workspace on the server: the served Studio's Workspace works the server's live work through the API (home, my work and its form, queues, dispatch board, supervise, requests, new request, search, Ask Modus), kept current from the stream, with a switch back to the simulation | Done (M3) |
 | Designing on the server: the served Studio saves the design (workflow maps as drafts, the rest at once), publishes a draft as a version for new items or for items in flight too, moves items between versions with the step mapping, restores a version as the draft and forecasts a draft on the live state; replicas pick it up without a restart | Done (M3) |
-| PostgreSQL storage: design, live state and the event log, with migrations at startup; Compose runs Modus on Postgres by default | Done (M2) |
+| PostgreSQL storage: design, live state and the event log, with migrations at startup; Compose runs Modus BPM on Postgres by default | Done (M2) |
 | One transaction per command: state, audit entries, item and work-item projections, outbox and clock commit together | Done (M2) |
 | Durable clock: one replica per application moves it (advisory lock); a restart catches it up | Done (M2) |
 | Several replicas on one PostgreSQL database; changes reach the others through LISTEN/NOTIFY | Done (M2) |

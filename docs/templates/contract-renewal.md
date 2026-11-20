@@ -4,7 +4,7 @@
 
 A timer wakes the contract’s owner ahead of the end date. They renew it, renegotiate it or let it end, and it escalates if they have not decided within three days.
 
-![The Contract renewal map in the Modus designer](images/contract-renewal.png)
+![The Contract renewal map in the Modus BPM designer](images/contract-renewal.png)
 
 5 steps · 3 people steps. Each item is a **Contract**. Tags: timer, deadline, contracts.
 

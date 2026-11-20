@@ -896,8 +896,8 @@ function failCall(sim: SimState, idx: Index, obj: SimObject, tok: Token, node: N
   }
 }
 
-function finishAutomated(sim: SimState, base: Index) {
-  for (const obj of activeObjects(sim)) {
+function finishAutomated(sim: SimState, base: Index, objs: SimObject[] = activeObjects(sim), dispatch = true) {
+  for (const obj of objs) {
     for (const tok of [...obj.tokens]) {
       if (obj.status !== 'active' || !obj.tokens.includes(tok)) continue
       if (tok.state !== 'auto' || tok.manual || tok.dueAt === undefined || tok.dueAt > sim.clock) continue
@@ -925,13 +925,15 @@ function finishAutomated(sim: SimState, base: Index) {
     }
   }
   // Calls finished: start queued ones where there is room (most urgent first).
-  dispatchQueued(sim, base)
+  if (dispatch) dispatchQueued(sim, base)
 }
 
-function dispatchQueued(sim: SimState, base: Index) {
+/** Start queued calls where their service has room. Returns the items whose work it started. */
+function dispatchQueued(sim: SimState, base: Index): SimObject[] {
   const queued = activeTokens(sim).filter((t) => t.state === 'queued')
-  if (!queued.length) return
+  if (!queued.length) return []
   queued.sort(byUrgency((t) => t.enteredAt, objectOf(sim)))
+  const started = new Set<SimObject>()
   for (const tok of queued) {
     const obj = sim.objects[tok.objectId]
     const idx = indexFor(base, obj)
@@ -940,10 +942,12 @@ function dispatchQueued(sim: SimState, base: Index) {
     const { svc, op } = serviceOf(idx, node.data)
     if (!svc || !op) {
       startAutomated(sim, idx, tok, node)
+      started.add(obj)
       continue
     }
-    tryDispatch(sim, tok, svc, op, idx.live)
+    if (tryDispatch(sim, tok, svc, op, idx.live)) started.add(obj)
   }
+  return [...started]
 }
 
 function automationFailed(sim: SimState, idx: Index, obj: SimObject, tok: Token, node: NodeOf<'auto'>, reason: string) {
@@ -1149,24 +1153,240 @@ function distributeOnArrival(sim: SimState, idx: Index, obj: SimObject, tok: Tok
 // ---------- The clock ----------
 
 /** Advance the simulation by `minutes` of simulated time, one minute at a time. */
-export function advance(sim: SimState, ctx: Ctx, minutes: number) {
+/**
+ * Move the clock forward. The simulation steps every minute: arrivals, people and services all
+ * act on the minute. Live (a server), only the engine acts, and after the first minutes have
+ * settled nothing can happen to an item until one of its own times comes: a timer, an
+ * escalation, a built-in step. So a live clock keeps those times in order and, each minute,
+ * touches only the items that are due. A week with nothing due costs next to nothing, however
+ * many items are waiting. `advanceEveryMinute` is the same clock without that shortcut: the two
+ * leave the same state, and the tests hold them to it.
+ *
+ * Live, `stop` is asked after every hour of clock and ends the move early when it says so (a
+ * server catching up after time away has a transaction to commit). Returns the minutes moved.
+ */
+export function advance(sim: SimState, ctx: Ctx, minutes: number, stop?: () => boolean): number {
   const idx = buildIndex(ctx)
+  const from = sim.clock
   const end = sim.clock + minutes
+  if (!idx.live) {
+    everyMinute(sim, idx, end)
+    return sim.clock - from
+  }
+  let wake: WakeQueue | undefined
+  // A service slot was let go after the minute's queued calls were started: the next minute starts them.
+  let dispatchNext = false
+  let ticks = 0
   while (sim.clock < end - 1e-9) {
     sim.clock = Math.min(end, sim.clock + 1)
-    // Live (server) mode drives only the engine; the simulation adds arrivals and people.
-    if (!idx.live) arrivals(sim, idx)
-    timers(sim, idx)
-    finishAutomated(sim, idx)
-    if (!idx.live) finishWork(sim, idx)
-    retryStuck(sim, idx)
-    supervise(sim, idx)
-    if (!idx.live) pullWork(sim, idx)
-    const last = sim.series[sim.series.length - 1]
-    if (!last || sim.clock - last.t >= 15) {
-      sim.series.push({ t: Math.floor(sim.clock), wip: sim.activeIds.length, done: sim.completed + sim.rejected })
-      if (sim.series.length > 3000) sim.series.splice(0, sim.series.length - 3000)
+    const more = sim.clock < end - 1e-9
+    if (!wake) {
+      // What waits on a time first, for every item, as any minute does.
+      timers(sim, idx)
+      finishAutomated(sim, idx, undefined, false)
+      // Then what waits on no time at all: a queued call with a slot free, work stuck on a map
+      // since fixed, work nobody could take. Commands since the last tick, a design changed or
+      // a service back online can leave such work. Once a minute finds none to do, nothing
+      // more of it can appear by the clock alone, and the items' own times are all that is left.
+      // (The last minute of a move needs no such check: an ordinary tick is one minute.)
+      const before = more ? workSignature(sim) : ''
+      dispatchQueued(sim, idx)
+      retryStuck(sim, idx)
+      supervise(sim, idx)
+      if (more && workSignature(sim) === before) wake = wakeQueue(sim, idx)
+    } else {
+      const due = wake.due(sim.clock)
+      if (due.length || dispatchNext) {
+        // The minute runs as any minute does, on the due items. The rest of it (queued calls,
+        // stuck work, handing work out) reaches other items too, so it runs whenever the due
+        // items gave it something to do. Live, only the items being moved let go of a service
+        // slot or a place in someone's basket, so what theirs held before is enough to tell.
+        const slots = holdings(due, slotOf)
+        const baskets = holdings(due, basketOf)
+        timers(sim, idx, due)
+        finishAutomated(sim, idx, due, false)
+        if (dispatchNext || letGo(due, slotOf, slots)) for (const obj of dispatchQueued(sim, idx)) wake.add(obj, wakeTime(idx, obj))
+        const started = holdings(due, slotOf)
+        retryStuck(sim, idx, due)
+        // Work handed back, withdrawn or finished lightens a basket; a field filled in can now name who gets the work.
+        if (letGo(due, basketOf, baskets) || awaitsFieldHandOut(idx, due)) supervise(sim, idx)
+        dispatchNext = letGo(due, slotOf, started)
+        for (const obj of due) if (obj.status === 'active') wake.add(obj, wakeTime(idx, obj))
+      }
     }
+    keepSeries(sim)
+    // A caller with a deadline (a server catching up after time away) is asked every hour of clock.
+    if (stop && more && ++ticks % 60 === 0 && stop()) break
+  }
+  return sim.clock - from
+}
+
+/** The clock stepped every minute, live or simulated, with no shortcut: what `advance` must equal. */
+export function advanceEveryMinute(sim: SimState, ctx: Ctx, minutes: number) {
+  everyMinute(sim, buildIndex(ctx), sim.clock + minutes)
+}
+
+function everyMinute(sim: SimState, idx: Index, end: number) {
+  while (sim.clock < end - 1e-9) {
+    sim.clock = Math.min(end, sim.clock + 1)
+    tick(sim, idx)
+    keepSeries(sim)
+  }
+}
+
+/** Everything one minute does. */
+function tick(sim: SimState, idx: Index) {
+  // Live (server) mode drives only the engine; the simulation adds arrivals and people.
+  if (!idx.live) arrivals(sim, idx)
+  timers(sim, idx)
+  finishAutomated(sim, idx)
+  if (!idx.live) finishWork(sim, idx)
+  retryStuck(sim, idx)
+  supervise(sim, idx)
+  if (!idx.live) pullWork(sim, idx)
+}
+
+function keepSeries(sim: SimState) {
+  const last = sim.series[sim.series.length - 1]
+  if (!last || sim.clock - last.t >= 15) {
+    sim.series.push({ t: Math.floor(sim.clock), wip: sim.activeIds.length, done: sim.completed + sim.rejected })
+    if (sim.series.length > 3000) sim.series.splice(0, sim.series.length - 3000)
+  }
+}
+
+// ---------- The live clock's shortcut: when each item next needs a look ----------
+
+/** Calls services have in flight, over all of them: it falls when one finishes and frees its slot. */
+function callsInFlight(sim: SimState): number {
+  let n = 0
+  for (const id in sim.services) n += sim.services[id]!.inFlight
+  return n
+}
+
+/**
+ * Everything about the work in flight that a minute can change, as text: two equal signatures
+ * around a minute mean that minute did nothing, so the next can only differ by the time.
+ */
+function workSignature(sim: SimState): string {
+  const parts: Array<string | number | boolean | undefined> = [sim.activeIds.length, sim.completed, sim.rejected, callsInFlight(sim)]
+  for (const id of sim.activeIds) {
+    const o = sim.objects[id]
+    if (!o) continue
+    parts.push(o.id, o.status, o.priority, o.tokens.length)
+    for (const t of o.tokens) parts.push(t.id, t.nodeId, t.state, t.userId, t.dueAt, t.escalated, t.attempt, t.manual, t.pendingOutcomeId, t.stuckReason, t.waitReason)
+  }
+  return parts.join('|')
+}
+
+/**
+ * The earliest minute `timers` or `finishAutomated` could act on this item, or Infinity when
+ * nothing about it waits on a time. A little early is harmless (the item is looked at and put
+ * back); late would miss its minute, so the time is taken a hair early.
+ */
+function wakeTime(base: Index, obj: SimObject): number {
+  let at = Infinity
+  const idx = indexFor(base, obj)
+  for (const tok of obj.tokens) {
+    if ((tok.state === 'waiting' || (tok.state === 'auto' && !tok.manual)) && tok.dueAt !== undefined) at = Math.min(at, tok.dueAt)
+    if (tok.escalated || (tok.state !== 'unassigned' && tok.state !== 'assigned' && tok.state !== 'working')) continue
+    const node = idx.node.get(tok.nodeId)?.node
+    if (node?.type === 'user' && node.data.escalateAfterHours) at = Math.min(at, tok.enteredAt + node.data.escalateAfterHours * 60 * speedFactor(idx, obj))
+  }
+  return at - 1e-6
+}
+
+/** The service whose slot a token holds while its call is in flight. */
+const slotOf = (t: Token): Id | undefined => t.serviceId
+
+/** The person whose basket a token counts in (as `openLoads` counts it). */
+const basketOf = (t: Token): Id | undefined => (t.userId && (t.state === 'assigned' || t.state === 'working') ? t.userId : undefined)
+
+/** What each token of these items holds, by token. */
+function holdings(objs: SimObject[], of: (t: Token) => Id | undefined): Map<Id, Id> {
+  const held = new Map<Id, Id>()
+  for (const o of objs) {
+    for (const t of o.tokens) {
+      const h = of(t)
+      if (h !== undefined) held.set(t.id, h)
+    }
+  }
+  return held
+}
+
+/** Whether a token that held something in `before` no longer holds it: it is free for other work. */
+function letGo(objs: SimObject[], of: (t: Token) => Id | undefined, before: Map<Id, Id>): boolean {
+  if (!before.size) return false
+  const now = holdings(objs, of)
+  for (const [id, h] of before) if (now.get(id) !== h) return true
+  return false
+}
+
+/** Whether any of these items has work waiting at a step that hands it out by a field of the item. */
+function awaitsFieldHandOut(base: Index, objs: SimObject[]): boolean {
+  for (const o of objs) {
+    if (o.status !== 'active') continue
+    for (const t of o.tokens) {
+      if (t.state === 'unassigned' && workStepOf(indexFor(base, o), t)?.distribution === 'field') return true
+    }
+  }
+  return false
+}
+
+interface WakeQueue {
+  /** The active items whose time has come, in the order the clock goes through items; they leave the queue. */
+  due(clock: number): SimObject[]
+  add(obj: SimObject, at: number): void
+}
+
+/** Every active item by the time it next needs a look: a heap, so the next one is always at hand. */
+function wakeQueue(sim: SimState, idx: Index): WakeQueue {
+  const heap: Array<{ at: number; id: Id }> = []
+  const order = new Map<Id, number>()
+  sim.activeIds.forEach((id, i) => order.set(id, i))
+  const add = (obj: SimObject, at: number) => {
+    if (at === Infinity) return
+    let i = heap.push({ at, id: obj.id }) - 1
+    while (i > 0) {
+      const up = (i - 1) >> 1
+      if (heap[up]!.at <= heap[i]!.at) break
+      ;[heap[up], heap[i]] = [heap[i]!, heap[up]!]
+      i = up
+    }
+  }
+  const pop = () => {
+    const top = heap[0]!
+    const last = heap.pop()!
+    if (heap.length) {
+      heap[0] = last
+      let i = 0
+      for (;;) {
+        const l = 2 * i + 1
+        const r = l + 1
+        let least = i
+        if (l < heap.length && heap[l]!.at < heap[least]!.at) least = l
+        if (r < heap.length && heap[r]!.at < heap[least]!.at) least = r
+        if (least === i) break
+        ;[heap[least], heap[i]] = [heap[i]!, heap[least]!]
+        i = least
+      }
+    }
+    return top
+  }
+  for (const obj of activeObjects(sim)) add(obj, wakeTime(idx, obj))
+  return {
+    add,
+    due(clock) {
+      if (!heap.length || heap[0]!.at > clock) return []
+      const ids = new Set<Id>()
+      while (heap.length && heap[0]!.at <= clock) ids.add(pop().id)
+      const out: SimObject[] = []
+      for (const id of ids) {
+        const o = sim.objects[id]
+        if (o && o.status === 'active') out.push(o)
+      }
+      // As `activeObjects` lists them: who gets work first, and the random numbers drawn, depend on it.
+      return out.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    },
   }
 }
 
@@ -1221,8 +1441,8 @@ export function burst(sim: SimState, ctx: Ctx, workflowId: Id, count: number): n
 }
 
 /** Timers finishing, and escalations of work that has sat too long. */
-function timers(sim: SimState, base: Index) {
-  for (const obj of activeObjects(sim)) {
+function timers(sim: SimState, base: Index, objs: SimObject[] = activeObjects(sim)) {
+  for (const obj of objs) {
     for (const tok of [...obj.tokens]) {
       if (obj.status !== 'active' || !obj.tokens.includes(tok)) continue
       const idx = indexFor(base, obj)
@@ -1344,8 +1564,8 @@ export function release(sim: SimState, idx: Index, obj: SimObject, tok: Token, o
   advanceFrom(sim, idx, obj, tok, outcomeId, 0)
 }
 
-function retryStuck(sim: SimState, base: Index) {
-  for (const obj of activeObjects(sim)) {
+function retryStuck(sim: SimState, base: Index, objs: SimObject[] = activeObjects(sim)) {
+  for (const obj of objs) {
     for (const tok of [...obj.tokens]) {
       if (tok.state !== 'stuck' || obj.status !== 'active' || !obj.tokens.includes(tok)) continue
       const idx = indexFor(base, obj)

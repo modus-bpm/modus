@@ -1,10 +1,10 @@
 # Platform overview
 
-What Modus is, how it is built, how its parts connect and how other systems plug into it, in
+What Modus BPM is, how it is built, how its parts connect and how other systems plug into it, in
 six diagrams. This page is the map; the detail lives in [ARCHITECTURE.md](ARCHITECTURE.md),
 [TECH-STACK.md](TECH-STACK.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
 
-- [What Modus is](#1-what-modus-is)
+- [What Modus BPM is](#1-what-modus-is)
 - [What surrounds it](#2-what-surrounds-it)
 - [How it is architected](#3-how-it-is-architected)
 - [How the parts connect](#4-how-the-parts-connect)
@@ -14,9 +14,9 @@ six diagrams. This page is the map; the detail lives in [ARCHITECTURE.md](ARCHIT
 
 In every diagram a solid box exists today and a dashed box is planned.
 
-## 1. What Modus is
+## 1. What Modus BPM is
 
-Modus is an open-source process manager (business process management, case work, approvals,
+Modus BPM is an open-source process manager (business process management, case work, approvals,
 and signal-driven processes such as camera events screened by AI). An administrator draws a
 process, people and systems do the work it hands out, and the same drawing shows where work is
 piling up.
@@ -25,7 +25,7 @@ Its central idea is that **the model is the system**. The design an administrato
 thing that runs, the thing that is simulated and the thing that is monitored. There is no
 generated code and no second copy that can drift.
 
-![Modus: one design, one engine, three ways to run it](diagrams/platform.drawio.png)
+![Modus BPM: one design, one engine, three ways to run it](diagrams/platform.drawio.png)
 
 - **The design** is data: applications, object types (with generated forms), lists, workflows,
   people and groups, the service registry and templates. Workflows have drafts and numbered
@@ -44,15 +44,15 @@ BPMN equivalents are in [CONCEPTS.md](CONCEPTS.md).
 
 ## 2. What surrounds it
 
-![Modus and what surrounds it: people, workers, webhook receivers, an identity provider and PostgreSQL](diagrams/context.drawio.png)
+![Modus BPM and what surrounds it: people, workers, webhook receivers, an identity provider and PostgreSQL](diagrams/context.drawio.png)
 
-| Who or what | How it reaches Modus |
+| Who or what | How it reaches Modus BPM |
 | --- | --- |
 | Designers and administrators | The Studio in a browser: design, publish, monitor, what-if. |
 | People doing the work | The Workspace in a browser: basket, queues, dispatch board, requests, search, Ask Modus. |
 | Supervisors and auditors | The Workspace's Supervise page; the full history of every item. |
 | Workers | Your code, an AI agent or an RPA bot polls for jobs and reports results over REST. |
-| Webhook receivers | Modus posts signed messages when a job is ready or someone should be notified. |
+| Webhook receivers | Modus BPM posts signed messages when a job is ready or someone should be notified. |
 | API clients | Scripts and other applications create items, read them and act as a person. |
 | Process mining and BI tools | Read the event log as OCEL 2.0. |
 | Identity provider | OIDC sign-in (tested with Keycloak). |
@@ -69,7 +69,7 @@ apps/studio     the Studio and the Workspace (React)
 apps/server     the engine behind a REST API, a worker job protocol and a live stream
 ```
 
-![Inside Modus: browser, server layers, the shared engine, storage ports and adapters](diagrams/architecture.drawio.png)
+![Inside Modus BPM: browser, server layers, the shared engine, storage ports and adapters](diagrams/architecture.drawio.png)
 
 Reading it from the top:
 
@@ -113,7 +113,7 @@ What happens when a person releases a work item:
 sequenceDiagram
   autonumber
   actor U as Person (Workspace)
-  participant S as Modus server
+  participant S as Modus BPM server
   participant E as Engine (core)
   participant DB as PostgreSQL
   participant O as Other replicas and browsers
@@ -140,7 +140,7 @@ The full sequence is in
 
 ## 5. How to integrate with it
 
-![Ways to integrate: the calls you make to Modus, the calls Modus makes, and what is planned](diagrams/integration.drawio.png)
+![Ways to integrate: the calls you make to Modus BPM, the calls Modus BPM makes, and what is planned](diagrams/integration.drawio.png)
 
 ### Identify the caller
 
@@ -182,7 +182,7 @@ firewall.
 ```mermaid
 sequenceDiagram
   autonumber
-  participant E as Modus (engine)
+  participant E as Modus BPM (engine)
   participant W as Your worker
   participant X as Your system
   E->>E: an item reaches an automated step → job for svc_erp
@@ -210,13 +210,13 @@ SERVICE=svc_erp pnpm --filter @modus-bpm/server worker
 
 ### Receive events (webhooks)
 
-Modus writes an outbox message in the same transaction as the change that caused it, then posts
+Modus BPM writes an outbox message in the same transaction as the change that caused it, then posts
 it to every configured endpoint.
 
 ```mermaid
 sequenceDiagram
   autonumber
-  participant S as Modus server
+  participant S as Modus BPM server
   participant DB as Outbox (PostgreSQL)
   participant R as Your receiver
   S->>DB: command commits · outbox row (job.ready or notify)
@@ -270,13 +270,13 @@ administrators and auditors, and leaves out fields hidden from the person asking
 
 | Integration | Milestone |
 | --- | --- |
-| REST/OpenAPI and MCP connectors (Modus calls your services directly), email from Modus | M4 |
+| REST/OpenAPI and MCP connectors (Modus BPM calls your services directly), email from Modus BPM | M4 |
 | Worker SDKs for TypeScript, Python, .NET and Java | M4 |
 | Processes exposed as MCP tools, so other agents can start and query them | Planned |
 | Stream ingest from NATS JetStream, MQTT and Kafka, with triage and bulk create | M5 |
 | Roles and groups from identity-provider claims, SAML, SCIM group sync | M2–M6 |
 
-Until the connectors land, a worker is how Modus reaches a REST API or an MCP server: the
+Until the connectors land, a worker is how Modus BPM reaches a REST API or an MCP server: the
 service is registered in the design, and the worker makes the call.
 
 ## 6. How it is deployed

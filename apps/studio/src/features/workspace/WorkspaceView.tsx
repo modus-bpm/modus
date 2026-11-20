@@ -31,7 +31,7 @@ import { SupervisePage } from './SupervisePage'
 // The Workspace: what the people doing the work see. Pick who you are working as,
 // then work your basket, fetch from queues, hand out work, supervise, search and
 // follow your requests. Over the simulation it keeps everyone else busy; served by a
-// Modus server (Live), the work is the server's and every action goes to its API.
+// Modus BPM server (Live), the work is the server's and every action goes to its API.
 
 export function WorkspaceView() {
   const appId = useUi((s) => s.appId)

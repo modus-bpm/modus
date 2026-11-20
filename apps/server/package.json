@@ -2,7 +2,7 @@
   "name": "@modus-bpm/server",
   "private": true,
   "version": "0.2.0",
-  "description": "Modus server skeleton: the core engine in live mode behind a REST API, a worker job protocol and a live event stream.",
+  "description": "Modus BPM server skeleton: the core engine in live mode behind a REST API, a worker job protocol and a live event stream.",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {

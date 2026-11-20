@@ -4,7 +4,7 @@
 
 An officer inspects. If there is a violation, a notice goes out and the case waits 30 days; a re-inspection then closes it or leads to a citation.
 
-![The Code enforcement complaint map in the Modus designer](images/code-enforcement-complaint.png)
+![The Code enforcement complaint map in the Modus BPM designer](images/code-enforcement-complaint.png)
 
 6 steps · 3 people steps. Each item is a **Complaint**. Tags: timer, inspection, re-inspect.
 

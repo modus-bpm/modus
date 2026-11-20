@@ -7,7 +7,7 @@ import { useDesign } from '../../store/design'
 import { useUi } from '../../store/ui'
 
 // Templates in and out of the library as files: one template or many in a JSON file that
-// another Modus (or this one, later) can import.
+// another Modus BPM installation (or this one, later) can import.
 
 /** Save these templates as one file: named for the template when there is one, for the day otherwise. */
 export function downloadTemplates(templates: Template[]) {

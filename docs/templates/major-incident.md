@@ -4,7 +4,7 @@
 
 The first on-call engineer to claim it leads. Restoring service and keeping people informed run side by side against a four-hour clock that escalates at two, and a review follows.
 
-![The Major incident map in the Modus designer](images/major-incident.png)
+![The Major incident map in the Modus BPM designer](images/major-incident.png)
 
 6 steps · 4 people steps. Each item is an **Incident**. Tags: claim, parallel, escalation.
 
