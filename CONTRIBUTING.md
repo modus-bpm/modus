@@ -30,4 +30,10 @@ pnpm typecheck
 - Match the surrounding style (Prettier settings in `.prettierrc`); format only files you change.
 - Never commit secrets. Services reference credentials by name only.
 
-By contributing you agree that your contributions are licensed under the Apache License 2.0.
+## Before your first pull request
+
+Contributions are accepted under the [contributor license agreement](CLA.md). You keep the
+copyright in what you write, and you give the project owner the right to distribute it under the
+Apache License 2.0 or other terms. Agree by checking the box in the pull request template.
+
+The project's name and logo are covered separately: see [TRADEMARKS.md](TRADEMARKS.md).
