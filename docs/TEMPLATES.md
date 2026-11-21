@@ -1,6 +1,6 @@
 # Starter templates
 
-Modus BPM ships with 50 workflow templates, grouped by department. Each one is a small process you can
+Modus BPM ships with ready-made workflow templates, grouped by department. Each one is a small process you can
 look at, start a new application from, or add to an application you already have. Open **Templates** in the
 Studio to browse them, filter by department or tag, and search by the name you use at work.
 
@@ -14,7 +14,7 @@ step simply takes its time and passes the item on.
 
 ## Templates are files
 
-A template is a JSON file. The fifty here are the files in [`templates/`](../templates) at the root of the
+A template is a JSON file. The templates here are the files in [`templates/`](../templates) at the root of the
 repository, and a template you save yourself becomes the same kind of file when you export it.
 
 - **Export.** On the Templates page, the download button on a card saves that template to a file. **Export

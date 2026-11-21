@@ -27,10 +27,10 @@ people can read and change every step. Administrators see the whole picture: how
 are at each step right now, where work piles up, who is overloaded, and what would happen if
 they changed something.
 
-> **Status: prototype.** The studio and the Workspace run entirely in the browser with a
-> simulated organization. The server is a working skeleton that ships as one container image
-> (PostgreSQL, with several replicas on one database, or in memory); served by it, the Workspace,
-> the Monitor and the designer pages work on the server's design and live work. See the
+> **Status: early.** Try the Studio and the Workspace in your browser with sample data, or run
+> Modus BPM on premises or in the cloud: one container image with Docker Compose or the Helm chart,
+> on PostgreSQL (several replicas on one database) or in memory, with sign-in. Served by it, the
+> Workspace, the Monitor and the designer pages work on the server's design and live work. See the
 > [roadmap](docs/ROADMAP.md).
 
 ## What it does
@@ -47,7 +47,7 @@ they changed something.
 - A **visual workflow designer**: people steps, automated steps, decisions on field values and
   line items ("any line where Category is Software"), **parallel split / join** (all, first one
   wins, N of M), **subflows**, timers.
-- **Fifty starter templates** by department — invoice approval, new hire onboarding, access request,
+- **Starter templates** by department — invoice approval, new hire onboarding, access request,
   work order, public records request, building permit review and [the rest](docs/TEMPLATES.md). Start a new
   application from one, or add it to an application you have.
 - **Templates of your own**: save any workflow, stamp it into another application with a field
